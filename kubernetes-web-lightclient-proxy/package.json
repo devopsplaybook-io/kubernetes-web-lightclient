@@ -1,0 +1,11 @@
+{
+  "name": "kubernetes-web-lightclient-proxy",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "start": "./start.sh"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
