@@ -32,7 +32,7 @@ export default defineNuxtConfig({
       name: "kubernetes-web-lightclient",
       short_name: "kubernetes-web-lightclient",
       lang: "en-US",
-      start_url: "/sources",
+      start_url: "/",
       display: "standalone",
       background_color: "#12191f",
       theme_color: "#12191f",

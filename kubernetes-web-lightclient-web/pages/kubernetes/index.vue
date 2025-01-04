@@ -11,6 +11,7 @@
             <th>Namespace</th>
             <th>Pod</th>
             <th>Status</th>
+            <th>Age</th>
             <th></th>
           </tr>
         </thead>
@@ -19,6 +20,7 @@
             <td>{{ pod.metadata.namespace }}</td>
             <td>{{ pod.metadata.name }}</td>
             <td>{{ pod.status.phase }}</td>
+            <td>{{ UtilsRelativeTime(pod.metadata.creationTimestamp) }}</td>
             <td>
               <i class="bi bi-x-circle-fill" v-on:click="podDelete(pod.metadata.namespace, pod.metadata.name)"></i>
             </td>
@@ -30,6 +32,7 @@
 </template>
 
 <script setup>
+import { UtilsRelativeTime } from "~~/services/Utils";
 const kubernetesPodStore = KubernetesPodStore();
 </script>
 
