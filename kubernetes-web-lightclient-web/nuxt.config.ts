@@ -29,8 +29,8 @@ export default defineNuxtConfig({
   pwa: {
     // PWA options
     manifest: {
-      name: "kubernetes-web-lightclient",
-      short_name: "kubernetes-web-lightclient",
+      name: "Kubernetes",
+      short_name: "Kubernetes",
       lang: "en-US",
       start_url: "/",
       display: "standalone",
