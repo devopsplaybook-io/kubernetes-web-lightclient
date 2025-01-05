@@ -29,18 +29,38 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
     getSecrets() {
       this.getObject("secrets", { object: "secrets", command: "get", argument: "-A" });
     },
+    getNodes() {
+      this.getObject("nodes", { object: "nodes", command: "get", argument: "" });
+    },
     getStatefulSets() {
       this.getObject("statefulset", { object: "statefulset", command: "get", argument: "-A" });
     },
     async getObject(type: string, payload: any) {
       await axios
         .post(`${(await Config.get()).SERVER_URL}/kubectl/command`, payload, await AuthService.getAuthHeader())
-        .then((response) => {
-          (this.data as any)[type] = response.data.result.items;
+        .then(async (response) => {
+          (this.data as any)[type] = JSON.parse(await this.decompressData(response.data.result)).items;
         })
         .catch((error) => {
           console.error(error);
         });
+    },
+    async decompressData(compressedData: string) {
+      const binaryString = atob(compressedData);
+      const byteArray = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        byteArray[i] = binaryString.charCodeAt(i);
+      }
+      const decompressionStream = new DecompressionStream("gzip");
+      const readableStream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(byteArray);
+          controller.close();
+        },
+      });
+      const response = new Response(readableStream.pipeThrough(decompressionStream));
+      const arrayBuffer = await response.arrayBuffer();
+      return new TextDecoder().decode(arrayBuffer);
     },
   },
 });

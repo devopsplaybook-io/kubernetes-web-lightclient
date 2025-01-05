@@ -2,6 +2,7 @@
   <div id="object-layout">
     <div id="sources-actions" class="actions">
       <select v-model="objectType">
+        <option value="node">Nodes</option>
         <option value="deployment">Deployments</option>
         <option value="statefulset">StatefulSets</option>
         <option value="pod">Pods</option>
@@ -12,6 +13,7 @@
       </select>
     </div>
     <div id="object-list">
+      <KubernetesNodeList v-if="objectType == 'node'" />
       <KubernetesDeploymentList v-if="objectType == 'deployment'" />
       <KubernetesPodList v-else-if="objectType == 'pod'" />
       <KubernetesStatefulSetList v-else-if="objectType == 'statefulset'" />

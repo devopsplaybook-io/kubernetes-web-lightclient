@@ -43,11 +43,8 @@ export class KubeCtlRoutes {
       const namespaceArg = req.body.namespace ? `-n ${req.body.namespace}` : "";
       const outputArg = req.body.noOutput ? "" : "-o json";
       const kubectlCommand = `kubectl ${namespaceArg} ${commandArg} ${objectArg} ${argumentArg} ${outputArg}`;
-      const commandOutput = await SystemCommandExecute(kubectlCommand, { timeout: 20000 });
-      if (req.body.noOutput) {
-        return res.status(201).send({});
-      }
-      return res.status(201).send({ result: JSON.parse(commandOutput) });
+      const commandOutput = await SystemCommandExecute(`${kubectlCommand} | gzip | base64 -w 0`, { timeout: 20000 });
+      return res.status(201).send({ result: commandOutput });
     });
   }
 }

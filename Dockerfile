@@ -20,7 +20,7 @@ RUN cd kubernetes-web-lightclient-web && \
 # RUN
 FROM node:22-alpine
 
-RUN apk add --no-cache kubectl
+RUN apk add --no-cache kubectl gzip
 
 COPY --from=builder /opt/src/kubernetes-web-lightclient-server/node_modules /opt/app/kubernetes-web-lightclient/node_modules
 COPY --from=builder /opt/src/kubernetes-web-lightclient-server/dist /opt/app/kubernetes-web-lightclient/dist
