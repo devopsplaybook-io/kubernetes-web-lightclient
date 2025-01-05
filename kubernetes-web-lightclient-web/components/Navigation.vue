@@ -2,7 +2,7 @@
   <nav>
     <ul class="menu-links">
       <li>
-        <NuxtLink to="/"><strong>Kubernetes Web LightClient</strong></NuxtLink>
+        <NuxtLink to="/"><strong>Kubernetes Web</strong></NuxtLink>
       </li>
     </ul>
     <ul class="menu-links">

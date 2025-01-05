@@ -8,7 +8,7 @@
         <option value="service">Services</option>
         <option value="pvc">PVC</option>
         <option value="configmap">ConfigMap</option>
-        <option value="secrets">Secrets</option>
+        <option value="secret">Secrets</option>
       </select>
     </div>
     <div id="object-list">

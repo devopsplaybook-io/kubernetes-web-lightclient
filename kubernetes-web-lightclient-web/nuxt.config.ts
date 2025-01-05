@@ -6,7 +6,7 @@ export default defineNuxtConfig({
       charset: "utf-16",
       viewport:
         "width=device-width, initial-scale=1, height=device-height, initial-scale=1.0, maximum-scale=1.0, user-scalable=no",
-      title: "kubernetes-web-lightclient",
+      title: "Kubernetes Web",
       meta: [
         { name: "description", content: "kubernetes-web-lightclient" },
         { name: "theme-color", content: "#212121" },
