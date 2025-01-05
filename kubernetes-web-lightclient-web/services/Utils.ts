@@ -11,23 +11,23 @@ export function UtilsRelativeTime(date: string) {
   } else if (delta < hour) {
     return Math.floor(delta / minute) + " min";
   } else if (delta < 2 * hour) {
-    return "1 hour ago";
+    return "1 hour";
   } else if (delta < day) {
     return Math.floor(delta / hour) + " h";
   } else if (delta < 2 * day) {
-    return "1 day ago";
+    return "1 day";
   } else if (delta < week) {
     return Math.floor(delta / day) + " days";
   } else if (delta < 2 * week) {
-    return "1 week ago";
+    return "1 week";
   } else if (delta < month) {
     return Math.floor(delta / week) + " weeks";
   } else if (delta < 2 * month) {
-    return "1 month ago";
+    return "1 month";
   } else if (delta < year) {
     return Math.floor(delta / month) + " months";
   } else if (delta < 2 * year) {
-    return "1 year ago";
+    return "1 year";
   } else {
     return Math.floor(delta / year) + " years";
   }
