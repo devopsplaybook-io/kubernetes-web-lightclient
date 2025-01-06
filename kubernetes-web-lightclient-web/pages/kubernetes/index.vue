@@ -41,13 +41,20 @@ export default {
 };
 </script>
 
-<style scoped>
+<style>
 #object-list {
   overflow-x: auto;
   width: 100%;
 }
 #object-list td {
   white-space: nowrap;
+}
+
+#object-list td,
+#object-list pre,
+#object-list div,
+#object-list span,
+#object-list p {
   font-size: 0.9em;
 }
 </style>

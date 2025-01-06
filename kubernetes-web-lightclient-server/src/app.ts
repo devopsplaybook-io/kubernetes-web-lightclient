@@ -8,7 +8,8 @@ import { StandardTracerInitTelemetry, StandardTracerStartSpan } from "./utils-st
 import { SqlDbUtilsInit } from "./utils-std-ts/SqlDbUtils";
 import { StandardTracerApiRegisterHooks } from "./StandardTracerApi";
 import { AuthInit } from "./users/Auth";
-import { KubeCtlRoutes } from "./kubectl/KubeCtlRoutes";
+import { KubeCtlCommandRoutes } from "./kubectl/KubeCtlCommandRoutes";
+import { KubeCtlLogsRoutes } from "./kubectl/KubeCtlLogsRoutes";
 
 const logger = new Logger("app");
 
@@ -54,8 +55,11 @@ Promise.resolve().then(async () => {
   fastify.register(new UsersRoutes().getRoutes, {
     prefix: "/api/users",
   });
-  fastify.register(new KubeCtlRoutes().getRoutes, {
+  fastify.register(new KubeCtlCommandRoutes().getRoutes, {
     prefix: "/api/kubectl/command",
+  });
+  fastify.register(new KubeCtlLogsRoutes().getRoutes, {
+    prefix: "/api/kubectl/logs",
   });
 
   /* eslint-disable-next-line */

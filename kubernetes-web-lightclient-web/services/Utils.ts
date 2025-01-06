@@ -32,3 +32,21 @@ export function UtilsRelativeTime(date: string) {
     return Math.floor(delta / year) + " years";
   }
 }
+
+export async function UtilsDecompressData(compressedData: string) {
+  const binaryString = atob(compressedData);
+  const byteArray = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    byteArray[i] = binaryString.charCodeAt(i);
+  }
+  const decompressionStream = new DecompressionStream("gzip");
+  const readableStream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(byteArray);
+      controller.close();
+    },
+  });
+  const response = new Response(readableStream.pipeThrough(decompressionStream));
+  const arrayBuffer = await response.arrayBuffer();
+  return new TextDecoder().decode(arrayBuffer);
+}

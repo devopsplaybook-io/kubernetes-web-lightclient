@@ -1,7 +1,7 @@
-import { Timeout } from "~~/services/Timeout";
 import { AuthService } from "~~/services/AuthService";
 import Config from "~~/services/Config";
 import axios from "axios";
+import { UtilsDecompressData } from "~/services/Utils";
 
 export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
   state: () => ({
@@ -39,28 +39,11 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
       await axios
         .post(`${(await Config.get()).SERVER_URL}/kubectl/command`, payload, await AuthService.getAuthHeader())
         .then(async (response) => {
-          (this.data as any)[type] = JSON.parse(await this.decompressData(response.data.result)).items;
+          (this.data as any)[type] = JSON.parse(await UtilsDecompressData(response.data.result)).items;
         })
         .catch((error) => {
           console.error(error);
         });
-    },
-    async decompressData(compressedData: string) {
-      const binaryString = atob(compressedData);
-      const byteArray = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        byteArray[i] = binaryString.charCodeAt(i);
-      }
-      const decompressionStream = new DecompressionStream("gzip");
-      const readableStream = new ReadableStream({
-        start(controller) {
-          controller.enqueue(byteArray);
-          controller.close();
-        },
-      });
-      const response = new Response(readableStream.pipeThrough(decompressionStream));
-      const arrayBuffer = await response.arrayBuffer();
-      return new TextDecoder().decode(arrayBuffer);
     },
   },
 });
