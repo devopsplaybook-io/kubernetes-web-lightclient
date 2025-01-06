@@ -33,7 +33,7 @@ export default {
 <style scoped>
 #dialog-details article {
   min-width: 90vw;
-  height: 90vh;
+  height: 80vh;
   display: grid;
   grid-template-rows: auto 1fr;
 }
