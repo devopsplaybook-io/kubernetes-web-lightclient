@@ -32,4 +32,4 @@ COPY kubernetes-web-lightclient-server/sql /opt/app/kubernetes-web-lightclient/s
 
 WORKDIR /opt/app/kubernetes-web-lightclient
 
-CMD [ "dist/app.js" ]
+ENTRYPOINT [ "/entrypoint.sh" ]

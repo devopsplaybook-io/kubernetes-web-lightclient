@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 if [ "${APPLICATION_TITLE}" == "" ]; then
   APPLICATION_TITLE="Kubernetes Web"
