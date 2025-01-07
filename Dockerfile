@@ -21,6 +21,7 @@ RUN cd kubernetes-web-lightclient-web && \
 FROM node:22-alpine
 
 COPY entrypoint.sh /entrypoint.sh
+
 RUN apk add --no-cache kubectl gzip && \
     chmod +x /entrypoint.sh
 
