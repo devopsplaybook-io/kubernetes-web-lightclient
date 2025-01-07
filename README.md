@@ -44,7 +44,7 @@ spec:
       imagePullSecrets:
         - name: regcred
       containers:
-        - image: kubernetes-web-lightclient
+        - image: devopsplaybookio/kubernetes-web-lightclient
           name: kubernetes-web-lightclient
           imagePullPolicy: Always
           env:

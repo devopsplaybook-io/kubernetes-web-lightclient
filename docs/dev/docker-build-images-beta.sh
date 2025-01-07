@@ -16,5 +16,5 @@ docker buildx build \
   --platform linux/arm64/v8,linux/amd64 \
    --push \
   -f Dockerfile \
-  -t didierhoarau/${SERVICE_NAME}:beta \
+  -t devopsplaybookio/${SERVICE_NAME}:beta \
   .

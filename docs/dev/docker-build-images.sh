@@ -16,8 +16,8 @@ docker buildx build \
   --platform linux/arm64/v8,linux/amd64 \
    --push \
   -f Dockerfile \
-  -t didierhoarau/${SERVICE_NAME}:latest \
-  -t didierhoarau/${SERVICE_NAME}:${SERVICE_VERSION} \
-  -t didierhoarau/${SERVICE_NAME}:${SERVICE_VERSION_MAJOR} \
-  -t didierhoarau/${SERVICE_NAME}:${SERVICE_VERSION_MINOR} \
+  -t devopsplaybookio/${SERVICE_NAME}:latest \
+  -t devopsplaybookio/${SERVICE_NAME}:${SERVICE_VERSION} \
+  -t devopsplaybookio/${SERVICE_NAME}:${SERVICE_VERSION_MAJOR} \
+  -t devopsplaybookio/${SERVICE_NAME}:${SERVICE_VERSION_MINOR} \
   .
