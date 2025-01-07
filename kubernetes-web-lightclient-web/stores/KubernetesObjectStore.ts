@@ -5,7 +5,7 @@ import { UtilsDecompressData } from "~/services/Utils";
 
 export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
   state: () => ({
-    data: { deployments: [], statefulset: [], pods: [], services: [], configmaps: [], secrets: [], pvc: [] },
+    data: { deployments: [], statefulset: [], pods: [], services: [], configmaps: [], secrets: [], pvcs: [] },
     lastCall: { payload: {}, type: "" },
   }),
 
@@ -25,7 +25,7 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
       this.getObject("configmaps", { object: "configmaps", command: "get", argument: "-A" });
     },
     getPVCs() {
-      this.getObject("pvc", { object: "pvc", command: "get", argument: "-A" });
+      this.getObject("pvcs", { object: "pvc", command: "get", argument: "-A" });
     },
     getSecrets() {
       this.getObject("secrets", { object: "secrets", command: "get", argument: "-A" });

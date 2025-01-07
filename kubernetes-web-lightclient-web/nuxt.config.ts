@@ -29,8 +29,8 @@ export default defineNuxtConfig({
   pwa: {
     // PWA options
     manifest: {
-      name: "Kubernetes",
-      short_name: "Kubernetes",
+      name: "APPLICATION_TITLE",
+      short_name: "APPLICATION_TITLE",
       lang: "en-US",
       start_url: "/",
       display: "standalone",

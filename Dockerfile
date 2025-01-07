@@ -21,7 +21,7 @@ RUN cd kubernetes-web-lightclient-web && \
 FROM node:22-alpine
 
 RUN apk add --no-cache kubectl gzip
-
+COPY entrypoint.sh /entrypoint.sh
 COPY --from=builder /opt/src/kubernetes-web-lightclient-server/node_modules /opt/app/kubernetes-web-lightclient/node_modules
 COPY --from=builder /opt/src/kubernetes-web-lightclient-server/dist /opt/app/kubernetes-web-lightclient/dist
 COPY --from=builder /opt/src/kubernetes-web-lightclient-web/.output/public /opt/app/kubernetes-web-lightclient/web
@@ -30,4 +30,4 @@ COPY kubernetes-web-lightclient-server/sql /opt/app/kubernetes-web-lightclient/s
 
 WORKDIR /opt/app/kubernetes-web-lightclient
 
-CMD [ "dist/app.js" ]
+CMD [ "/entrypoint.sh" ]
