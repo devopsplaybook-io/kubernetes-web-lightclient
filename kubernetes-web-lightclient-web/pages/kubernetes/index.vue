@@ -3,13 +3,7 @@
     <div id="object-actions" class="actions">
       <select v-model="objectType">
         <option value="node">Nodes</option>
-        <option
-          value="depl
-          background-color: blue;
-oyment"
-        >
-          Deployments
-        </option>
+        <option value="deployment">Deployments</option>
         <option value="statefulset">StatefulSets</option>
         <option value="pod">Pods</option>
         <option value="service">Services</option>
