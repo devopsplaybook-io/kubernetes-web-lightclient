@@ -6,6 +6,7 @@ import { UtilsDecompressData } from "~/services/Utils";
 export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
   state: () => ({
     data: { deployments: [], statefulset: [], pods: [], services: [], configmaps: [], secrets: [], pvc: [] },
+    lastCall: { payload: {}, type: "" },
   }),
 
   getters: {},
@@ -35,7 +36,12 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
     getStatefulSets() {
       this.getObject("statefulset", { object: "statefulset", command: "get", argument: "-A" });
     },
+    refreshLast() {
+      this.getObject(this.lastCall.type, this.lastCall.payload);
+    },
     async getObject(type: string, payload: any) {
+      this.lastCall.type = type;
+      this.lastCall.payload = payload;
       await axios
         .post(`${(await Config.get()).SERVER_URL}/kubectl/command`, payload, await AuthService.getAuthHeader())
         .then(async (response) => {

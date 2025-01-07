@@ -17,6 +17,7 @@ oyment"
         <option value="configmap">ConfigMap</option>
         <option value="secret">Secrets</option>
       </select>
+      <span><i class="bi bi-arrow-clockwise" v-on:click="refreshObject()"></i></span>
     </div>
     <div id="object-list">
       <KubernetesNodeList v-if="objectType == 'node'" />
@@ -43,7 +44,11 @@ export default {
       useRouter().push({ path: "/users" });
     }
   },
-  methods: {},
+  methods: {
+    refreshObject() {
+      KubernetesObjectStore().refreshLast();
+    },
+  },
 };
 </script>
 
@@ -54,8 +59,13 @@ export default {
   height: auto;
   grid-template-rows: auto 1fr;
 }
+#object-actions {
+  display: grid;
+  grid-template-columns: 1fr auto;
+}
 #object-actions select {
   padding: 0.5em 1em;
+  display: grid;
 }
 
 #object-list {

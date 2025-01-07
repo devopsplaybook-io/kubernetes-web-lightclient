@@ -1,6 +1,5 @@
 <template>
   <div>
-    <h3>Deployemts</h3>
     <table class="striped">
       <thead>
         <tr>

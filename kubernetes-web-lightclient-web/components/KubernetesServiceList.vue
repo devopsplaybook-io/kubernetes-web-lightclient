@@ -1,6 +1,5 @@
 <template>
   <div>
-    <h3>Services</h3>
     <table class="striped">
       <thead>
         <tr>
