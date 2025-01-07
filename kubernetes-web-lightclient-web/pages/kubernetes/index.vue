@@ -5,7 +5,9 @@
         <option value="node">Nodes</option>
         <option value="deployment">Deployments</option>
         <option value="statefulset">StatefulSets</option>
+        <option value="daemonset">DaemonSets</option>
         <option value="pod">Pods</option>
+        <option value="job">Jobs</option>
         <option value="service">Services</option>
         <option value="pvc">PVC</option>
         <option value="configmap">ConfigMap</option>
@@ -18,6 +20,8 @@
       <KubernetesDeploymentList v-if="objectType == 'deployment'" />
       <KubernetesPodList v-else-if="objectType == 'pod'" />
       <KubernetesStatefulSetList v-else-if="objectType == 'statefulset'" />
+      <KubernetesDaemonSetList v-else-if="objectType == 'daemonset'" />
+      <KubernetesJobList v-else-if="objectType == 'job'" />
       <KubernetesServiceList v-else-if="objectType == 'service'" />
       <KubernetesPVCList v-else-if="objectType == 'pvc'" />
       <KubernetesConfigMapList v-else-if="objectType == 'configmap'" />
