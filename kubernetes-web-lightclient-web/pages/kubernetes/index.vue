@@ -1,9 +1,15 @@
 <template>
   <div id="object-layout">
-    <div id="sources-actions" class="actions">
+    <div id="object-actions" class="actions">
       <select v-model="objectType">
         <option value="node">Nodes</option>
-        <option value="deployment">Deployments</option>
+        <option
+          value="depl
+          background-color: blue;
+oyment"
+        >
+          Deployments
+        </option>
         <option value="statefulset">StatefulSets</option>
         <option value="pod">Pods</option>
         <option value="service">Services</option>
@@ -42,8 +48,20 @@ export default {
 </script>
 
 <style>
+#object-layout {
+  display: grid;
+  max-height: 100%;
+  height: auto;
+  grid-template-rows: auto 1fr;
+}
+#object-actions select {
+  padding: 0.5em 1em;
+}
+
 #object-list {
   overflow-x: auto;
+  overflow-y: auto;
+  height: 100%;
   width: 100%;
 }
 #object-list td {

@@ -1,7 +1,7 @@
 <template>
   <div>
     <h3>Pods</h3>
-    <table>
+    <table class="striped">
       <thead>
         <tr>
           <th>Namespace</th>

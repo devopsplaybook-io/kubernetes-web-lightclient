@@ -1,17 +1,40 @@
 <template>
   <div id="page-layout">
-    <VitePwaManifest />
     <header>
+      <VitePwaManifest />
       <Navigation />
     </header>
     <main>
       <NuxtPage />
+      <AlertMessages id="page-alert-messages" />
     </main>
-    <AlertMessages id="page-alert-messages" />
   </div>
 </template>
 
+<script>
+export default {
+  mounted() {
+    let vh = window.innerHeight * 0.01;
+    document.documentElement.style.setProperty("--vh", `${vh}px`);
+    window.addEventListener("resize", () => {
+      let vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty("--vh", `${vh}px`);
+    });
+  },
+};
+</script>
+
 <style>
+#page-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto 1fr;
+  width: 100vw;
+  height: 100vh;
+  height: calc(var(--vh, 1vh) * 100);
+  overflow: hidden !important;
+}
+
 /* Layout */
 
 .page {
@@ -20,9 +43,22 @@
   padding: 0em 1em;
 }
 
+header {
+  height: 3em;
+}
+
 header,
 main {
   padding: 0.5em;
+}
+
+main {
+  grid-column: 1;
+  grid-row: 2;
+  overflow-x: hidden;
+  overflow-y: auto;
+  width: 100%;
+  height: auto;
 }
 
 #page-alert-messages {

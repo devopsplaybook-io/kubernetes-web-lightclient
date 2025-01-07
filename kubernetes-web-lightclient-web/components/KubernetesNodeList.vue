@@ -1,7 +1,7 @@
 <template>
   <div>
     <h3>Nodes</h3>
-    <table>
+    <table class="striped">
       <thead>
         <tr>
           <th>Node</th>
