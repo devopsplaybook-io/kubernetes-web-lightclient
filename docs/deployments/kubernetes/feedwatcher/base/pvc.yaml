@@ -1,0 +1,11 @@
+kind: "PersistentVolumeClaim"
+apiVersion: "v1"
+metadata:
+  name: kubernetes-web-lightclient
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 100Gi

@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: kubernetes-web-lightclient
+resources:
+  - base/namespace.yaml
+  - base/pvc.yaml
+  - base/deployment.yaml
+  - base/service.yaml
+images:
+  - name: kubernetes-web-lightclient
+    newTag: latest
+    newName: didierhoarau/kubernetes-web-lightclient
