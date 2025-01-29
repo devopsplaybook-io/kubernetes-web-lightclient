@@ -1,6 +1,13 @@
 <template>
   <div id="object-layout">
-    <input type="search" v-model="searchFilter" placeholder="Search" aria-label="Search" v-on:input="filterChanged" />
+    <input
+      id="object-search"
+      type="search"
+      v-model="searchFilter"
+      placeholder="Search"
+      aria-label="Search"
+      v-on:input="filterChanged"
+    />
     <div id="object-actions" class="actions">
       <select v-model="objectType">
         <option value="node">Nodes</option>
@@ -70,7 +77,14 @@ export default {
 }
 #object-actions select {
   padding: 0.5em 1em;
-  display: grid;
+  height: 2.6rem;
+}
+#object-actions span {
+  padding-top: 0.3rem;
+}
+#object-search {
+  padding: 0.5em 3em;
+  height: 2.6rem;
 }
 
 #object-list {
