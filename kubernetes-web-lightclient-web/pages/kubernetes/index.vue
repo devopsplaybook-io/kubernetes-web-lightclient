@@ -1,5 +1,6 @@
 <template>
   <div id="object-layout">
+    <input type="search" v-model="searchFilter" placeholder="Search" aria-label="Search" v-on:input="filterChanged" />
     <div id="object-actions" class="actions">
       <select v-model="objectType">
         <option value="node">Nodes</option>
@@ -31,10 +32,13 @@
 </template>
 
 <script>
+import { debounce } from "lodash";
+
 export default {
   data() {
     return {
       objectType: "pod",
+      searchFilter: "",
     };
   },
   async created() {
@@ -46,6 +50,9 @@ export default {
     refreshObject() {
       KubernetesObjectStore().refreshLast();
     },
+    filterChanged: debounce(async function (e) {
+      KubernetesObjectStore().setFilter(this.searchFilter);
+    }, 500),
   },
 };
 </script>
@@ -55,7 +62,7 @@ export default {
   display: grid;
   max-height: 100%;
   height: auto;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto auto 1fr;
 }
 #object-actions {
   display: grid;

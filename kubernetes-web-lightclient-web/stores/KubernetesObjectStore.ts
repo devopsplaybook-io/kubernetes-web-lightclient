@@ -16,12 +16,17 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
       secrets: [],
       pvcs: [],
     },
+    filter: "",
     lastCall: { payload: {}, type: "" },
   }),
 
   getters: {},
 
   actions: {
+    setFilter(filter: string) {
+      this.filter = filter;
+      this.refreshLast();
+    },
     getPods() {
       this.getObject("pods", { object: "pods", command: "get", argument: "-A" });
     },
@@ -61,7 +66,18 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
       await axios
         .post(`${(await Config.get()).SERVER_URL}/kubectl/command`, payload, await AuthService.getAuthHeader())
         .then(async (response) => {
-          (this.data as any)[type] = JSON.parse(await UtilsDecompressData(response.data.result)).items;
+          const items: any[] = [];
+          for (const item of JSON.parse(await UtilsDecompressData(response.data.result)).items) {
+            if (!this.filter) {
+              items.push(item);
+              continue;
+            }
+            if (JSON.stringify(item).toLowerCase().indexOf(this.filter.toLowerCase()) >= 0) {
+              items.push(item);
+              continue;
+            }
+          }
+          (this.data as any)[type] = items;
         })
         .catch((error) => {
           console.error(error);
