@@ -68,11 +68,13 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
         .then(async (response) => {
           const items: any[] = [];
           for (const item of JSON.parse(await UtilsDecompressData(response.data.result)).items) {
-            if (!this.filter) {
+            if (!this.filter.trim()) {
               items.push(item);
               continue;
             }
-            if (JSON.stringify(item).toLowerCase().indexOf(this.filter.toLowerCase()) >= 0) {
+            const keywords = this.filter.toLowerCase().trim().replace(/\s+/g, " ").split(" ");
+            const itemString = JSON.stringify(item).trim().toLowerCase();
+            if (keywords.every((keyword) => itemString.includes(keyword))) {
               items.push(item);
               continue;
             }
