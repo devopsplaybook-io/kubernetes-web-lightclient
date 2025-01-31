@@ -83,7 +83,9 @@ export default {
   padding-top: 0.3rem;
 }
 #object-search {
-  padding: 0.5em 3em;
+  padding-top: 0.5em;
+  padding-bottom: 0.5em;
+  padding-left: 3em;
   height: 2.6rem;
 }
 
