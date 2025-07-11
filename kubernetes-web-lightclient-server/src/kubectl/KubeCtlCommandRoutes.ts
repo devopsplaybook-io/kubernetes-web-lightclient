@@ -23,8 +23,8 @@ export class KubeCtlCommandRoutes {
       if (!req.body.object || req.body.object.indexOf(" ") >= 0) {
         return res.status(400).send({ error: "Malformed Request" });
       }
-      if (!req.body.command || req.body.command.indexOf(" ") >= 0) {
-        return res.status(400).send({ error: "Malformed Request" });
+      if (!allowedCommands.includes(req.body.command)) {
+        return res.status(400).send({ error: "Command Not Allowed" });
       }
       if (req.body.namespace && req.body.namespace.indexOf(" ") >= 0) {
         return res.status(400).send({ error: "Malformed Request" });
@@ -43,11 +43,22 @@ export class KubeCtlCommandRoutes {
       const namespaceArg = req.body.namespace ? `-n ${req.body.namespace}` : "";
       const jsonArg = req.body.noJson ? "" : "-o json";
       const kubectlCommand = `kubectl ${commandArg} ${objectArg} ${namespaceArg}  ${argumentArg} ${jsonArg}`;
-      const commandOutput = await SystemCommandExecute(`${kubectlCommand} | gzip | base64 -w 0`, {
-        timeout: 20000,
-        maxBuffer: 1024 * 1024 * 10,
-      });
+      const commandOutput = await SystemCommandExecute(
+        `${kubectlCommand} | gzip | base64 -w 0`,
+        {
+          timeout: 20000,
+          maxBuffer: 1024 * 1024 * 10,
+        }
+      );
       return res.status(201).send({ result: commandOutput });
     });
   }
 }
+
+const allowedCommands = [
+  "get",
+  "describe",
+  "logs",
+  "delete",
+  "rollout restart",
+];
