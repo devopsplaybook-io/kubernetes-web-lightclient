@@ -56,20 +56,40 @@ export default {
     if (!(await AuthenticationStore().ensureAuthenticated())) {
       useRouter().push({ path: "/users" });
     }
-    // Set objectType from URL if present
     const route = useRoute();
     if (route.query.objectType) {
       this.objectType = route.query.objectType;
     }
+    if (route.query.search) {
+      this.searchFilter = route.query.search;
+      KubernetesObjectStore().setFilter(this.searchFilter);
+    }
   },
   watch: {
     objectType(newType) {
-      // Update the URL query parameter when objectType changes
       const router = useRouter();
       const route = useRoute();
       router.replace({
         path: route.path,
-        query: { ...route.query, objectType: newType },
+        query: {
+          ...route.query,
+          objectType: newType,
+          ...(this.searchFilter ? { search: this.searchFilter } : {}),
+        },
+      });
+    },
+    searchFilter(newFilter) {
+      const router = useRouter();
+      const route = useRoute();
+      const query = { ...route.query, objectType: this.objectType };
+      if (newFilter) {
+        query.search = newFilter;
+      } else {
+        delete query.search;
+      }
+      router.replace({
+        path: route.path,
+        query,
       });
     },
   },
