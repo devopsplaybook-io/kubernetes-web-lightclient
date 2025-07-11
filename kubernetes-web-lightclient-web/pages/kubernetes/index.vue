@@ -11,6 +11,7 @@
     <div id="object-actions" class="actions">
       <select v-model="objectType">
         <option value="node">Nodes</option>
+        <option value="namespace">Namespaces</option>
         <option value="deployment">Deployments</option>
         <option value="statefulset">StatefulSets</option>
         <option value="daemonset">DaemonSets</option>
@@ -21,10 +22,13 @@
         <option value="configmap">ConfigMap</option>
         <option value="secret">Secrets</option>
       </select>
-      <span><i class="bi bi-arrow-clockwise" v-on:click="refreshObject()"></i></span>
+      <span
+        ><i class="bi bi-arrow-clockwise" v-on:click="refreshObject()"></i
+      ></span>
     </div>
     <div id="object-list">
       <KubernetesNodeList v-if="objectType == 'node'" />
+      <KubernetesNamespaceList v-if="objectType == 'namespace'" />
       <KubernetesDeploymentList v-if="objectType == 'deployment'" />
       <KubernetesPodList v-else-if="objectType == 'pod'" />
       <KubernetesStatefulSetList v-else-if="objectType == 'statefulset'" />
@@ -52,6 +56,42 @@ export default {
     if (!(await AuthenticationStore().ensureAuthenticated())) {
       useRouter().push({ path: "/users" });
     }
+    const route = useRoute();
+    if (route.query.objectType) {
+      this.objectType = route.query.objectType;
+    }
+    if (route.query.search) {
+      this.searchFilter = route.query.search;
+      KubernetesObjectStore().setFilter(this.searchFilter);
+    }
+  },
+  watch: {
+    objectType(newType) {
+      const router = useRouter();
+      const route = useRoute();
+      router.replace({
+        path: route.path,
+        query: {
+          ...route.query,
+          objectType: newType,
+          ...(this.searchFilter ? { search: this.searchFilter } : {}),
+        },
+      });
+    },
+    searchFilter(newFilter) {
+      const router = useRouter();
+      const route = useRoute();
+      const query = { ...route.query, objectType: this.objectType };
+      if (newFilter) {
+        query.search = newFilter;
+      } else {
+        delete query.search;
+      }
+      router.replace({
+        path: route.path,
+        query,
+      });
+    },
   },
   methods: {
     refreshObject() {

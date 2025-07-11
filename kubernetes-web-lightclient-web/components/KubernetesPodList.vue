@@ -13,27 +13,47 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="kubeObject of kubernetesObjectStore.data.pods" v-bind:key="kubeObject.metadata.uuid">
+        <tr
+          v-for="kubeObject of kubernetesObjectStore.data.pods"
+          v-bind:key="kubeObject.metadata.uuid"
+        >
           <td>{{ kubeObject.metadata.namespace }}</td>
           <td>{{ kubeObject.metadata.name }}</td>
           <td>{{ kubeObject.status.phase }}</td>
-          <td>{{ UtilsRelativeTime(kubeObject.metadata.creationTimestamp) }}</td>
+          <td>
+            {{ UtilsRelativeTime(kubeObject.metadata.creationTimestamp) }}
+          </td>
           <td>
             <i
               class="bi bi-file-text-fill"
-              v-on:click="showDetails(kubeObject.metadata.namespace, kubeObject.metadata.name)"
+              v-on:click="
+                showDetails(
+                  kubeObject.metadata.namespace,
+                  kubeObject.metadata.name
+                )
+              "
             ></i>
           </td>
           <td>
             <i
               class="bi bi-file-text-fill"
-              v-on:click="showLogs(kubeObject.metadata.namespace, kubeObject.metadata.name)"
+              v-on:click="
+                showLogs(
+                  kubeObject.metadata.namespace,
+                  kubeObject.metadata.name
+                )
+              "
             ></i>
           </td>
           <td>
             <i
               class="bi bi-x-circle-fill"
-              v-on:click="podDelete(kubeObject.metadata.namespace, kubeObject.metadata.name)"
+              v-on:click="
+                podDelete(
+                  kubeObject.metadata.namespace,
+                  kubeObject.metadata.name
+                )
+              "
             ></i>
           </td>
         </tr>
@@ -81,7 +101,13 @@ export default {
       await axios
         .post(
           `${(await Config.get()).SERVER_URL}/kubectl/command`,
-          { namespace, object: "pods", command: "delete", argument: podname, noJson: true },
+          {
+            namespace,
+            object: "pods",
+            command: "delete",
+            argument: podname,
+            noJson: true,
+          },
           await AuthService.getAuthHeader()
         )
         .then(() => {
@@ -89,7 +115,9 @@ export default {
             type: "info",
             text: "Pod Deleted",
           });
-          KubernetesObjectStore().getPods();
+          setTimeout(() => {
+            KubernetesObjectStore().getPods();
+          }, 1000);
         })
         .catch(handleError);
     },
@@ -109,7 +137,13 @@ export default {
       await axios
         .post(
           `${(await Config.get()).SERVER_URL}/kubectl/command`,
-          { namespace, object: "pod", command: "describe", argument: objectName, noJson: true },
+          {
+            namespace,
+            object: "pod",
+            command: "describe",
+            argument: objectName,
+            noJson: true,
+          },
           await AuthService.getAuthHeader()
         )
         .then(async (res) => {
