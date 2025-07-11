@@ -24,7 +24,7 @@ export class KubeCtlCommandRoutes {
         return res.status(400).send({ error: "Malformed Request" });
       }
       if (!allowedCommands.includes(req.body.command)) {
-        return res.status(400).send({ error: "Command Not Allowed" });
+        return res.status(400).send({ error: "Malformed Request" });
       }
       if (req.body.namespace && req.body.namespace.indexOf(" ") >= 0) {
         return res.status(400).send({ error: "Malformed Request" });
