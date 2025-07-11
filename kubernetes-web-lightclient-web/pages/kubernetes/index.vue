@@ -56,6 +56,22 @@ export default {
     if (!(await AuthenticationStore().ensureAuthenticated())) {
       useRouter().push({ path: "/users" });
     }
+    // Set objectType from URL if present
+    const route = useRoute();
+    if (route.query.objectType) {
+      this.objectType = route.query.objectType;
+    }
+  },
+  watch: {
+    objectType(newType) {
+      // Update the URL query parameter when objectType changes
+      const router = useRouter();
+      const route = useRoute();
+      router.replace({
+        path: route.path,
+        query: { ...route.query, objectType: newType },
+      });
+    },
   },
   methods: {
     refreshObject() {
