@@ -97,7 +97,6 @@ export default {
       },
       dialogLogs: {
         enable: false,
-        title: "",
         podname: "",
         namespace: "",
       },
@@ -142,7 +141,6 @@ export default {
       };
       this.dialogLogs = {
         enable: false,
-        title: "",
         podname: "",
         namespace: "",
       };
@@ -173,7 +171,6 @@ export default {
     async showLogs(namespace, podname) {
       this.dialogLogs = {
         enable: true,
-        title: "Pod Log",
         podname,
         namespace,
       };

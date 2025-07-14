@@ -9,7 +9,7 @@
             class="close"
             v-on:click="clickClose()"
           ></a>
-          {{ title }}
+          Pod Log: {{ podname }} ({{ namespace }})
         </header>
         <section>
           <label>
@@ -65,6 +65,7 @@ export default {
       if (this.logTime !== "all") {
         payload.argument = `--since=${this.logTime}`;
       }
+      this.text = "Loading logs...";
       await axios
         .post(
           `${(await Config.get()).SERVER_URL}/kubectl/logs`,
