@@ -105,6 +105,10 @@ export default {
 </script>
 
 <style>
+select {
+  padding: 0.5em 1em;
+  height: 2.6rem;
+}
 #object-layout {
   display: grid;
   max-height: 100%;
@@ -114,10 +118,6 @@ export default {
 #object-actions {
   display: grid;
   grid-template-columns: 1fr auto;
-}
-#object-actions select {
-  padding: 0.5em 1em;
-  height: 2.6rem;
 }
 #object-actions span {
   padding-top: 0.3rem;
