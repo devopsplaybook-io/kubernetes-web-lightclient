@@ -22,6 +22,9 @@
             <option value="1h">Last 1h</option>
             <option value="24h">Last 1 day</option>
           </select>
+          <span class="actions"
+            ><i class="bi bi-arrow-clockwise" v-on:click="fetchLogs"></i
+          ></span>
         </section>
         <pre
           id="dialog-details-logs-text"
@@ -93,7 +96,7 @@ export default {
 }
 #dialog-details-logs section {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto 1fr auto;
   grid-gap: 1rem;
   margin: 0;
   margin-bottom: 1rem;
