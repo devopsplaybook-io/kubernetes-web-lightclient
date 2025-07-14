@@ -42,7 +42,7 @@ export class KubeCtlCommandRoutes {
       const argumentArg = req.body.argument ? req.body.argument : "";
       const namespaceArg = req.body.namespace ? `-n ${req.body.namespace}` : "";
       const jsonArg = req.body.noJson ? "" : "-o json";
-      const kubectlCommand = `kubectl ${commandArg} ${objectArg} ${namespaceArg}  ${argumentArg} ${jsonArg}`;
+      const kubectlCommand = `kubectl ${commandArg} ${objectArg} ${namespaceArg} ${argumentArg} ${jsonArg}`;
       const commandOutput = await SystemCommandExecute(
         `${kubectlCommand} | gzip | base64 -w 0`,
         {

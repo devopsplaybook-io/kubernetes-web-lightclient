@@ -65,6 +65,13 @@
       :title="dialogDetails.title"
       @onClose="onCloseDetails()"
     />
+    <DialogLogs
+      v-if="dialogLogs.enable"
+      :podname="dialogLogs.podname"
+      :namespace="dialogLogs.namespace"
+      :title="dialogLogs.title"
+      @onClose="onCloseDetails()"
+    />
   </div>
 </template>
 
@@ -87,6 +94,11 @@ export default {
         enable: false,
         title: "",
         text: "",
+      },
+      dialogLogs: {
+        enable: false,
+        podname: "",
+        namespace: "",
       },
     };
   },
@@ -127,6 +139,11 @@ export default {
         title: "",
         text: "",
       };
+      this.dialogLogs = {
+        enable: false,
+        podname: "",
+        namespace: "",
+      };
     },
     async showDetails(namespace, objectName) {
       this.dialogDetails = {
@@ -152,21 +169,11 @@ export default {
         .catch(handleError);
     },
     async showLogs(namespace, podname) {
-      this.dialogDetails = {
+      this.dialogLogs = {
         enable: true,
-        title: "Pod Log",
-        text: "",
+        podname,
+        namespace,
       };
-      await axios
-        .post(
-          `${(await Config.get()).SERVER_URL}/kubectl/logs`,
-          { namespace, pod: podname },
-          await AuthService.getAuthHeader()
-        )
-        .then(async (res) => {
-          this.dialogDetails.text = await UtilsDecompressData(res.data.result);
-        })
-        .catch(handleError);
     },
   },
 };
