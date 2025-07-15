@@ -142,7 +142,7 @@ export default {
             text: "Rollout Restart Started",
           });
           setTimeout(() => {
-            KubernetesObjectStore().getDeployments();
+            KubernetesObjectStore().getDaemonSets();
           }, 1000);
         })
         .catch(handleError);
