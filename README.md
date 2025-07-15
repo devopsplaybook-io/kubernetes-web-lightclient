@@ -4,7 +4,7 @@ Kubernetes Web LightClient is a web based user interface for Kubernetes. In it's
 
 - List: Deployment, StatefulSet, DeamonSet, Pod, ConfigMap, Nodes, Secrets, PVC, Namespace
 - For Pod: Delete, Display Log.
-- For Deployments: Rollout restart.
+- For Deployments, DaemonSet, Statefulset: Rollout restart.
 
 ![](docs/images/screenshot.png?raw=true)
 
