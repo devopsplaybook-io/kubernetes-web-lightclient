@@ -12,16 +12,7 @@
 </template>
 
 <script>
-export default {
-  mounted() {
-    let vh = window.innerHeight * 0.01;
-    document.documentElement.style.setProperty("--vh", `${vh}px`);
-    window.addEventListener("resize", () => {
-      let vh = window.innerHeight * 0.01;
-      document.documentElement.style.setProperty("--vh", `${vh}px`);
-    });
-  },
-};
+export default {};
 </script>
 
 <style>
@@ -31,17 +22,11 @@ export default {
   grid-template-rows: auto 1fr;
   width: 100vw;
   height: 100vh;
-  height: calc(var(--vh, 1vh) * 100);
+  height: 100dvh;
   overflow: hidden !important;
 }
 
 /* Layout */
-
-.page {
-  overflow-y: auto;
-  height: calc(100vh - 5em);
-  padding: 0em 1em;
-}
 
 header {
   height: 3em;

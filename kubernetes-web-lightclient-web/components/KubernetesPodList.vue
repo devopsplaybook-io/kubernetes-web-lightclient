@@ -7,6 +7,7 @@
           <th>Pod</th>
           <th>Status</th>
           <th>Age</th>
+          <th>Ready</th>
           <th>Details</th>
           <th>Logs</th>
           <th>Delete</th>
@@ -22,6 +23,16 @@
           <td>{{ kubeObject.status.phase }}</td>
           <td>
             {{ UtilsRelativeTime(kubeObject.metadata.creationTimestamp) }}
+          </td>
+          <td>
+            {{
+              (() => {
+                const statuses = kubeObject.status?.containerStatuses || [];
+                const readyCount = statuses.filter((s) => s.ready).length;
+                const totalCount = statuses.length;
+                return `${readyCount}/${totalCount}`;
+              })()
+            }}
           </td>
           <td>
             <i

@@ -44,12 +44,15 @@
 
 <script>
 import { debounce } from "lodash";
+import { RefreshIntervalService } from "~~/services/RefreshIntervalService";
 
 export default {
   data() {
     return {
       objectType: "pod",
       searchFilter: "",
+      refreshIntervalId: null,
+      refreshIntervalValue: RefreshIntervalService.get(),
     };
   },
   async created() {
@@ -63,6 +66,20 @@ export default {
     if (route.query.search) {
       this.searchFilter = route.query.search;
       KubernetesObjectStore().setFilter(this.searchFilter);
+    }
+    this.refreshIntervalValue = RefreshIntervalService.get();
+  },
+  mounted() {
+    const interval = parseInt(this.refreshIntervalValue, 10);
+    if (interval > 0) {
+      this.refreshIntervalId = setInterval(() => {
+        this.refreshObject();
+      }, interval);
+    }
+  },
+  beforeUnmount() {
+    if (this.refreshIntervalId) {
+      clearInterval(this.refreshIntervalId);
     }
   },
   watch: {
