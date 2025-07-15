@@ -6,18 +6,46 @@
           <th>Namespace</th>
           <th>StatefulSet</th>
           <th>Age</th>
+          <th>Ready</th>
           <th>Details</th>
+          <th>Restart</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="kubeObject of kubernetesObjectStore.data.statefulsets" v-bind:key="kubeObject.metadata.uid">
+        <tr
+          v-for="kubeObject of kubernetesObjectStore.data.statefulsets"
+          v-bind:key="kubeObject.metadata.uid"
+        >
           <td>{{ kubeObject.metadata.namespace }}</td>
           <td>{{ kubeObject.metadata.name }}</td>
-          <td>{{ UtilsRelativeTime(kubeObject.metadata.creationTimestamp) }}</td>
+          <td>
+            {{ UtilsRelativeTime(kubeObject.metadata.creationTimestamp) }}
+          </td>
+          <td>
+            {{ kubeObject.status.readyReplicas }}/{{
+              kubeObject.status.replicas
+            }}
+          </td>
           <td>
             <i
               class="bi bi-file-text-fill"
-              v-on:click="showDetails(kubeObject.metadata.namespace, kubeObject.metadata.name)"
+              v-on:click="
+                showDetails(
+                  kubeObject.metadata.namespace,
+                  kubeObject.metadata.name
+                )
+              "
+            ></i>
+          </td>
+          <td>
+            <i
+              class="bi bi-arrow-clockwise"
+              v-on:click="
+                statefulsetRestart(
+                  kubeObject.metadata.namespace,
+                  kubeObject.metadata.name
+                )
+              "
             ></i>
           </td>
         </tr>
@@ -74,11 +102,48 @@ export default {
       await axios
         .post(
           `${(await Config.get()).SERVER_URL}/kubectl/command`,
-          { namespace, object: "statefulset", command: "describe", argument: objectName, noJson: true },
+          {
+            namespace,
+            object: "statefulset",
+            command: "describe",
+            argument: objectName,
+            noJson: true,
+          },
           await AuthService.getAuthHeader()
         )
         .then(async (res) => {
           this.dialogDetails.text = await UtilsDecompressData(res.data.result);
+        })
+        .catch(handleError);
+    },
+    async statefulsetRestart(namespace, statefulsetName) {
+      if (
+        !confirm(
+          `Perform a rollout restart of statefulset ${statefulsetName} (${namespace})`
+        )
+      ) {
+        return;
+      }
+      await axios
+        .post(
+          `${(await Config.get()).SERVER_URL}/kubectl/command`,
+          {
+            namespace,
+            object: "statefulset",
+            command: "rollout restart",
+            argument: statefulsetName,
+            noJson: true,
+          },
+          await AuthService.getAuthHeader()
+        )
+        .then(() => {
+          EventBus.emit(EventTypes.ALERT_MESSAGE, {
+            type: "info",
+            text: "Rollout Restart Started",
+          });
+          setTimeout(() => {
+            KubernetesObjectStore().getDeployments();
+          }, 1000);
         })
         .catch(handleError);
     },

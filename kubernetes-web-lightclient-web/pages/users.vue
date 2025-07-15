@@ -7,13 +7,28 @@
       <input id="username" v-model="user.name" type="text" />
       <label>Password</label>
       <input id="passwrd" v-model="user.password" type="password" />
-      <button v-if="!authenticationStore.isAuthenticated && !isInitialized" v-on:click="saveNew()">Create</button>
-      <button v-if="!authenticationStore.isAuthenticated && isInitialized" v-on:click="login()">Login</button>
+      <button
+        v-if="!authenticationStore.isAuthenticated && !isInitialized"
+        v-on:click="saveNew()"
+      >
+        Create
+      </button>
+      <button
+        v-if="!authenticationStore.isAuthenticated && isInitialized"
+        v-on:click="login()"
+      >
+        Login
+      </button>
     </div>
     <div v-else>
-      <h1>Authentication</h1>
+      <h1>Authenticated</h1>
       <button v-on:click="logout()">Logout</button>
-      <button v-if="!isChangePasswordStarted" v-on:click="changePasswordStart(true)">Change Password</button>
+      <button
+        v-if="!isChangePasswordStarted"
+        v-on:click="changePasswordStart(true)"
+      >
+        Change Password
+      </button>
       <article v-else>
         <h1>Change Password</h1>
         <label>Old Password</label>
@@ -23,6 +38,21 @@
         <button v-on:click="changePassword()">Change</button>
         <button v-on:click="changePasswordStart(false)">Cancel</button>
       </article>
+      <h1>Settings</h1>
+      <div>
+        <label for="refresh-interval">Auto-refresh interval:</label>
+        <select
+          id="refresh-interval"
+          v-model="refreshInterval"
+          @change="saveRefreshInterval"
+        >
+          <option value="0">No auto-refresh</option>
+          <option value="5000">5 seconds</option>
+          <option value="10000">10 seconds</option>
+          <option value="30000">30 seconds</option>
+          <option value="60000">1 minute</option>
+        </select>
+      </div>
     </div>
   </div>
 </template>
@@ -37,6 +67,7 @@ import Config from "~~/services/Config.ts";
 import { AuthService } from "~~/services/AuthService";
 import { handleError, EventBus, EventTypes } from "~~/services/EventBus";
 import { UserService } from "~~/services/UserService";
+import { RefreshIntervalService } from "~~/services/RefreshIntervalService";
 
 export default {
   data() {
@@ -44,17 +75,23 @@ export default {
       user: {},
       isInitialized: true,
       isChangePasswordStarted: false,
+      refreshInterval: RefreshIntervalService.get(),
     };
   },
   async created() {
     this.isInitialized = await UserService.isInitialized();
     AuthenticationStore().isAuthenticated = await AuthService.isAuthenticated();
+    this.refreshInterval = RefreshIntervalService.get();
   },
   methods: {
     async saveNew() {
       if (this.user.name && this.user.password) {
         await axios
-          .post(`${(await Config.get()).SERVER_URL}/users`, this.user, await AuthService.getAuthHeader())
+          .post(
+            `${(await Config.get()).SERVER_URL}/users`,
+            this.user,
+            await AuthService.getAuthHeader()
+          )
           .then((res) => {
             EventBus.emit(EventTypes.ALERT_MESSAGE, {
               type: "info",
@@ -74,7 +111,11 @@ export default {
     async login() {
       if (this.user.name && this.user.password) {
         await axios
-          .post(`${(await Config.get()).SERVER_URL}/users/session`, this.user, await AuthService.getAuthHeader())
+          .post(
+            `${(await Config.get()).SERVER_URL}/users/session`,
+            this.user,
+            await AuthService.getAuthHeader()
+          )
           .then((res) => {
             AuthService.saveToken(res.data.token);
             AuthenticationStore().isAuthenticated = true;
@@ -95,7 +136,11 @@ export default {
     async changePassword() {
       if (this.user.password && this.user.passwordOld) {
         await axios
-          .put(`${(await Config.get()).SERVER_URL}/users/password`, this.user, await AuthService.getAuthHeader())
+          .put(
+            `${(await Config.get()).SERVER_URL}/users/password`,
+            this.user,
+            await AuthService.getAuthHeader()
+          )
           .then((res) => {
             EventBus.emit(EventTypes.ALERT_MESSAGE, {
               type: "info",
@@ -120,6 +165,31 @@ export default {
       this.isChangePasswordStarted = enable;
       this.user = {};
     },
+    saveRefreshInterval() {
+      RefreshIntervalService.set(this.refreshInterval);
+      EventBus.emit(EventTypes.ALERT_MESSAGE, {
+        type: "info",
+        text: `Refresh interval set to ${this.getRefreshIntervalLabel(
+          this.refreshInterval
+        )}`,
+      });
+    },
+    getRefreshIntervalLabel(val) {
+      switch (val) {
+        case "0":
+          return "No auto-refresh";
+        case "5000":
+          return "5 seconds";
+        case "10000":
+          return "10 seconds";
+        case "30000":
+          return "30 seconds";
+        case "60000":
+          return "1 minute";
+        default:
+          return `${val} ms`;
+      }
+    },
   },
 };
 </script>
@@ -130,5 +200,8 @@ export default {
 }
 button {
   margin-right: 1em;
+}
+h1 {
+  margin-top: 1em;
 }
 </style>
