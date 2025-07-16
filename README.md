@@ -42,8 +42,6 @@ spec:
         app: kubernetes-web-lightclient
     spec:
       serviceAccountName: kubernetes-web-lightclient-role
-      imagePullSecrets:
-        - name: regcred
       containers:
         - image: devopsplaybookio/kubernetes-web-lightclient
           name: kubernetes-web-lightclient
@@ -63,6 +61,13 @@ spec:
           volumeMounts:
             - mountPath: /data
               name: pod-volume
+          readinessProbe:
+            httpGet:
+              path: /api/status
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
       volumes:
         - name: pod-volume
           persistentVolumeClaim:
@@ -78,8 +83,6 @@ spec:
   resources:
     requests:
       storage: 1Gi
----
-
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1

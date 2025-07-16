@@ -4,7 +4,10 @@ import { watchFile } from "fs-extra";
 import { Config } from "./Config";
 import { Logger } from "./utils-std-ts/Logger";
 import { UsersRoutes } from "./users/UsersRoutes";
-import { StandardTracerInitTelemetry, StandardTracerStartSpan } from "./utils-std-ts/StandardTracer";
+import {
+  StandardTracerInitTelemetry,
+  StandardTracerStartSpan,
+} from "./utils-std-ts/StandardTracer";
 import { SqlDbUtilsInit } from "./utils-std-ts/SqlDbUtils";
 import { StandardTracerApiRegisterHooks } from "./StandardTracerApi";
 import { AuthInit } from "./users/Auth";
@@ -60,6 +63,9 @@ Promise.resolve().then(async () => {
   });
   fastify.register(new KubeCtlLogsRoutes().getRoutes, {
     prefix: "/api/kubectl/logs",
+  });
+  fastify.get("/api/status", async () => {
+    return { started: true };
   });
 
   /* eslint-disable-next-line */
