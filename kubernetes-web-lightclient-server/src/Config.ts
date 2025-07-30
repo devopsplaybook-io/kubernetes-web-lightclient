@@ -16,8 +16,12 @@ export class Config implements ConfigInterface {
   public DATA_DIR = process.env.DATA_DIR || "/data";
   public JWT_KEY: string = uuidv4();
   public LOG_LEVEL = "info";
-  public OPENTELEMETRY_COLLECTOR_HTTP: string = process.env.OPENTELEMETRY_COLLECTOR_HTTP || "";
-  public OPENTELEMETRY_COLLECTOR_AWS = process.env.OPENTELEMETRY_COLLECTOR_AWS === "true";
+  public STATS_FETCH_FREQUENCY = 60;
+  public STATS_RETENTION = 60 * 60 * 24;
+  public OPENTELEMETRY_COLLECTOR_HTTP: string =
+    process.env.OPENTELEMETRY_COLLECTOR_HTTP || "";
+  public OPENTELEMETRY_COLLECTOR_AWS =
+    process.env.OPENTELEMETRY_COLLECTOR_AWS === "true";
 
   public async reload(): Promise<void> {
     const content = await fse.readJson(this.CONFIG_FILE);
@@ -38,6 +42,8 @@ export class Config implements ConfigInterface {
     setIfSet("DATA_DIR");
     setIfSet("JWT_KEY", false);
     setIfSet("LOG_LEVEL");
+    setIfSet("STATS_FETCH_FREQUENCY");
+    setIfSet("STATS_RETENTION");
     setIfSet("OPENTELEMETRY_COLLECTOR_HTTP");
     setIfSet("OPENTELEMETRY_COLLECTOR_AWS");
   }
