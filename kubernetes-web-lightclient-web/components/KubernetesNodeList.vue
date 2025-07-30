@@ -1,21 +1,42 @@
 <template>
   <div>
+    {{ kubernetesObjectStore.data.nodes }}
     <table class="striped">
       <thead>
         <tr>
           <th>Node</th>
+          <th>Status</th>
+          <th>Role</th>
           <th>Version</th>
+          <th>Pods</th>
+          <th>Memory</th>
+          <th>CPU</th>
+          <th>Disk</th>
           <th>Age</th>
           <th>Details</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="kubeObject of kubernetesObjectStore.data.nodes" v-bind:key="kubeObject.metadata.uid">
+        <tr
+          v-for="kubeObject of kubernetesObjectStore.data.nodes"
+          v-bind:key="kubeObject.metadata.uid"
+        >
           <td>{{ kubeObject.metadata.name }}</td>
+          <td>{{ getNodeStatus(kubeObject) }}</td>
+          <td>{{ getNodeRole(kubeObject) }}</td>
           <td>{{ kubeObject.status.nodeInfo.kubeletVersion }}</td>
-          <td>{{ UtilsRelativeTime(kubeObject.metadata.creationTimestamp) }}</td>
+          <td>{{ getNodePods(kubeObject) }}</td>
+          <td>{{ getNodeMemory(kubeObject) }}</td>
+          <td>{{ getNodeCPU(kubeObject) }}</td>
+          <td>{{ getNodeDisk(kubeObject) }}</td>
           <td>
-            <i class="bi bi-file-text-fill" v-on:click="showDetails(kubeObject.metadata.name)"></i>
+            {{ UtilsRelativeTime(kubeObject.metadata.creationTimestamp) }}
+          </td>
+          <td>
+            <i
+              class="bi bi-file-text-fill"
+              v-on:click="showDetails(kubeObject.metadata.name)"
+            ></i>
           </td>
         </tr>
       </tbody>
@@ -55,6 +76,48 @@ export default {
     KubernetesObjectStore().getNodes();
   },
   methods: {
+    getNodePods(node) {
+      const capacity = node.status?.capacity?.pods || 0;
+      const allocatable = node.status?.allocatable?.pods || 0;
+      return `${allocatable}/${capacity}`;
+    },
+    getNodeMemory(node) {
+      const capacity = node.status?.capacity?.memory;
+      if (!capacity) return "N/A";
+      const memoryGB = Math.round(
+        parseInt(capacity.replace("Ki", "")) / 1024 / 1024
+      );
+      return `${memoryGB}GB`;
+    },
+    getNodeCPU(node) {
+      const capacity = node.status?.capacity?.cpu;
+      if (!capacity) return "N/A";
+      return capacity;
+    },
+    getNodeDisk(node) {
+      const capacity = node.status?.capacity?.["ephemeral-storage"];
+      if (!capacity) return "N/A";
+      const diskGB = Math.round(
+        parseInt(capacity.replace("Ki", "")) / 1024 / 1024
+      );
+      return `${diskGB}GB`;
+    },
+    getNodeRole(node) {
+      const labels = node.metadata.labels || {};
+      if (
+        labels["node-role.kubernetes.io/master"] !== undefined ||
+        labels["node-role.kubernetes.io/control-plane"] !== undefined
+      ) {
+        return "master";
+      }
+      return "worker";
+    },
+    getNodeStatus(node) {
+      const readyCondition = node.status.conditions?.find(
+        (condition) => condition.type === "Ready"
+      );
+      return readyCondition?.status === "True" ? "Ready" : "NotReady";
+    },
     onCloseDetails() {
       this.dialogDetails = {
         enable: false,
@@ -71,7 +134,12 @@ export default {
       await axios
         .post(
           `${(await Config.get()).SERVER_URL}/kubectl/command`,
-          { object: "node", command: "describe", argument: objectName, noJson: true },
+          {
+            object: "node",
+            command: "describe",
+            argument: objectName,
+            noJson: true,
+          },
           await AuthService.getAuthHeader()
         )
         .then(async (res) => {
