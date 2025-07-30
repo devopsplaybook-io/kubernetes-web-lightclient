@@ -78,7 +78,8 @@ export default {
     getNodePods(node) {
       const capacity = node.status?.capacity?.pods || 0;
       const allocatable = node.status?.allocatable?.pods || 0;
-      return `${allocatable}/${capacity}`;
+      const running = node.status?.podStatuses?.length || 0; // Assuming podStatuses contains running pods
+      return `${running}/${allocatable}/${capacity}`;
     },
     getNodeMemory(node) {
       const capacity = node.status?.capacity?.memory;
