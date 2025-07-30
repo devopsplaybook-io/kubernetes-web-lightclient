@@ -53,6 +53,11 @@
           <option value="60000">1 minute</option>
         </select>
       </div>
+
+      <h1>Dark Mode</h1>
+      <button @click="toggleTheme" style="margin-bottom: 1em">
+        Switch to {{ isDark ? "Light" : "Dark" }} Mode
+      </button>
     </div>
   </div>
 </template>
@@ -68,13 +73,24 @@ import { AuthService } from "~~/services/AuthService";
 import { handleError, EventBus, EventTypes } from "~~/services/EventBus";
 import { UserService } from "~~/services/UserService";
 import { RefreshIntervalService } from "~~/services/RefreshIntervalService";
+import { PreferencesService } from "~/services/PreferencesService";
 
 export default {
   data() {
+    let isDark = false;
+    const storedTheme = localStorage.getItem("UI_THEME");
+    if (storedTheme === "dark" || storedTheme === "light") {
+      isDark = storedTheme === "dark";
+    } else {
+      isDark =
+        window.matchMedia &&
+        window.matchMedia("(prefers-color-scheme: dark)").matches;
+    }
     return {
       user: {},
       isInitialized: true,
       isChangePasswordStarted: false,
+      isDark,
       refreshInterval: RefreshIntervalService.get(),
     };
   },
@@ -189,6 +205,9 @@ export default {
         default:
           return `${val} ms`;
       }
+    },
+    toggleTheme() {
+      PreferencesService.toggleTheme(this);
     },
   },
 };

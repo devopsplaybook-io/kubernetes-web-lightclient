@@ -7,12 +7,23 @@
     </ul>
     <ul class="menu-links">
       <li v-if="authenticationStore.isAuthenticated">
-        <NuxtLink to="/kubernetes" :class="activeRoute == 'kubernetes' ? 'active' : 'inactive'"
+        <NuxtLink
+          to="/kubernetes"
+          :class="activeRoute == '/kubernetes' ? 'active' : 'inactive'"
           ><i class="bi bi-robot"></i
         ></NuxtLink>
       </li>
+      <li v-if="authenticationStore.isAuthenticated">
+        <NuxtLink
+          to="/kubernetes/stats"
+          :class="activeRoute == '/kubernetes/stats' ? 'active' : 'inactive'"
+          ><i class="bi bi-speedometer"></i
+        ></NuxtLink>
+      </li>
       <li>
-        <NuxtLink to="/users" :class="activeRoute == 'users' ? 'active' : 'inactive'"
+        <NuxtLink
+          to="/users"
+          :class="activeRoute == '/users' ? 'active' : 'inactive'"
           ><i class="bi bi-person-circle"></i
         ></NuxtLink>
       </li>
@@ -22,6 +33,7 @@
 
 <script setup>
 import { AuthService } from "~~/services/AuthService";
+import { PreferencesService } from "~/services/PreferencesService";
 const authenticationStore = AuthenticationStore();
 </script>
 
@@ -46,16 +58,21 @@ export default {
       setTimeout(async () => {
         // Renew session tocken
         axios
-          .post(`${(await Config.get()).SERVER_URL}/users/session`, {}, await AuthService.getAuthHeader())
+          .post(
+            `${(await Config.get()).SERVER_URL}/users/session`,
+            {},
+            await AuthService.getAuthHeader()
+          )
           .then((res) => {
             AuthService.saveToken(res.data.token);
           });
       }, 10000);
     }
+    PreferencesService.applyTheme();
   },
   methods: {
     routeUpdated(newRoute) {
-      this.activeRoute = newRoute.fullPath.split("/")[1];
+      this.activeRoute = newRoute.fullPath.split("?")[0];
     },
   },
 };
