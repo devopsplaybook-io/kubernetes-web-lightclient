@@ -96,10 +96,19 @@ export default {
     getNodeDisk(node) {
       const capacity = node.status?.capacity?.["ephemeral-storage"];
       if (!capacity) return "N/A";
-      const diskGB = Math.round(
-        parseInt(capacity.replace("Ki", "")) / 1024 / 1024
-      );
-      return `${diskGB}GB`;
+      const diskGB = this.convertToGB(capacity);
+      return diskGB !== null ? `${diskGB}GB` : "N/A";
+    },
+
+    convertToGB(storage) {
+      const units = { Ki: 1 / (1024 * 1024), Mi: 1 / 1024, Gi: 1, Ti: 1024 };
+      const match = storage.match(/^(\d+)([a-zA-Z]+)$/);
+      if (!match) return null;
+      const value = parseInt(match[1], 10);
+      const unit = match[2];
+      const factor = units[unit];
+      if (!factor) return null;
+      return Math.round(value * factor);
     },
     getNodeRole(node) {
       const labels = node.metadata.labels || {};
