@@ -7,7 +7,6 @@
           <th>Status</th>
           <th>Role</th>
           <th>Version</th>
-          <th>Pods</th>
           <th>Memory</th>
           <th>CPU</th>
           <th>Disk</th>
@@ -24,7 +23,6 @@
           <td>{{ getNodeStatus(kubeObject) }}</td>
           <td>{{ getNodeRole(kubeObject) }}</td>
           <td>{{ kubeObject.status.nodeInfo.kubeletVersion }}</td>
-          <td>{{ getNodePods(kubeObject) }}</td>
           <td>{{ getNodeMemory(kubeObject) }}</td>
           <td>{{ getNodeCPU(kubeObject) }}</td>
           <td>{{ getNodeDisk(kubeObject) }}</td>
@@ -75,12 +73,6 @@ export default {
     KubernetesObjectStore().getNodes();
   },
   methods: {
-    getNodePods(node) {
-      const capacity = node.status?.capacity?.pods || 0;
-      const allocatable = node.status?.allocatable?.pods || 0;
-      const running = node.status?.podStatuses?.length || 0; // Assuming podStatuses contains running pods
-      return `${running}/${allocatable}/${capacity}`;
-    },
     getNodeMemory(node) {
       const capacity = node.status?.capacity?.memory;
       if (!capacity) return "N/A";
@@ -107,7 +99,6 @@ export default {
       const diskGB = this.convertToGB(capacity);
       return diskGB !== null ? `${diskGB}GB` : "N/A";
     },
-
     convertToGB(storage) {
       const units = { Ki: 1 / (1024 * 1024), Mi: 1 / 1024, Gi: 1, Ti: 1024 };
       const match = storage.match(/^(\d+)([a-zA-Z]+)$/);
