@@ -101,14 +101,12 @@ export default {
         .catch(handleError);
     },
     updateCharts() {
-      // Group stats by node
       const statsByNode = {};
       for (const s of this.stats) {
         if (!statsByNode[s.node]) statsByNode[s.node] = [];
         statsByNode[s.node].push(s);
       }
 
-      // For each node, sort by timestamp
       Object.values(statsByNode).forEach((arr) =>
         arr.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
       );
