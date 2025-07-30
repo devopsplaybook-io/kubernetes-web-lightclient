@@ -20,14 +20,6 @@
       <apexchart
         width="100%"
         type="line"
-        :options="diskChartOptions"
-        :series="diskChartSeries"
-      />
-    </div>
-    <div>
-      <apexchart
-        width="100%"
-        type="line"
         :options="podsChartOptions"
         :series="podsChartSeries"
       />
@@ -55,24 +47,21 @@ export default {
       cpuChartOptions: {
         chart: { id: "cpu-line" },
         xaxis: { type: "datetime", title: { text: "Timestamp" } },
+        yaxis: { min: 0, max: 100 },
         title: { text: "CPU Usage (%)" },
       },
       cpuChartSeries: [],
       memoryChartOptions: {
         chart: { id: "memory-line" },
         xaxis: { type: "datetime", title: { text: "Timestamp" } },
+        yaxis: { min: 0, max: 100 },
         title: { text: "Memory Usage (%)" },
       },
       memoryChartSeries: [],
-      diskChartOptions: {
-        chart: { id: "disk-line" },
-        xaxis: { type: "datetime", title: { text: "Timestamp" } },
-        title: { text: "Disk Usage (%)" },
-      },
-      diskChartSeries: [],
       podsChartOptions: {
         chart: { id: "pods-line" },
         xaxis: { type: "datetime", title: { text: "Timestamp" } },
+        yaxis: { min: 0 },
         title: { text: "Pods per Node" },
       },
       podsChartSeries: [],
@@ -136,13 +125,6 @@ export default {
         data: statsByNode[node].map((s) => [
           new Date(s.timestamp).getTime(),
           Number(s.memoryUsage?.toFixed(2) || 0),
-        ]),
-      }));
-      this.diskChartSeries = Object.keys(statsByNode).map((node) => ({
-        name: node,
-        data: statsByNode[node].map((s) => [
-          new Date(s.timestamp).getTime(),
-          Number(s.diskUsage?.toFixed(2) || 0),
         ]),
       }));
       this.podsChartSeries = Object.keys(statsByNode).map((node) => ({

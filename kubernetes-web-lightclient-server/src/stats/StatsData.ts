@@ -34,111 +34,49 @@ export async function StatsDataGet(): Promise<StatsNodeMesurement[]> {
 // Private Functions
 
 async function StatsDataCapture(): Promise<void> {
-  const nodesJsonStr = await kubernetesCommandJson(`kubectl get nodes`);
-  const nodesObj = JSON.parse(nodesJsonStr);
+  const nodesObj = JSON.parse(
+    await kubernetesCommand(`kubectl get nodes -o json`)
+  );
 
   if (!nodesObj.items) return;
 
-  const podsJsonStr = await kubernetesCommandJson(
-    `kubectl get pods --all-namespaces`
+  const podsObj = JSON.parse(
+    await kubernetesCommand(`kubectl get pods --all-namespaces -o json`)
   );
-  const podsObj = JSON.parse(podsJsonStr);
+
+  const timestamp = new Date();
 
   for (const node of nodesObj.items) {
-    const nodeName = node.metadata?.name || "unknown";
-    let cpuUsage = 0;
-    let memoryUsage = 0;
-    let diskUsage = 0;
-    let pods = 0;
-    const timestamp = new Date();
-
-    try {
-      const topNodeStr = await kubernetesCommandJson(
-        `kubectl top node ${nodeName}`
-      );
-      const lines = topNodeStr.trim().split("\n");
-      if (lines.length > 1) {
-        const cols = lines[1].split(/\s+/);
-        const cpuUsedMillicores = parseFloat(cols[1].replace("m", ""));
-        const memoryUsedMi = parseFloat(cols[3].replace("Mi", ""));
-        const allocatableCPU = node.status?.allocatable?.cpu;
-        const allocatableMemory = node.status?.allocatable?.memory;
-        let allocCPU = 0;
-        if (allocatableCPU) {
-          if (allocatableCPU.endsWith("m")) {
-            allocCPU = parseFloat(allocatableCPU.replace("m", ""));
-          } else {
-            allocCPU = parseFloat(allocatableCPU) * 1000;
-          }
-        }
-        cpuUsage = allocCPU ? (cpuUsedMillicores / allocCPU) * 100 : 0;
-        let allocMem = 0;
-        if (allocatableMemory) {
-          if (allocatableMemory.endsWith("Ki")) {
-            allocMem = parseFloat(allocatableMemory.replace("Ki", "")) / 1024;
-          } else if (allocatableMemory.endsWith("Mi")) {
-            allocMem = parseFloat(allocatableMemory.replace("Mi", ""));
-          } else if (allocatableMemory.endsWith("Gi")) {
-            allocMem = parseFloat(allocatableMemory.replace("Gi", "")) * 1024;
-          }
-        }
-        memoryUsage = allocMem ? (memoryUsedMi / allocMem) * 100 : 0;
-      }
-    } catch (e) {
-      logger.error(`Error fetching top node for ${nodeName}: ${e.message}`);
-    }
-
-    try {
-      const describeNodeStr = await SystemCommandExecute(
-        `kubectl describe node ${nodeName}`,
-        {
-          timeout: 20000,
-          maxBuffer: 1024 * 1024 * 10,
-        }
-      );
-      const match = describeNodeStr.match(
-        /ephemeral-storage\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)/
-      );
-      if (match) {
-        const totalStr = match[1];
-        const usedStr = match[2];
-        function parseStorage(val: string): number {
-          if (val.endsWith("Gi")) return parseFloat(val) * 1024;
-          if (val.endsWith("Mi")) return parseFloat(val);
-          if (val.endsWith("Ki")) return parseFloat(val) / 1024;
-          return parseFloat(val);
-        }
-        const total = parseStorage(totalStr);
-        const used = parseStorage(usedStr);
-        diskUsage = total ? (used / total) * 100 : 0;
-      }
-    } catch (e) {
-      logger.error(`Error fetching node details for ${nodeName}: ${e.message}`);
-    }
-
-    if (podsObj.items) {
-      pods = podsObj.items.filter(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (pod: any) => pod.spec?.nodeName === nodeName
-      ).length;
-    }
-
+    const nodeName = node.metadata.name;
     const measurement = new StatsNodeMesurement({
       node: nodeName,
-      cpuUsage,
-      memoryUsage,
-      diskUsage,
-      pods,
+      cpuUsage: 0,
+      memoryUsage: 0,
+      pods: 0,
       timestamp,
     });
-
+    const topNodeStr = await kubernetesCommand(
+      `kubectl top node ${nodeName} --no-headers`
+    );
+    const topNodeParts = topNodeStr.trim().split(/\s+/);
+    if (topNodeParts.length < 5) {
+      continue;
+    }
+    measurement.cpuUsage = parseFloat(topNodeParts[2].replace("%", ""));
+    measurement.memoryUsage = parseFloat(topNodeParts[4].replace("%", ""));
+    if (podsObj.items) {
+      measurement.pods = podsObj.items.filter(
+        (pod: { spec?: { nodeName?: string } }) =>
+          pod.spec?.nodeName === nodeName
+      ).length;
+    }
     stats.push(measurement);
   }
 }
 
-export async function kubernetesCommandJson(command: string) {
+export async function kubernetesCommand(command: string) {
   const commandOutput = await SystemCommandExecute(
-    `${command} -o json | gzip | base64 -w 0`,
+    `${command} | gzip | base64 -w 0`,
     {
       timeout: 20000,
       maxBuffer: 1024 * 1024 * 10,

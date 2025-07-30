@@ -3,7 +3,6 @@ export class StatsNodeMesurement {
   public node: string;
   public cpuUsage: number;
   public memoryUsage: number;
-  public diskUsage: number;
   public pods: number;
   public timestamp: Date;
 
