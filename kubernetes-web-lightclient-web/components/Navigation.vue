@@ -33,6 +33,7 @@
 
 <script setup>
 import { AuthService } from "~~/services/AuthService";
+import { PreferencesService } from "~/services/PreferencesService";
 const authenticationStore = AuthenticationStore();
 </script>
 
@@ -67,6 +68,7 @@ export default {
           });
       }, 10000);
     }
+    PreferencesService.applyTheme();
   },
   methods: {
     routeUpdated(newRoute) {

@@ -146,3 +146,9 @@ export default {
   gap: 2em;
 }
 </style>
+
+<style>
+.apexcharts-tooltip {
+  color: #333;
+}
+</style>
