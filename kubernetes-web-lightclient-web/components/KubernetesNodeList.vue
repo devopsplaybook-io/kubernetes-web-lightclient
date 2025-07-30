@@ -1,6 +1,5 @@
 <template>
   <div>
-    {{ kubernetesObjectStore.data.nodes }}
     <table class="striped">
       <thead>
         <tr>
