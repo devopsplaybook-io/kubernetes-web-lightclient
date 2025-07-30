@@ -83,10 +83,17 @@ export default {
     getNodeMemory(node) {
       const capacity = node.status?.capacity?.memory;
       if (!capacity) return "N/A";
-      const memoryGB = Math.round(
-        parseInt(capacity.replace("Ki", "")) / 1024 / 1024
-      );
+      const memoryGB = this.convertMemoryToGB(capacity);
       return `${memoryGB}GB`;
+    },
+
+    convertMemoryToGB(memory) {
+      const units = { Ki: 1 / 1024 / 1024, Mi: 1 / 1024, Gi: 1, Ti: 1024 };
+      const match = memory.match(/^(\d+)([a-zA-Z]+)$/);
+      if (!match) return 0;
+      const value = parseInt(match[1], 10);
+      const unit = match[2];
+      return Math.round(value * (units[unit] || 0));
     },
     getNodeCPU(node) {
       const capacity = node.status?.capacity?.cpu;
