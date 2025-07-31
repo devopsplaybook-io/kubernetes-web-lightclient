@@ -1,6 +1,6 @@
 <template>
   <div id="stats-layout">
-    <div>
+    <div class="stats-layout-graph">
       <apexchart
         width="100%"
         type="line"
@@ -8,7 +8,7 @@
         :series="cpuChartSeries"
       />
     </div>
-    <div>
+    <div class="stats-layout-graph">
       <apexchart
         width="100%"
         type="line"
@@ -16,7 +16,7 @@
         :series="memoryChartSeries"
       />
     </div>
-    <div>
+    <div class="stats-layout-graph">
       <apexchart
         width="100%"
         type="line"
@@ -140,7 +140,7 @@ export default {
 <style scoped>
 #stats-layout {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(30em, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(25em, 1fr));
   gap: 2em;
 }
 </style>
