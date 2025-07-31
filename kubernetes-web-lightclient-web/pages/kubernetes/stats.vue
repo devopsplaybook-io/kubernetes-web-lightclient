@@ -1,29 +1,23 @@
 <template>
   <div id="stats-layout">
-    <div>
-      <apexchart
-        width="100%"
-        type="line"
-        :options="cpuChartOptions"
-        :series="cpuChartSeries"
-      />
-    </div>
-    <div>
-      <apexchart
-        width="100%"
-        type="line"
-        :options="memoryChartOptions"
-        :series="memoryChartSeries"
-      />
-    </div>
-    <div>
-      <apexchart
-        width="100%"
-        type="line"
-        :options="podsChartOptions"
-        :series="podsChartSeries"
-      />
-    </div>
+    <apexchart
+      width="100%"
+      type="line"
+      :options="cpuChartOptions"
+      :series="cpuChartSeries"
+    />
+    <apexchart
+      width="100%"
+      type="line"
+      :options="memoryChartOptions"
+      :series="memoryChartSeries"
+    />
+    <apexchart
+      width="100%"
+      type="line"
+      :options="podsChartOptions"
+      :series="podsChartSeries"
+    />
   </div>
 </template>
 
@@ -140,7 +134,7 @@ export default {
 <style scoped>
 #stats-layout {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(30em, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(25em, 1fr));
   gap: 2em;
 }
 </style>
