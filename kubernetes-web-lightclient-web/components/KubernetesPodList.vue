@@ -8,6 +8,7 @@
           <th>Status</th>
           <th>Age</th>
           <th>Ready</th>
+          <th>Restarts</th>
           <th>Details</th>
           <th>Logs</th>
           <th>Delete</th>
@@ -33,6 +34,33 @@
                 return `${readyCount}/${totalCount}`;
               })()
             }}
+          </td>
+          <td>
+            {{
+              (() => {
+                const statuses = kubeObject.status?.containerStatuses || [];
+                return statuses.reduce(
+                  (sum, s) => sum + (s.restartCount || 0),
+                  0
+                );
+              })()
+            }}
+            ({{
+              (() => {
+                const statuses = kubeObject.status?.containerStatuses || [];
+                // Find the latest restart time among all containers
+                const lastRestart = statuses
+                  .map(
+                    (s) =>
+                      s.state?.terminated?.finishedAt ||
+                      s.lastState?.terminated?.finishedAt
+                  )
+                  .filter(Boolean)
+                  .sort()
+                  .reverse()[0];
+                return lastRestart ? UtilsRelativeTime(lastRestart) : "-";
+              })()
+            }})
           </td>
           <td>
             <i

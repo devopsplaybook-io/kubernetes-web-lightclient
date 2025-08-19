@@ -2,7 +2,7 @@ import Fastify from "fastify";
 import * as path from "path";
 import { watchFile } from "fs-extra";
 import { Config } from "./Config";
-import { Logger } from "./utils-std-ts/Logger";
+import { Logger, LoggerInit } from "./utils-std-ts/Logger";
 import { UsersRoutes } from "./users/UsersRoutes";
 import {
   StandardTracerInitTelemetry,
@@ -15,6 +15,7 @@ import { KubeCtlCommandRoutes } from "./kubectl/KubeCtlCommandRoutes";
 import { KubeCtlLogsRoutes } from "./kubectl/KubeCtlLogsRoutes";
 import { StatsDataInit } from "./stats/StatsData";
 import { StatsRoutes } from "./stats/StatsRoutes";
+import { StandardMeterInitTelemetry } from "./utils-std-ts/StandardMeter";
 
 const logger = new Logger("app");
 
@@ -30,9 +31,11 @@ Promise.resolve().then(async () => {
   });
 
   StandardTracerInitTelemetry(config);
+  StandardMeterInitTelemetry(config);
 
   const span = StandardTracerStartSpan("init");
 
+  LoggerInit(span, config);
   await SqlDbUtilsInit(span, config);
   await AuthInit(span, config);
   await StatsDataInit(span, config);
@@ -86,6 +89,6 @@ Promise.resolve().then(async () => {
       fastify.log.error(err);
       process.exit(1);
     }
-    logger.info("API Listerning");
+    logger.info("API Listening");
   });
 });
