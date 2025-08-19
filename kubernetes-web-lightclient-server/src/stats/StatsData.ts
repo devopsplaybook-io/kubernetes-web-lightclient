@@ -4,6 +4,7 @@ import { Span } from "@opentelemetry/api";
 import { Logger } from "../utils-std-ts/Logger";
 import { StandardTracerStartSpan } from "../utils-std-ts/StandardTracer";
 import { SystemCommandExecute } from "../utils-std-ts/SystemCommand";
+import { StandardMeterCreateObservableGauge } from "../utils-std-ts/StandardMeter";
 
 let stats: StatsNodeMesurement[] = [];
 const logger = new Logger("StatsData");
@@ -24,6 +25,37 @@ export async function StatsDataInit(
     }
   };
   await executeStatsCapture();
+
+  StandardMeterCreateObservableGauge(
+    "kubernetes.stats.nodes.cpu",
+    (observableResult) => {
+      stats.forEach((stat) => {
+        observableResult.observe(stat.cpuUsage, { node: stat.node });
+      });
+    },
+    { description: "CPU % Usage for each node" }
+  );
+
+  StandardMeterCreateObservableGauge(
+    "kubernetes.stats.nodes.memory",
+    (observableResult) => {
+      stats.forEach((stat) => {
+        observableResult.observe(stat.memoryUsage, { node: stat.node });
+      });
+    },
+    { description: "Memory % Usage for each node" }
+  );
+
+  StandardMeterCreateObservableGauge(
+    "kubernetes.stats.nodes.pods",
+    (observableResult) => {
+      stats.forEach((stat) => {
+        observableResult.observe(stat.pods, { node: stat.node });
+      });
+    },
+    { description: "Number of pod running on each node" }
+  );
+
   setInterval(executeStatsCapture, config.STATS_FETCH_FREQUENCY * 1000);
 }
 

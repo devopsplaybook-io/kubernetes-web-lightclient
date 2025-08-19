@@ -28,21 +28,19 @@ import {
 import { FastifyInstance } from "fastify";
 import * as os from "os";
 import { Config } from "../Config";
-import { Logger } from "./Logger";
 
 let tracerInstance;
 const propagator = new W3CTraceContextPropagator();
-const logger = new Logger("StandardTracerApi");
-let meterProvider;
 let config;
 
 //
 export function StandardTracerInitTelemetry(initConfig: Config) {
   config = initConfig;
   const spanProcessors = [];
-  if (config.OPENTELEMETRY_COLLECTOR_HTTP) {
+
+  if (config.OPENTELEMETRY_COLLECTOR_HTTP_TRACES) {
     const exporter = new OTLPTraceExporter({
-      url: config.OPENTELEMETRY_COLLECTOR_HTTP,
+      url: config.OPENTELEMETRY_COLLECTOR_HTTP_TRACES,
       headers: {},
     });
     spanProcessors.push(new BatchSpanProcessor(exporter));
@@ -51,7 +49,7 @@ export function StandardTracerInitTelemetry(initConfig: Config) {
     const exporter = new CustomConsoleSpanExporter();
     spanProcessors.push(new BatchSpanProcessor(exporter));
   }
-  const provider = new NodeTracerProvider({
+  const traceProvider = new NodeTracerProvider({
     idGenerator: new AWSXRayIdGenerator(),
     resource: resourceFromAttributes({
       [ATTR_SERVICE_NAME]: `${config.SERVICE_ID}`,
@@ -60,7 +58,7 @@ export function StandardTracerInitTelemetry(initConfig: Config) {
     }),
     spanProcessors,
   });
-  provider.register();
+  traceProvider.register();
   const contextManager = new AsyncHooksContextManager();
   contextManager.enable();
   opentelemetry.context.setGlobalContextManager(contextManager);
@@ -89,11 +87,6 @@ export function StandardTracerStartSpan(name, parentSpan?: Span): Span {
     ATTR_HTTP_ROUTE,
     `${config.SERVICE_ID}-${config.VERSION}-${name}`
   );
-  span.setAttribute(
-    ATTR_SERVICE_NAME,
-    `${config.SERVICE_ID}-${config.VERSION}`
-  );
-
   return span;
 }
 
@@ -160,15 +153,7 @@ export function StandardTracerInitFastify(fastify: FastifyInstance) {
     const span = (req as any).tracerSpanApi as Span;
     span.status.code = SpanStatusCode.ERROR;
     span.recordException(error);
-    logger.error(error);
   });
-}
-
-export function StandardTracerMetricAdd(key: string, value = 1): void {
-  const meter = meterProvider.getMeter("default");
-  const counter = meter.createCounter(`${config.SERVICE_ID}-${key}`);
-  counter.add(value, { key: "value" });
-  logger.info(`+ Metric: ${config.SERVICE_ID}-${key}: ${value}`);
 }
 
 class CustomConsoleSpanExporter extends ConsoleSpanExporter {
@@ -194,12 +179,6 @@ class CustomConsoleSpanExporter extends ConsoleSpanExporter {
           `${status.code === 0 ? "OK" : "ERROR"} ${duration}ns`
       );
     });
-    resultCallback({ code: 0 });
-  }
-}
-
-class NoSpanExporter extends ConsoleSpanExporter {
-  export(spans, resultCallback) {
     resultCallback({ code: 0 });
   }
 }
