@@ -15,9 +15,13 @@ spec:
       labels:
         app: kubernetes-web-lightclient
     spec:
+      serviceAccountName: kubernetes-web-lightclient-role
       containers:
         - image: kubernetes-web-lightclient
           name: kubernetes-web-lightclient
+          env:
+            - name: APPLICATION_TITLE
+              value: Kubernetes
           resources:
             limits:
               memory: 500Mi
@@ -28,8 +32,21 @@ spec:
           volumeMounts:
             - mountPath: /data
               name: pod-volume
+            - name: config-volume
+              mountPath: /opt/app/kubernetes-web-lightclient/config.json
+              subPath: config.json
           imagePullPolicy: Always
+          readinessProbe:
+            httpGet:
+              path: /api/status
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
       volumes:
         - name: pod-volume
           persistentVolumeClaim:
             claimName: kubernetes-web-lightclient
+        - name: config-volume
+          configMap:
+            name: kubernetes-web-lightclient-config

@@ -45,8 +45,7 @@ Promise.resolve().then(async () => {
   // API
 
   const fastify = Fastify({
-    logger: config.LOG_LEVEL === "debug_tmp",
-    ignoreTrailingSlash: true,
+    logger: config.LOG_LEVEL === process.env.FASTIFY_LOG_LEVEL,
   });
 
   if (config.CORS_POLICY_ORIGIN) {

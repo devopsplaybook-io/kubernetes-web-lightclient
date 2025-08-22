@@ -13,12 +13,6 @@ if [ -f "${REPO_DIR}/docs/dev/env.sh" ]; then
 fi
 
 
-# Monitoring
-cd "${REPO_DIR}/docs/dev/monitoring"
-# docker compose down || true
-# docker compose up -d || true
-
-
 # Server
 cd "${REPO_DIR}/kubernetes-web-lightclient-server"
 if [ ! -f package-lock.json ]; then
