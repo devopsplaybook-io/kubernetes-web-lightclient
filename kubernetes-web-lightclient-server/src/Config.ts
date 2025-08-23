@@ -29,24 +29,21 @@ export class Config implements ConfigInterface {
   public async reload(): Promise<void> {
     const content = await fse.readJson(this.CONFIG_FILE);
     const setIfSet = (field: string, displayLog = true) => {
-      let fromEnv = false;
+      let fromEnv = "Defaults";
       if (process.env[field]) {
         this[field] = process.env[field];
-        fromEnv = true;
+        fromEnv = "Environment";
       } else if (content[field]) {
         this[field] = content[field];
+        fromEnv = "Config";
       }
       if (displayLog) {
         logger.info(
-          `Configuration Value: ${field}: ${this[field]} (from ${
-            fromEnv ? "Environment" : "Config"
-          })`
+          `Configuration Value: ${field}: ${this[field]} (from ${fromEnv})`
         );
       } else {
         logger.info(
-          `Configuration Value: ${field}: ******************** (from ${
-            fromEnv ? "Environment" : "Config"
-          })`
+          `Configuration Value: ${field}: ******************** (from ${fromEnv})`
         );
       }
     };
@@ -65,6 +62,6 @@ export class Config implements ConfigInterface {
     setIfSet("OPENTELEMETRY_COLLECTOR_EXPORT_LOGS_INTERVAL_SECONDS");
     setIfSet("OPENTELEMETRY_COLLECTOR_EXPORT_METRICS_INTERVAL_SECONDS");
     setIfSet("OPENTELEMETRY_COLLECTOR_AWS");
-    setIfSet("OPENTELEMETRY_COLLECT_AUTHORIZATION_HEADER");
+    setIfSet("OPENTELEMETRY_COLLECT_AUTHORIZATION_HEADER", false);
   }
 }
