@@ -5,19 +5,33 @@
         <tr>
           <th>Namespace</th>
           <th>Service</th>
+          <th>Ports</th>
           <th>Age</th>
           <th>Details</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="kubeObject of kubernetesObjectStore.data.services" v-bind:key="kubeObject.metadata.uid">
+        <tr
+          v-for="kubeObject of kubernetesObjectStore.data.services"
+          v-bind:key="kubeObject.metadata.uid"
+        >
           <td>{{ kubeObject.metadata.namespace }}</td>
           <td>{{ kubeObject.metadata.name }}</td>
-          <td>{{ UtilsRelativeTime(kubeObject.metadata.creationTimestamp) }}</td>
+          <td>
+            {{ formatPorts(kubeObject.spec.ports) }}
+          </td>
+          <td>
+            {{ UtilsRelativeTime(kubeObject.metadata.creationTimestamp) }}
+          </td>
           <td>
             <i
               class="bi bi-file-text-fill"
-              v-on:click="showDetails(kubeObject.metadata.namespace, kubeObject.metadata.name)"
+              v-on:click="
+                showDetails(
+                  kubeObject.metadata.namespace,
+                  kubeObject.metadata.name
+                )
+              "
             ></i>
           </td>
         </tr>
@@ -58,6 +72,26 @@ export default {
     KubernetesObjectStore().getServices();
   },
   methods: {
+    formatPorts(ports) {
+      if (!ports || !Array.isArray(ports)) return "";
+      return ports
+        .map((port) => {
+          let portStr = "";
+          if (port.nodePort) {
+            portStr += `${port.port}:${port.nodePort}/${
+              port.protocol || "TCP"
+            }`;
+          } else {
+            portStr += `${port.port}`;
+            if (port.targetPort && port.targetPort !== port.port) {
+              portStr += `:${port.targetPort}`;
+            }
+            portStr += `/${port.protocol || "TCP"}`;
+          }
+          return portStr;
+        })
+        .join(", ");
+    },
     onCloseDetails() {
       this.dialogDetails = {
         enable: false,
@@ -74,7 +108,13 @@ export default {
       await axios
         .post(
           `${(await Config.get()).SERVER_URL}/kubectl/command`,
-          { namespace, object: "service", command: "describe", argument: objectName, noJson: true },
+          {
+            namespace,
+            object: "service",
+            command: "describe",
+            argument: objectName,
+            noJson: true,
+          },
           await AuthService.getAuthHeader()
         )
         .then(async (res) => {

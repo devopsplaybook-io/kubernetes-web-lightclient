@@ -143,4 +143,15 @@ export default {
 .apexcharts-tooltip {
   color: #333;
 }
+:root[data-theme="dark"] .apexcharts-xaxis text,
+:root[data-theme="dark"] .apexcharts-yaxis text {
+  fill: #eee !important;
+}
+:root[data-theme="dark"] .apexcharts-legend-text {
+  color: #eee !important;
+}
+:root[data-theme="dark"] .apexcharts-title-text {
+  fill: #eee !important;
+  color: #eee !important;
+}
 </style>

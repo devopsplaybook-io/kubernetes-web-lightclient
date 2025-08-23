@@ -1,119 +1,54 @@
-# Kubernetes Web LightClient
+## Kubernetes Web LightClient
 
-Kubernetes Web LightClient is a web based user interface for Kubernetes. In it's current version it has the following features:
+Kubernetes Web LightClient is a web-based user interface for Kubernetes. In its current version, it has the following features:
 
-- List: Deployment, StatefulSet, DaemonSet, Pod, ConfigMap, Nodes, Secrets, PVC, Namespace
+- List: Deployment, StatefulSet, DaemonSet, Pod, ConfigMap, Node, Secret, PVC, Namespace
 - For Pod: Delete, Display Log
-- For Deployments, DaemonSet, Statefulset: Rollout restart
-- For Nodes: CPU and Memory information
+- For Deployment, DaemonSet, StatefulSet: Rollout restart
+- For Node: CPU and Memory information
 
-![](docs/images/pods.png?raw=true)
+![Pods Screenshot](docs/images/pods.png?raw=true)
+![Stats Screenshot](docs/images/stats.png?raw=true)
 
-![](docs/images/stats.png?raw=true)
+## Installation
 
-# Installation
+This client is meant to be deployed with Kubernetes. Here is an example YAML file.
 
-This client is meant to be deployed with Kubernetes. Here is an example of YAML file:
-Notes:
+**Notes:**
 
-- Adjust the service account to the permission that you need
-- APPLICATION_TITLE is an optional name that can be given for the instance
+- Adjust the service account permissions as needed.
+- `APPLICATION_TITLE` is an optional name that can be given to the instance.
 
-```yaml
-kind: Namespace
-apiVersion: v1
-metadata:
-  name: kubernetes-web-lightclient
-  labels:
-    name: kubernetes-web-lightclient
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: kubernetes-web-lightclient
-  labels:
-    app: kubernetes-web-lightclient
-spec:
-  replicas: 1
-  revisionHistoryLimit: 1
-  selector:
-    matchLabels:
-      app: kubernetes-web-lightclient
-  template:
-    metadata:
-      labels:
-        app: kubernetes-web-lightclient
-    spec:
-      serviceAccountName: kubernetes-web-lightclient-role
-      containers:
-        - image: devopsplaybookio/kubernetes-web-lightclient
-          name: kubernetes-web-lightclient
-          imagePullPolicy: Always
-          env:
-            - name: APPLICATION_TITLE
-              value: Home Kubernetes
-          ports:
-            - containerPort: 8080
-          resources:
-            limits:
-              memory: 500Mi
-              cpu: 500m
-            requests:
-              memory: 100Mi
-              cpu: 100m
-          volumeMounts:
-            - mountPath: /data
-              name: pod-volume
-          readinessProbe:
-            httpGet:
-              path: /api/status
-              port: 8080
-            initialDelaySeconds: 5
-            periodSeconds: 10
-            failureThreshold: 3
-      volumes:
-        - name: pod-volume
-          persistentVolumeClaim:
-            claimName: kubernetes-web-lightclient
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: kubernetes-web-lightclient
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 1Gi
----
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: kubernetes-web-lightclient-role
-subjects:
-  - kind: ServiceAccount
-    name: kubernetes-web-lightclient-role
-    namespace: kubernetes-web-lightclient
-roleRef:
-  kind: ClusterRole
-  name: cluster-admin
-  apiGroup: rbac.authorization.k8s.io
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: kubernetes-web-lightclient-role
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: kubernetes-web-lightclient
-spec:
-  ports:
-    - name: tcp
-      port: 8080
-      targetPort: 8080
-  selector:
-    app: kubernetes-web-lightclient
+To launch the application in Kubernetes with the default configuration:
+
+```bash
+git clone https://github.com/devopsplaybook-io/kubernetes-web-lightclient
+cd kubernetes-web-lightclient/docs/deployments/kubernetes/kubernetes-web-lightclient
+kubectl kustomize . | kubectl apply -f -
 ```
+
+To launch the application with the service exposed as a NodePort (for local cluster access):
+
+```bash
+git clone https://github.com/devopsplaybook-io/kubernetes-web-lightclient
+cd kubernetes-web-lightclient/docs/deployments/kubernetes/kubernetes-web-lightclient-nodeports
+kubectl kustomize . | kubectl apply -f -
+```
+
+## Configuration
+
+Configuration can be provided via a JSON configuration file (using the ConfigMap) or environment variables.
+
+See the [ConfigMap YAML](docs/deployments/kubernetes/kubernetes-web-lightclient/base/configmap.yaml) for an example configuration.
+
+| Parameter                                               | Description                                           | Default       | Availability                        |
+| ------------------------------------------------------- | ----------------------------------------------------- | ------------- | ----------------------------------- |
+| APPLICATION_TITLE                                       | Name of the application (for PWA)                     | Kubernetes    | Environment variable                |
+| STATS_FETCH_FREQUENCY                                   | Frequency (in seconds) to fetch stats from Kubernetes | 60            | Config file or environment variable |
+| STATS_RETENTION                                         | Retention period (in seconds) for stats               | 86400 (1 day) | Config file or environment variable |
+| OPENTELEMETRY_COLLECTOR_HTTP_TRACES                     | Hours before minute-level metrics are compressed      | (empty)       | Config file or environment variable |
+| OPENTELEMETRY_COLLECTOR_HTTP_METRICS                    | Days before hour-level metrics are compressed         | (empty)       | Config file or environment variable |
+| OPENTELEMETRY_COLLECTOR_HTTP_LOGS                       | OTEL collector endpoint for logs                      | (empty)       | Config file or environment variable |
+| OPENTELEMETRY_COLLECTOR_EXPORT_LOGS_INTERVAL_SECONDS    | Interval (in seconds) to export logs                  | 60            | Config file or environment variable |
+| OPENTELEMETRY_COLLECTOR_EXPORT_METRICS_INTERVAL_SECONDS | Interval (in seconds) to export metrics               | 60            | Config file or environment variable |
+| OPENTELEMETRY_COLLECT_AUTHORIZATION_HEADER              | Authorization header for OTEL collection              | (empty)       | Config file or environment variable |

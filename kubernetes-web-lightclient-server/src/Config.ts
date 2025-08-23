@@ -18,27 +18,36 @@ export class Config implements ConfigInterface {
   public LOG_LEVEL = "info";
   public STATS_FETCH_FREQUENCY = 60;
   public STATS_RETENTION = 60 * 60 * 24;
-  public OPENTELEMETRY_COLLECTOR_HTTP_TRACES: string =
-    process.env.OPENTELEMETRY_COLLECTOR_HTTP_TRACES || "";
-  public OPENTELEMETRY_COLLECTOR_HTTP_METRICS: string =
-    process.env.OPENTELEMETRY_COLLECTOR_HTTP_METRICS || "";
-  public OPENTELEMETRY_COLLECTOR_HTTP_LOGS: string =
-    process.env.OPENTELEMETRY_COLLECTOR_HTTP_LOGS || "";
-  public OPENTELEMETRY_COLLECTOR_AWS =
-    process.env.OPENTELEMETRY_COLLECTOR_AWS === "true";
+  public OPENTELEMETRY_COLLECTOR_HTTP_TRACES = "";
+  public OPENTELEMETRY_COLLECTOR_HTTP_METRICS = "";
+  public OPENTELEMETRY_COLLECTOR_HTTP_LOGS = "";
+  public OPENTELEMETRY_COLLECTOR_AWS = false;
   public OPENTELEMETRY_COLLECTOR_EXPORT_LOGS_INTERVAL_SECONDS = 60;
   public OPENTELEMETRY_COLLECTOR_EXPORT_METRICS_INTERVAL_SECONDS = 60;
+  public OPENTELEMETRY_COLLECT_AUTHORIZATION_HEADER = "";
 
   public async reload(): Promise<void> {
     const content = await fse.readJson(this.CONFIG_FILE);
     const setIfSet = (field: string, displayLog = true) => {
-      if (content[field]) {
+      let fromEnv = false;
+      if (process.env[field]) {
+        this[field] = content[field];
+        fromEnv = true;
+      } else if (content[field]) {
         this[field] = content[field];
       }
       if (displayLog) {
-        logger.info(`Configuration Value: ${field}: ${this[field]}`);
+        logger.info(
+          `Configuration Value: ${field}: ${this[field]} (from ${
+            fromEnv ? "Environment" : "Config"
+          })`
+        );
       } else {
-        logger.info(`Configuration Value: ${field}: ********************`);
+        logger.info(
+          `Configuration Value: ${field}: ******************** (from ${
+            fromEnv ? "Environment" : "Config"
+          })`
+        );
       }
     };
     logger.info(`Configuration Value: CONFIG_FILE: ${this.CONFIG_FILE}`);
@@ -56,5 +65,6 @@ export class Config implements ConfigInterface {
     setIfSet("OPENTELEMETRY_COLLECTOR_EXPORT_LOGS_INTERVAL_SECONDS");
     setIfSet("OPENTELEMETRY_COLLECTOR_EXPORT_METRICS_INTERVAL_SECONDS");
     setIfSet("OPENTELEMETRY_COLLECTOR_AWS");
+    setIfSet("OPENTELEMETRY_COLLECT_AUTHORIZATION_HEADER");
   }
 }

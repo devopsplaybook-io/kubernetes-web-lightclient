@@ -3,6 +3,7 @@ kind: Service
 metadata:
   name: kubernetes-web-lightclient
 spec:
+  type: NodePort
   ports:
     - name: tcp
       port: 8080
