@@ -1,13 +1,11 @@
-import { StatsNodeMesurement } from "../model/StatsNodeMesurement";
-import { Config } from "../Config";
 import { Span } from "@opentelemetry/api";
-import { Logger } from "../utils-std-ts/Logger";
-import { StandardTracerStartSpan } from "../utils-std-ts/StandardTracer";
+import { Config } from "../Config";
+import { StatsNodeMesurement } from "../model/StatsNodeMesurement";
+import { OTelLogger, OTelMeter, OTelTracer } from "../OTelContext";
 import { SystemCommandExecute } from "../utils-std-ts/SystemCommand";
-import { StandardMeterCreateObservableGauge } from "../utils-std-ts/StandardMeter";
 
 let stats: StatsNodeMesurement[] = [];
-const logger = new Logger("StatsData");
+const logger = OTelLogger().createModuleLogger("StatsData");
 
 export async function StatsDataInit(
   context: Span,
@@ -15,7 +13,7 @@ export async function StatsDataInit(
 ): Promise<void> {
   const executeStatsCapture = async () => {
     try {
-      const span = StandardTracerStartSpan("StatsDataInit-Loop");
+      const span = OTelTracer().startSpan("StatsDataInit-Loop");
       await StatsDataCapture();
       const cutoffTime = new Date(Date.now() - config.STATS_RETENTION * 1000);
       stats = stats.filter((stat) => stat.timestamp > cutoffTime);
@@ -26,7 +24,7 @@ export async function StatsDataInit(
   };
   await executeStatsCapture();
 
-  StandardMeterCreateObservableGauge(
+  OTelMeter().createObservableGauge(
     "kubernetes.stats.nodes.cpu",
     (observableResult) => {
       stats.forEach((stat) => {
@@ -36,7 +34,7 @@ export async function StatsDataInit(
     { description: "CPU % Usage for each node" }
   );
 
-  StandardMeterCreateObservableGauge(
+  OTelMeter().createObservableGauge(
     "kubernetes.stats.nodes.memory",
     (observableResult) => {
       stats.forEach((stat) => {
@@ -46,7 +44,7 @@ export async function StatsDataInit(
     { description: "Memory % Usage for each node" }
   );
 
-  StandardMeterCreateObservableGauge(
+  OTelMeter().createObservableGauge(
     "kubernetes.stats.nodes.pods",
     (observableResult) => {
       stats.forEach((stat) => {
