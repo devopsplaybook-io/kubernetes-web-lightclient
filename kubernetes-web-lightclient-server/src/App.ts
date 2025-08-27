@@ -1,23 +1,24 @@
+import { StandardMeter, StandardTracer } from "@devopsplaybook.io/otel-utils";
+import { StandardTracerFastifyRegisterHooks } from "@devopsplaybook.io/otel-utils-fastify";
 import Fastify from "fastify";
-import * as path from "path";
 import { watchFile } from "fs-extra";
+import * as path from "path";
 import { Config } from "./Config";
-import { Logger, LoggerInit } from "./utils-std-ts/Logger";
-import { UsersRoutes } from "./users/UsersRoutes";
-import {
-  StandardTracerInitTelemetry,
-  StandardTracerStartSpan,
-} from "./utils-std-ts/StandardTracer";
-import { SqlDbUtilsInit } from "./utils-std-ts/SqlDbUtils";
-import { StandardTracerApiRegisterHooks } from "./StandardTracerApi";
-import { AuthInit } from "./users/Auth";
 import { KubeCtlCommandRoutes } from "./kubectl/KubeCtlCommandRoutes";
 import { KubeCtlLogsRoutes } from "./kubectl/KubeCtlLogsRoutes";
+import {
+  OTelLogger,
+  OTelSetMeter,
+  OTelSetTracer,
+  OTelTracer,
+} from "./OTelContext";
 import { StatsDataInit } from "./stats/StatsData";
 import { StatsRoutes } from "./stats/StatsRoutes";
-import { StandardMeterInitTelemetry } from "./utils-std-ts/StandardMeter";
+import { AuthInit } from "./users/Auth";
+import { UsersRoutes } from "./users/UsersRoutes";
+import { SqlDbUtilsInit } from "./utils-std-ts/SqlDbUtils";
 
-const logger = new Logger("app");
+const logger = OTelLogger().createModuleLogger("app");
 
 logger.info("====== Starting kubernetes-web-lightclient Server ======");
 
@@ -30,12 +31,12 @@ Promise.resolve().then(async () => {
     config.reload();
   });
 
-  StandardTracerInitTelemetry(config);
-  StandardMeterInitTelemetry(config);
+  OTelSetTracer(new StandardTracer(config));
+  OTelSetMeter(new StandardMeter(config));
+  OTelLogger().initOTel(config);
 
-  const span = StandardTracerStartSpan("init");
+  const span = OTelTracer().startSpan("init");
 
-  LoggerInit(span, config);
   await SqlDbUtilsInit(span, config);
   await AuthInit(span, config);
   await StatsDataInit(span, config);
@@ -58,7 +59,7 @@ Promise.resolve().then(async () => {
   /* eslint-disable-next-line */
   fastify.register(require("@fastify/multipart"));
 
-  StandardTracerApiRegisterHooks(fastify, config);
+  StandardTracerFastifyRegisterHooks(fastify, OTelTracer(), OTelLogger());
 
   fastify.register(new UsersRoutes().getRoutes, {
     prefix: "/api/users",

@@ -29,6 +29,7 @@ COPY --from=builder /opt/src/kubernetes-web-lightclient-server/dist /opt/app/kub
 COPY --from=builder /opt/src/kubernetes-web-lightclient-web/.output/public /opt/app/kubernetes-web-lightclient/web
 COPY kubernetes-web-lightclient-server/config.json /opt/app/kubernetes-web-lightclient/config.json
 COPY kubernetes-web-lightclient-server/sql /opt/app/kubernetes-web-lightclient/sql
+COPY package.json /opt/app/cryptotrader/package.json
 
 WORKDIR /opt/app/kubernetes-web-lightclient
 

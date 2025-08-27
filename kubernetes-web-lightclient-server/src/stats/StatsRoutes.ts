@@ -1,4 +1,4 @@
-import { FastifyInstance, RequestGenericInterface } from "fastify";
+import { FastifyInstance } from "fastify";
 import { AuthGetUserSession } from "../users/Auth";
 import { StatsDataGet } from "./StatsData";
 
