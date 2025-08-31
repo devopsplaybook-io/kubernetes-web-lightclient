@@ -59,7 +59,9 @@ Promise.resolve().then(async () => {
   /* eslint-disable-next-line */
   fastify.register(require("@fastify/multipart"));
 
-  StandardTracerFastifyRegisterHooks(fastify, OTelTracer(), OTelLogger());
+  StandardTracerFastifyRegisterHooks(fastify, OTelTracer(), OTelLogger(), {
+    ignoreList: ["GET-/api/status"],
+  });
 
   fastify.register(new UsersRoutes().getRoutes, {
     prefix: "/api/users",
@@ -83,10 +85,21 @@ Promise.resolve().then(async () => {
     prefix: "/",
   });
 
+  fastify.setNotFoundHandler((request, reply) => {
+    if (
+      request.raw.url &&
+      !request.raw.url.startsWith("/api/") &&
+      !path.extname(request.raw.url)
+    ) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (reply as any).sendFile("index.html");
+    }
+    reply.status(404).send({ error: "Not Found" });
+  });
+
   fastify.listen({ port: config.API_PORT, host: "0.0.0.0" }, (err) => {
     if (err) {
       logger.error(err);
-      fastify.log.error(err);
       process.exit(1);
     }
     logger.info("API Listening");
