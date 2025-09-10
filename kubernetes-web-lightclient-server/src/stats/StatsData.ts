@@ -12,15 +12,15 @@ export async function StatsDataInit(
   config: Config
 ): Promise<void> {
   const executeStatsCapture = async () => {
+    const span = OTelTracer().startSpan("StatsDataInit-Loop");
     try {
-      const span = OTelTracer().startSpan("StatsDataInit-Loop");
       await StatsDataCapture();
       const cutoffTime = new Date(Date.now() - config.STATS_RETENTION * 1000);
       stats = stats.filter((stat) => stat.timestamp > cutoffTime);
-      span.end();
     } catch (error) {
-      logger.error(`Error capturing stats: ${error.message}`);
+      logger.error(`Error capturing stats`, error, span);
     }
+    span.end();
   };
   await executeStatsCapture();
 
