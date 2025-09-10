@@ -74,7 +74,7 @@ export async function AuthGetUserSession(req: any): Promise<UserSession> {
       userSession.userId = info.userId;
       userSession.isAuthenticated = true;
     } catch (err) {
-      logger.error(err);
+      logger.error("Error Getting Session", err);
     }
   }
   return userSession;
