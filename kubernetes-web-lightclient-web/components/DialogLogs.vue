@@ -22,6 +22,12 @@
             <option value="1h">Last 1h</option>
             <option value="24h">Last 1 day</option>
           </select>
+          <input
+            type="text"
+            v-model="filterText"
+            placeholder="Filter logs"
+            @input="debouncedFilter"
+          />
           <span class="actions"
             ><i class="bi bi-arrow-clockwise" v-on:click="fetchLogs"></i
           ></span>
@@ -29,7 +35,7 @@
         <pre
           id="dialog-details-logs-text"
           :style="{ whiteSpace: wrapText ? 'pre-wrap' : 'pre' }"
-          >{{ text }}</pre
+          >{{ filteredText }}</pre
         >
       </article>
     </dialog>
@@ -42,6 +48,7 @@ import { handleError, EventBus, EventTypes } from "~~/services/EventBus";
 import { UtilsDecompressData } from "~/services/Utils";
 import axios from "axios";
 import Config from "~~/services/Config.ts";
+import { debounce } from "lodash";
 
 export default {
   props: {
@@ -54,9 +61,24 @@ export default {
       text: "",
       wrapText: false,
       logTime: "all",
+      filterText: "",
+      debouncedFilter: null,
     };
   },
+  computed: {
+    filteredText() {
+      if (!this.filterText) return this.text;
+      const filterLower = this.filterText.toLowerCase();
+      return this.text
+        .split("\n")
+        .filter((line) => line.toLowerCase().includes(filterLower))
+        .join("\n");
+    },
+  },
   async created() {
+    this.debouncedFilter = debounce(() => {
+      this.filterText = this.filterText;
+    }, 300);
     await this.fetchLogs();
   },
   methods: {
@@ -96,13 +118,18 @@ export default {
 }
 #dialog-details-logs section {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto 1fr 1fr auto;
   grid-gap: 1rem;
   margin: 0;
   margin-bottom: 1rem;
   align-items: center;
 }
-#dialog-details-logs section select {
+#dialog-details-logs section select,
+#dialog-details-logs section input[type="text"] {
   margin: 0;
+}
+
+#dialog-details-logs section input[type="text"] {
+  height: 2.6rem;
 }
 </style>
