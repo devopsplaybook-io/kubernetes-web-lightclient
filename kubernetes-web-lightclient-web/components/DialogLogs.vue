@@ -23,7 +23,7 @@
             <option value="24h">Last 1 day</option>
           </select>
           <span class="actions"
-          ><i class="bi bi-arrow-clockwise" v-on:click="fetchLogs"></i
+            ><i class="bi bi-arrow-clockwise" v-on:click="fetchLogs"></i
           ></span>
         </section>
         <section class="log-controls-specific">
@@ -175,7 +175,8 @@ export default {
 #dialog-details-logs-text {
   overflow: auto;
 }
-#dialog-details-logs .log-controls-generic, #dialog-details-logs .log-controls-specific {
+#dialog-details-logs .log-controls-generic,
+#dialog-details-logs .log-controls-specific {
   display: grid;
   grid-gap: 1rem;
   margin: 0;
@@ -190,7 +191,6 @@ export default {
 #dialog-details-logs .log-controls-specific {
   grid-template-columns: 1fr 1fr 1fr;
 }
-
 
 #dialog-details-logs section select,
 #dialog-details-logs section input[type="text"] {
