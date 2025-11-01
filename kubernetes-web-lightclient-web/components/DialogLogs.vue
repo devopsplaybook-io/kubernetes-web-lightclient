@@ -142,12 +142,13 @@ export default {
         namespace: this.namespace,
         pod: this.podname,
         container: this.selectedContainer,
+        argument: "",
       };
       if (this.logTime !== "all") {
-        payload.argument = `--since=${this.logTime}`;
+        payload.argument != ` --since=${this.logTime} `;
       }
       if (this.showPreviousLog) {
-        payload.previous = true;
+        payload.argument += ` --previous `;
       }
       this.text = "Loading logs...";
       await axios
