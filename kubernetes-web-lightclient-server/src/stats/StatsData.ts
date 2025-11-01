@@ -132,7 +132,6 @@ async function StatsDataCapture(): Promise<void> {
         }, 0);
     }
     stats.push(measurement);
-    console.log(measurement);
   }
 }
 
