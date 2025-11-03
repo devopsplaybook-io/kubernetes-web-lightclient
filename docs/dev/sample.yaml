@@ -20,6 +20,10 @@ spec:
       image: nginx:latest
       ports:
         - containerPort: 80
+    - name: example-container-2
+      image: nginx:latest
+      ports:
+        - containerPort: 80
 ---
 # Deployment
 apiVersion: apps/v1

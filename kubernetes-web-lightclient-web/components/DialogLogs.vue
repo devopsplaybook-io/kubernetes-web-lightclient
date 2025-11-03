@@ -144,8 +144,9 @@ export default {
         container: this.selectedContainer,
         argument: "",
       };
+      console.log(this.logTime);
       if (this.logTime !== "all") {
-        payload.argument != ` --since=${this.logTime} `;
+        payload.argument += ` --since=${this.logTime} `;
       }
       if (this.showPreviousLog) {
         payload.argument += ` --previous `;

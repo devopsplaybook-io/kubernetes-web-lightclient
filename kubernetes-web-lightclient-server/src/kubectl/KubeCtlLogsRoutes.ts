@@ -1,6 +1,7 @@
 import { FastifyInstance, RequestGenericInterface } from "fastify";
 import { AuthGetUserSession } from "../users/Auth";
 import { SystemCommandExecute } from "../utils-std-ts/SystemCommand";
+import { Console } from "console";
 
 export class KubeCtlLogsRoutes {
   //
@@ -38,8 +39,9 @@ export class KubeCtlLogsRoutes {
       }
       const podArg = req.body.pod;
       const namespaceArg = req.body.namespace ? `-n ${req.body.namespace}` : "";
+      const containerArg = req.body.container ? `-c ${req.body.container}` : "";
       const argumentArg = req.body.argument ? req.body.argument : "";
-      const kubectlCommand = `kubectl logs ${namespaceArg} ${podArg} ${argumentArg} --timestamps`;
+      const kubectlCommand = `kubectl logs ${namespaceArg} ${podArg} ${containerArg} ${argumentArg} --timestamps`;
       const commandOutput = await SystemCommandExecute(
         `${kubectlCommand} | gzip | base64 -w 0`,
         {
