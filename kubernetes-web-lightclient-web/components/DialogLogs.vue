@@ -202,4 +202,12 @@ export default {
 #dialog-details-logs section input[type="text"] {
   height: 2.6rem;
 }
+
+#dialog-details-logs .log-controls-specific label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  display: block;
+}
 </style>

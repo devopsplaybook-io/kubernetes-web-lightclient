@@ -1,7 +1,6 @@
 import { FastifyInstance, RequestGenericInterface } from "fastify";
 import { AuthGetUserSession } from "../users/Auth";
 import { SystemCommandExecute } from "../utils-std-ts/SystemCommand";
-import { Console } from "console";
 
 export class KubeCtlLogsRoutes {
   //
