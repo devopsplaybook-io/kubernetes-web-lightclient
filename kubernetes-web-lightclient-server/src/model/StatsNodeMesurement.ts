@@ -5,6 +5,7 @@ export class StatsNodeMesurement {
   public memoryUsage: number;
   public pods: number;
   public timestamp: Date;
+  public podRestarts: number;
 
   constructor(data?: Partial<StatsNodeMesurement>) {
     if (data) {

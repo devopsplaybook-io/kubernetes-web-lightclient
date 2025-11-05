@@ -54,6 +54,17 @@ export async function StatsDataInit(
     { description: "Number of pod running on each node" }
   );
 
+  // Add observable gauge for pod restarts
+  OTelMeter().createObservableGauge(
+    "kubernetes.stats.nodes.pod_restarts",
+    (observableResult) => {
+      stats.forEach((stat) => {
+        observableResult.observe(stat.podRestarts ?? 0, { node: stat.node });
+      });
+    },
+    { description: "Number of pod restarts on each node" }
+  );
+
   setInterval(executeStatsCapture, config.STATS_FETCH_FREQUENCY * 1000);
 }
 
@@ -84,6 +95,7 @@ async function StatsDataCapture(): Promise<void> {
       memoryUsage: 0,
       pods: 0,
       timestamp,
+      podRestarts: 0, // Add podRestarts property
     });
     const topNodeStr = await kubernetesCommand(
       `kubectl top node ${nodeName} --no-headers`
@@ -99,6 +111,25 @@ async function StatsDataCapture(): Promise<void> {
         (pod: { spec?: { nodeName?: string } }) =>
           pod.spec?.nodeName === nodeName
       ).length;
+
+      // Calculate pod restarts for this node
+      measurement.podRestarts = podsObj.items
+        .filter(
+          (pod: { spec?: { nodeName?: string } }) =>
+            pod.spec?.nodeName === nodeName
+        )
+        .reduce((acc: number, pod: any) => {
+          if (pod.status && pod.status.containerStatuses) {
+            return (
+              acc +
+              pod.status.containerStatuses.reduce(
+                (sum: number, cs: any) => sum + (cs.restartCount || 0),
+                0
+              )
+            );
+          }
+          return acc;
+        }, 0);
     }
     stats.push(measurement);
   }
