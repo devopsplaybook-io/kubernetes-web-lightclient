@@ -61,4 +61,5 @@ const allowedCommands = [
   "logs",
   "delete",
   "rollout restart",
+  "create",
 ];

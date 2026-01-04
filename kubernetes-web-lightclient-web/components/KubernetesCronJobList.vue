@@ -10,6 +10,7 @@
           <th>Active</th>
           <th>Age</th>
           <th>Details</th>
+          <th>Trigger</th>
         </tr>
       </thead>
       <tbody>
@@ -34,6 +35,18 @@
                   kubeObject.metadata.name
                 )
               "
+            ></i>
+          </td>
+          <td>
+            <i
+              class="bi bi-play-circle-fill"
+              v-on:click="
+                triggerCronJob(
+                  kubeObject.metadata.namespace,
+                  kubeObject.metadata.name
+                )
+              "
+              title="Trigger CronJob"
             ></i>
           </td>
         </tr>
@@ -101,6 +114,30 @@ export default {
         )
         .then(async (res) => {
           this.dialogDetails.text = await UtilsDecompressData(res.data.result);
+        })
+        .catch(handleError);
+    },
+    async triggerCronJob(namespace, objectName) {
+      const jobName = `${objectName}-manual-${Date.now()}`;
+      if (!confirm(`Trigger CronJob "${objectName}" as job "${jobName}"?`)) {
+        return;
+      }
+      await axios
+        .post(
+          `${(await Config.get()).SERVER_URL}/kubectl/command`,
+          {
+            namespace,
+            object: "job",
+            command: "create",
+            argument: `--from=cronjob/${objectName} ${jobName}`,
+            noJson: true,
+          },
+          await AuthService.getAuthHeader()
+        )
+        .then(async (res) => {
+          alert(
+            `Job "${jobName}" created successfully from CronJob "${objectName}"`
+          );
         })
         .catch(handleError);
     },
