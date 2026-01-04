@@ -10,38 +10,60 @@
     />
     <div id="object-actions" class="actions">
       <select v-model="objectType">
-        <option value="node">Nodes</option>
-        <option value="namespace">Namespaces</option>
-        <option value="deployment">Deployments</option>
-        <option value="statefulset">StatefulSets</option>
-        <option value="daemonset">DaemonSets</option>
-        <option value="pod">Pods</option>
-        <option value="job">Jobs</option>
-        <option value="cronjob">CronJobs</option>
-        <option value="service">Services</option>
-        <option value="pvc">PVC</option>
-        <option value="pv">PV</option>
-        <option value="configmap">ConfigMap</option>
-        <option value="secret">Secrets</option>
+        <option
+          v-for="feature in enabledFeatures"
+          :key="feature.id"
+          :value="feature.id"
+        >
+          {{ feature.name }}
+        </option>
       </select>
       <span
         ><i class="bi bi-arrow-clockwise" v-on:click="refreshObject()"></i
       ></span>
     </div>
     <div id="object-list">
-      <KubernetesNodeList v-if="objectType == 'node'" />
-      <KubernetesNamespaceList v-if="objectType == 'namespace'" />
-      <KubernetesDeploymentList v-if="objectType == 'deployment'" />
-      <KubernetesPodList v-else-if="objectType == 'pod'" />
-      <KubernetesStatefulSetList v-else-if="objectType == 'statefulset'" />
-      <KubernetesDaemonSetList v-else-if="objectType == 'daemonset'" />
-      <KubernetesJobList v-else-if="objectType == 'job'" />
-      <KubernetesCronJobList v-else-if="objectType == 'cronjob'" />
-      <KubernetesServiceList v-else-if="objectType == 'service'" />
-      <KubernetesPVCList v-else-if="objectType == 'pvc'" />
-      <KubernetesPVList v-else-if="objectType == 'pv'" />
-      <KubernetesConfigMapList v-else-if="objectType == 'configmap'" />
-      <KubernetesSecretList v-else-if="objectType == 'secret'" />
+      <KubernetesNodeList
+        v-if="objectType == 'node' && isFeatureEnabled('node')"
+      />
+      <KubernetesNamespaceList
+        v-if="objectType == 'namespace' && isFeatureEnabled('namespace')"
+      />
+      <KubernetesDeploymentList
+        v-if="objectType == 'deployment' && isFeatureEnabled('deployment')"
+      />
+      <KubernetesPodList
+        v-else-if="objectType == 'pod' && isFeatureEnabled('pod')"
+      />
+      <KubernetesStatefulSetList
+        v-else-if="
+          objectType == 'statefulset' && isFeatureEnabled('statefulset')
+        "
+      />
+      <KubernetesDaemonSetList
+        v-else-if="objectType == 'daemonset' && isFeatureEnabled('daemonset')"
+      />
+      <KubernetesJobList
+        v-else-if="objectType == 'job' && isFeatureEnabled('job')"
+      />
+      <KubernetesCronJobList
+        v-else-if="objectType == 'cronjob' && isFeatureEnabled('cronjob')"
+      />
+      <KubernetesServiceList
+        v-else-if="objectType == 'service' && isFeatureEnabled('service')"
+      />
+      <KubernetesPVCList
+        v-else-if="objectType == 'pvc' && isFeatureEnabled('pvc')"
+      />
+      <KubernetesPVList
+        v-else-if="objectType == 'pv' && isFeatureEnabled('pv')"
+      />
+      <KubernetesConfigMapList
+        v-else-if="objectType == 'configmap' && isFeatureEnabled('configmap')"
+      />
+      <KubernetesSecretList
+        v-else-if="objectType == 'secret' && isFeatureEnabled('secret')"
+      />
     </div>
   </div>
 </template>
@@ -49,6 +71,7 @@
 <script>
 import { debounce } from "lodash";
 import { RefreshIntervalService } from "~~/services/RefreshIntervalService";
+import { FeatureService, FEATURES } from "~~/services/FeatureService";
 
 export default {
   data() {
@@ -58,6 +81,12 @@ export default {
       refreshIntervalId: null,
       refreshIntervalValue: RefreshIntervalService.get(),
     };
+  },
+  computed: {
+    enabledFeatures() {
+      const enabledIds = FeatureService.getEnabledFeatures();
+      return FEATURES.filter((f) => enabledIds.includes(f.id));
+    },
   },
   async created() {
     if (!(await AuthenticationStore().ensureAuthenticated())) {
@@ -72,6 +101,15 @@ export default {
       KubernetesObjectStore().setFilter(this.searchFilter);
     }
     this.refreshIntervalValue = RefreshIntervalService.get();
+
+    // Ensure the selected objectType is enabled
+    const enabledIds = FeatureService.getEnabledFeatures();
+    if (!enabledIds.includes(this.objectType)) {
+      // If current objectType is disabled, select the first enabled feature
+      if (enabledIds.length > 0) {
+        this.objectType = enabledIds[0];
+      }
+    }
   },
   mounted() {
     const interval = parseInt(this.refreshIntervalValue, 10);
@@ -121,6 +159,9 @@ export default {
     filterChanged: debounce(async function (e) {
       KubernetesObjectStore().setFilter(this.searchFilter);
     }, 500),
+    isFeatureEnabled(featureId) {
+      return FeatureService.isFeatureEnabled(featureId);
+    },
   },
 };
 </script>
