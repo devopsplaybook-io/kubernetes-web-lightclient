@@ -30,44 +30,50 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
       this.refreshLast();
     },
     getPods() {
+      const namespaceArg = NamespaceStore().getNamespaceArgument;
       this.getObject("pods", {
         object: "pods",
         command: "get",
-        argument: "-A",
+        argument: namespaceArg,
       });
     },
     getDeployments() {
+      const namespaceArg = NamespaceStore().getNamespaceArgument;
       this.getObject("deployments", {
         object: "deployments",
         command: "get",
-        argument: "-A",
+        argument: namespaceArg,
       });
     },
     getServices() {
+      const namespaceArg = NamespaceStore().getNamespaceArgument;
       this.getObject("services", {
         object: "services",
         command: "get",
-        argument: "-A",
+        argument: namespaceArg,
       });
     },
     getConfigMaps() {
+      const namespaceArg = NamespaceStore().getNamespaceArgument;
       this.getObject("configmaps", {
         object: "configmaps",
         command: "get",
-        argument: "-A",
+        argument: namespaceArg,
       });
     },
     getPVCs() {
-      this.getObject("pvcs", { object: "pvc", command: "get", argument: "-A" });
+      const namespaceArg = NamespaceStore().getNamespaceArgument;
+      this.getObject("pvcs", { object: "pvc", command: "get", argument: namespaceArg });
     },
     getPVs() {
       this.getObject("pvs", { object: "pv", command: "get", argument: "" });
     },
     getSecrets() {
+      const namespaceArg = NamespaceStore().getNamespaceArgument;
       this.getObject("secrets", {
         object: "secrets",
         command: "get",
-        argument: "-A",
+        argument: namespaceArg,
       });
     },
     getNodes() {
@@ -85,27 +91,31 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
       });
     },
     getStatefulSets() {
+      const namespaceArg = NamespaceStore().getNamespaceArgument;
       this.getObject("statefulsets", {
         object: "statefulset",
         command: "get",
-        argument: "-A",
+        argument: namespaceArg,
       });
     },
     getDaemonSets() {
+      const namespaceArg = NamespaceStore().getNamespaceArgument;
       this.getObject("daemonsets", {
         object: "daemonset",
         command: "get",
-        argument: "-A",
+        argument: namespaceArg,
       });
     },
     getJobs() {
-      this.getObject("jobs", { object: "job", command: "get", argument: "-A" });
+      const namespaceArg = NamespaceStore().getNamespaceArgument;
+      this.getObject("jobs", { object: "job", command: "get", argument: namespaceArg });
     },
     getCronJobs() {
+      const namespaceArg = NamespaceStore().getNamespaceArgument;
       this.getObject("cronjobs", {
         object: "cronjob",
         command: "get",
-        argument: "-A",
+        argument: namespaceArg,
       });
     },
     refreshLast() {

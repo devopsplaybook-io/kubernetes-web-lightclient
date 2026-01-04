@@ -1,19 +1,19 @@
 const STORAGE_KEY = "DISABLED_FEATURES";
 
 export const FEATURES = [
-  { id: "node", name: "Nodes" },
-  { id: "namespace", name: "Namespaces" },
-  { id: "deployment", name: "Deployments" },
-  { id: "statefulset", name: "StatefulSets" },
-  { id: "daemonset", name: "DaemonSets" },
-  { id: "pod", name: "Pods" },
-  { id: "job", name: "Jobs" },
-  { id: "cronjob", name: "CronJobs" },
-  { id: "service", name: "Services" },
-  { id: "pvc", name: "PVC" },
-  { id: "pv", name: "PV" },
-  { id: "configmap", name: "ConfigMap" },
-  { id: "secret", name: "Secrets" },
+  { id: "node", name: "Nodes", namespaced: false },
+  { id: "namespace", name: "Namespaces", namespaced: false },
+  { id: "deployment", name: "Deployments", namespaced: true },
+  { id: "statefulset", name: "StatefulSets", namespaced: true },
+  { id: "daemonset", name: "DaemonSets", namespaced: true },
+  { id: "pod", name: "Pods", namespaced: true },
+  { id: "job", name: "Jobs", namespaced: true },
+  { id: "cronjob", name: "CronJobs", namespaced: true },
+  { id: "service", name: "Services", namespaced: true },
+  { id: "pvc", name: "PVC", namespaced: true },
+  { id: "pv", name: "PV", namespaced: false },
+  { id: "configmap", name: "ConfigMap", namespaced: true },
+  { id: "secret", name: "Secrets", namespaced: true },
 ] as const;
 
 export type FeatureId = (typeof FEATURES)[number]["id"];
@@ -70,5 +70,10 @@ export class FeatureService {
       this.setDisabledFeatures(disabled);
       return false; // now disabled
     }
+  }
+
+  static isFeatureNamespaced(featureId: FeatureId): boolean {
+    const feature = FEATURES.find((f) => f.id === featureId);
+    return feature?.namespaced ?? false;
   }
 }

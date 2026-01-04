@@ -18,6 +18,20 @@
           {{ feature.name }}
         </option>
       </select>
+      <select
+        v-model="selectedNamespace"
+        @change="onNamespaceChange"
+        :disabled="!isCurrentFeatureNamespaced"
+      >
+        <option value="all">All Namespaces</option>
+        <option
+          v-for="ns in namespaceStore.availableNamespaces"
+          :key="ns"
+          :value="ns"
+        >
+          {{ ns }}
+        </option>
+      </select>
       <span
         ><i class="bi bi-arrow-clockwise" v-on:click="refreshObject()"></i
       ></span>
@@ -75,11 +89,14 @@ import { FeatureService, FEATURES } from "~~/services/FeatureService";
 
 export default {
   data() {
+    const namespaceStore = NamespaceStore();
     return {
       objectType: "pod",
       searchFilter: "",
       refreshIntervalId: null,
       refreshIntervalValue: RefreshIntervalService.get(),
+      namespaceStore,
+      selectedNamespace: namespaceStore.selectedNamespace,
     };
   },
   computed: {
@@ -87,14 +104,27 @@ export default {
       const enabledIds = FeatureService.getEnabledFeatures();
       return FEATURES.filter((f) => enabledIds.includes(f.id));
     },
+    isCurrentFeatureNamespaced() {
+      return FeatureService.isFeatureNamespaced(this.objectType);
+    },
   },
   async created() {
     if (!(await AuthenticationStore().ensureAuthenticated())) {
       useRouter().push({ path: "/users" });
     }
+    
+    // Load namespaces first
+    this.namespaceStore.loadSelectedNamespace();
+    this.selectedNamespace = this.namespaceStore.selectedNamespace;
+    await this.loadNamespaces();
+    
     const route = useRoute();
     if (route.query.objectType) {
       this.objectType = route.query.objectType;
+    }
+    if (route.query.namespace) {
+      this.selectedNamespace = route.query.namespace;
+      this.namespaceStore.setSelectedNamespace(route.query.namespace);
     }
     if (route.query.search) {
       this.searchFilter = route.query.search;
@@ -126,15 +156,28 @@ export default {
   },
   watch: {
     objectType(newType) {
+      // Reset namespace to "all" for non-namespaced resources
+      if (!FeatureService.isFeatureNamespaced(newType)) {
+        this.selectedNamespace = 'all';
+        this.namespaceStore.setSelectedNamespace('all');
+      }
+      
       const router = useRouter();
       const route = useRoute();
+      const query = {
+        ...route.query,
+        objectType: newType,
+        ...(this.searchFilter ? { search: this.searchFilter } : {}),
+      };
+      // Add namespace to query if current feature is namespaced
+      if (FeatureService.isFeatureNamespaced(newType) && this.selectedNamespace !== 'all') {
+        query.namespace = this.selectedNamespace;
+      } else {
+        delete query.namespace;
+      }
       router.replace({
         path: route.path,
-        query: {
-          ...route.query,
-          objectType: newType,
-          ...(this.searchFilter ? { search: this.searchFilter } : {}),
-        },
+        query,
       });
     },
     searchFilter(newFilter) {
@@ -145,6 +188,9 @@ export default {
         query.search = newFilter;
       } else {
         delete query.search;
+      }
+      if (this.isCurrentFeatureNamespaced && this.selectedNamespace !== 'all') {
+        query.namespace = this.selectedNamespace;
       }
       router.replace({
         path: route.path,
@@ -161,6 +207,33 @@ export default {
     }, 500),
     isFeatureEnabled(featureId) {
       return FeatureService.isFeatureEnabled(featureId);
+    },
+    async loadNamespaces() {
+      await KubernetesObjectStore().getNamespaces();
+      const namespaces = KubernetesObjectStore().data.namespaces
+        .map(ns => ns.metadata.name)
+        .sort();
+      this.namespaceStore.setAvailableNamespaces(namespaces);
+    },
+    onNamespaceChange() {
+      this.namespaceStore.setSelectedNamespace(this.selectedNamespace);
+      
+      // Update URL query
+      const router = useRouter();
+      const route = useRoute();
+      const query = { ...route.query };
+      if (this.selectedNamespace === 'all') {
+        delete query.namespace;
+      } else {
+        query.namespace = this.selectedNamespace;
+      }
+      router.replace({
+        path: route.path,
+        query,
+      });
+      
+      // Refresh the current view
+      this.refreshObject();
     },
   },
 };
@@ -179,7 +252,8 @@ select {
 }
 #object-actions {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 0.5em;
 }
 #object-actions span {
   padding-top: 0.3rem;
