@@ -1,19 +1,34 @@
 const STORAGE_KEY = "DISABLED_FEATURES";
 
 export const FEATURES = [
-  { id: "node", name: "Nodes", namespaced: false },
-  { id: "namespace", name: "Namespaces", namespaced: false },
+  { id: "pod", name: "Pods", namespaced: true },
   { id: "deployment", name: "Deployments", namespaced: true },
   { id: "statefulset", name: "StatefulSets", namespaced: true },
   { id: "daemonset", name: "DaemonSets", namespaced: true },
-  { id: "pod", name: "Pods", namespaced: true },
   { id: "job", name: "Jobs", namespaced: true },
   { id: "cronjob", name: "CronJobs", namespaced: true },
   { id: "service", name: "Services", namespaced: true },
-  { id: "pvc", name: "PVC", namespaced: true },
-  { id: "pv", name: "PV", namespaced: false },
+  { id: "ingress", name: "Ingresses", namespaced: true },
   { id: "configmap", name: "ConfigMap", namespaced: true },
+  { id: "pvc", name: "PVC", namespaced: true },
   { id: "secret", name: "Secrets", namespaced: true },
+  { id: "serviceaccount", name: "Service Accounts", namespaced: true },
+  { id: "role", name: "Roles", namespaced: true },
+  { id: "rolebinding", name: "Role Bindings", namespaced: true },
+  { id: "namespace", name: "Namespaces", namespaced: false },
+  { id: "node", name: "Nodes", namespaced: false },
+  { id: "pv", name: "PV", namespaced: false },
+  { id: "clusterrole", name: "Cluster Roles", namespaced: false },
+  {
+    id: "clusterrolebinding",
+    name: "Cluster Role Bindings",
+    namespaced: false,
+  },
+  {
+    id: "customresourcedefinition",
+    name: "Custom Resource Definitions",
+    namespaced: false,
+  },
 ] as const;
 
 export type FeatureId = (typeof FEATURES)[number]["id"];

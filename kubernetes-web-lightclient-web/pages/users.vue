@@ -239,9 +239,6 @@ export default {
 </script>
 
 <style scoped>
-.user-page {
-  width: min(100%, 50em);
-}
 button {
   margin-right: 1em;
 }

@@ -42,6 +42,18 @@ export const NamespaceStore = defineStore("NamespaceStore", {
         this.availableNamespaces.sort();
       }
     },
+
+    async loadNamespaces() {
+      const KubernetesObjectStore = (await import("./KubernetesObjectStore"))
+        .KubernetesObjectStore;
+      const store = KubernetesObjectStore();
+      await store.getNamespaces();
+      const namespaces = store.data.namespaces
+        .map((ns: any) => ns.metadata.name)
+        .sort();
+      console.log("Loaded namespaces:", namespaces);
+      this.setAvailableNamespaces(namespaces);
+    },
   },
 });
 

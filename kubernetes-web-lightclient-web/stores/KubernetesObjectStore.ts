@@ -17,6 +17,15 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
       secrets: [],
       pvcs: [],
       pvs: [],
+      nodes: [],
+      namespaces: [],
+      serviceaccounts: [],
+      roles: [],
+      clusterroles: [],
+      rolebindings: [],
+      clusterrolebindings: [],
+      ingresses: [],
+      customresourcedefinitions: [],
     },
     filter: "",
     lastCall: { payload: {}, type: "" },
@@ -29,93 +38,158 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
       this.filter = filter;
       this.refreshLast();
     },
-    getPods() {
+    async getPods() {
       const namespaceArg = NamespaceStore().getNamespaceArgument;
-      this.getObject("pods", {
+      await this.getObject("pods", {
         object: "pods",
         command: "get",
         argument: namespaceArg,
       });
     },
-    getDeployments() {
+    async getDeployments() {
       const namespaceArg = NamespaceStore().getNamespaceArgument;
-      this.getObject("deployments", {
+      await this.getObject("deployments", {
         object: "deployments",
         command: "get",
         argument: namespaceArg,
       });
     },
-    getServices() {
+    async getServices() {
       const namespaceArg = NamespaceStore().getNamespaceArgument;
-      this.getObject("services", {
+      await this.getObject("services", {
         object: "services",
         command: "get",
         argument: namespaceArg,
       });
     },
-    getConfigMaps() {
+    async getConfigMaps() {
       const namespaceArg = NamespaceStore().getNamespaceArgument;
-      this.getObject("configmaps", {
+      await this.getObject("configmaps", {
         object: "configmaps",
         command: "get",
         argument: namespaceArg,
       });
     },
-    getPVCs() {
+    async getPVCs() {
       const namespaceArg = NamespaceStore().getNamespaceArgument;
-      this.getObject("pvcs", { object: "pvc", command: "get", argument: namespaceArg });
+      await this.getObject("pvcs", {
+        object: "pvc",
+        command: "get",
+        argument: namespaceArg,
+      });
     },
-    getPVs() {
-      this.getObject("pvs", { object: "pv", command: "get", argument: "" });
+    async getPVs() {
+      await this.getObject("pvs", {
+        object: "pv",
+        command: "get",
+        argument: "",
+      });
     },
-    getSecrets() {
+    async getSecrets() {
       const namespaceArg = NamespaceStore().getNamespaceArgument;
-      this.getObject("secrets", {
+      await this.getObject("secrets", {
         object: "secrets",
         command: "get",
         argument: namespaceArg,
       });
     },
-    getNodes() {
-      this.getObject("nodes", {
+    async getNodes() {
+      await this.getObject("nodes", {
         object: "nodes",
         command: "get",
         argument: "",
       });
     },
-    getNamespaces() {
-      this.getObject("namespaces", {
+    async getNamespaces() {
+      await this.getObject("namespaces", {
         object: "namespaces",
         command: "get",
         argument: "",
       });
     },
-    getStatefulSets() {
+    async getStatefulSets() {
       const namespaceArg = NamespaceStore().getNamespaceArgument;
-      this.getObject("statefulsets", {
+      await this.getObject("statefulsets", {
         object: "statefulset",
         command: "get",
         argument: namespaceArg,
       });
     },
-    getDaemonSets() {
+    async getDaemonSets() {
       const namespaceArg = NamespaceStore().getNamespaceArgument;
-      this.getObject("daemonsets", {
+      await this.getObject("daemonsets", {
         object: "daemonset",
         command: "get",
         argument: namespaceArg,
       });
     },
-    getJobs() {
+    async getJobs() {
       const namespaceArg = NamespaceStore().getNamespaceArgument;
-      this.getObject("jobs", { object: "job", command: "get", argument: namespaceArg });
+      await this.getObject("jobs", {
+        object: "job",
+        command: "get",
+        argument: namespaceArg,
+      });
     },
-    getCronJobs() {
+    async getCronJobs() {
       const namespaceArg = NamespaceStore().getNamespaceArgument;
-      this.getObject("cronjobs", {
+      await this.getObject("cronjobs", {
         object: "cronjob",
         command: "get",
         argument: namespaceArg,
+      });
+    },
+    async getServiceAccounts() {
+      const namespaceArg = NamespaceStore().getNamespaceArgument;
+      await this.getObject("serviceaccounts", {
+        object: "serviceaccount",
+        command: "get",
+        argument: namespaceArg,
+      });
+    },
+    async getRoles() {
+      const namespaceArg = NamespaceStore().getNamespaceArgument;
+      await this.getObject("roles", {
+        object: "role",
+        command: "get",
+        argument: namespaceArg,
+      });
+    },
+    async getClusterRoles() {
+      await this.getObject("clusterroles", {
+        object: "clusterrole",
+        command: "get",
+        argument: "",
+      });
+    },
+    async getRoleBindings() {
+      const namespaceArg = NamespaceStore().getNamespaceArgument;
+      await this.getObject("rolebindings", {
+        object: "rolebinding",
+        command: "get",
+        argument: namespaceArg,
+      });
+    },
+    async getClusterRoleBindings() {
+      await this.getObject("clusterrolebindings", {
+        object: "clusterrolebinding",
+        command: "get",
+        argument: "",
+      });
+    },
+    async getIngresses() {
+      const namespaceArg = NamespaceStore().getNamespaceArgument;
+      await this.getObject("ingresses", {
+        object: "ingress",
+        command: "get",
+        argument: namespaceArg,
+      });
+    },
+    async getCustomResourceDefinitions() {
+      await this.getObject("customresourcedefinitions", {
+        object: "customresourcedefinition",
+        command: "get",
+        argument: "",
       });
     },
     refreshLast() {

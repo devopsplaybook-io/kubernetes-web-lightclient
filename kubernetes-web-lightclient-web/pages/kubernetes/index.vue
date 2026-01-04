@@ -78,6 +78,39 @@
       <KubernetesSecretList
         v-else-if="objectType == 'secret' && isFeatureEnabled('secret')"
       />
+      <KubernetesServiceAccountList
+        v-else-if="
+          objectType == 'serviceaccount' && isFeatureEnabled('serviceaccount')
+        "
+      />
+      <KubernetesRoleList
+        v-else-if="objectType == 'role' && isFeatureEnabled('role')"
+      />
+      <KubernetesClusterRoleList
+        v-else-if="
+          objectType == 'clusterrole' && isFeatureEnabled('clusterrole')
+        "
+      />
+      <KubernetesRoleBindingList
+        v-else-if="
+          objectType == 'rolebinding' && isFeatureEnabled('rolebinding')
+        "
+      />
+      <KubernetesClusterRoleBindingList
+        v-else-if="
+          objectType == 'clusterrolebinding' &&
+          isFeatureEnabled('clusterrolebinding')
+        "
+      />
+      <KubernetesIngressList
+        v-else-if="objectType == 'ingress' && isFeatureEnabled('ingress')"
+      />
+      <KubernetesCustomResourceDefinitionList
+        v-else-if="
+          objectType == 'customresourcedefinition' &&
+          isFeatureEnabled('customresourcedefinition')
+        "
+      />
     </div>
   </div>
 </template>
@@ -112,12 +145,11 @@ export default {
     if (!(await AuthenticationStore().ensureAuthenticated())) {
       useRouter().push({ path: "/users" });
     }
-    
+
     // Load namespaces first
-    this.namespaceStore.loadSelectedNamespace();
     this.selectedNamespace = this.namespaceStore.selectedNamespace;
-    await this.loadNamespaces();
-    
+    await this.namespaceStore.loadNamespaces();
+
     const route = useRoute();
     if (route.query.objectType) {
       this.objectType = route.query.objectType;
@@ -158,10 +190,10 @@ export default {
     objectType(newType) {
       // Reset namespace to "all" for non-namespaced resources
       if (!FeatureService.isFeatureNamespaced(newType)) {
-        this.selectedNamespace = 'all';
-        this.namespaceStore.setSelectedNamespace('all');
+        this.selectedNamespace = "all";
+        this.namespaceStore.setSelectedNamespace("all");
       }
-      
+
       const router = useRouter();
       const route = useRoute();
       const query = {
@@ -170,7 +202,10 @@ export default {
         ...(this.searchFilter ? { search: this.searchFilter } : {}),
       };
       // Add namespace to query if current feature is namespaced
-      if (FeatureService.isFeatureNamespaced(newType) && this.selectedNamespace !== 'all') {
+      if (
+        FeatureService.isFeatureNamespaced(newType) &&
+        this.selectedNamespace !== "all"
+      ) {
         query.namespace = this.selectedNamespace;
       } else {
         delete query.namespace;
@@ -189,7 +224,7 @@ export default {
       } else {
         delete query.search;
       }
-      if (this.isCurrentFeatureNamespaced && this.selectedNamespace !== 'all') {
+      if (this.isCurrentFeatureNamespaced && this.selectedNamespace !== "all") {
         query.namespace = this.selectedNamespace;
       }
       router.replace({
@@ -208,21 +243,14 @@ export default {
     isFeatureEnabled(featureId) {
       return FeatureService.isFeatureEnabled(featureId);
     },
-    async loadNamespaces() {
-      await KubernetesObjectStore().getNamespaces();
-      const namespaces = KubernetesObjectStore().data.namespaces
-        .map(ns => ns.metadata.name)
-        .sort();
-      this.namespaceStore.setAvailableNamespaces(namespaces);
-    },
     onNamespaceChange() {
       this.namespaceStore.setSelectedNamespace(this.selectedNamespace);
-      
+
       // Update URL query
       const router = useRouter();
       const route = useRoute();
       const query = { ...route.query };
-      if (this.selectedNamespace === 'all') {
+      if (this.selectedNamespace === "all") {
         delete query.namespace;
       } else {
         query.namespace = this.selectedNamespace;
@@ -231,7 +259,7 @@ export default {
         path: route.path,
         query,
       });
-      
+
       // Refresh the current view
       this.refreshObject();
     },
