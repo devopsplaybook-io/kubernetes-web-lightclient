@@ -19,7 +19,7 @@
           </td>
           <td>
             <i
-              class="bi bi-file-text-fill"
+              class="bi bi-eye-fill"
               v-on:click="showDetails(kubeObject.metadata.name)"
             ></i>
           </td>

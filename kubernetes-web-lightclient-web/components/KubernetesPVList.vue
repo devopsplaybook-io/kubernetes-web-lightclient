@@ -3,31 +3,34 @@
     <table class="striped">
       <thead>
         <tr>
-          <th>Namespace</th>
-          <th>Secret</th>
+          <th>PV</th>
+          <th>Capacity</th>
+          <th>Access Modes</th>
+          <th>Reclaim Policy</th>
+          <th>Status</th>
+          <th>Claim</th>
           <th>Age</th>
           <th>Details</th>
         </tr>
       </thead>
       <tbody>
         <tr
-          v-for="kubeObject of kubernetesObjectStore.data.secrets"
+          v-for="kubeObject of kubernetesObjectStore.data.pvs"
           v-bind:key="kubeObject.metadata.uid"
         >
-          <td>{{ kubeObject.metadata.namespace }}</td>
           <td>{{ kubeObject.metadata.name }}</td>
+          <td>{{ kubeObject.spec.capacity?.storage || "N/A" }}</td>
+          <td>{{ kubeObject.spec.accessModes?.join(", ") || "N/A" }}</td>
+          <td>{{ kubeObject.spec.persistentVolumeReclaimPolicy || "N/A" }}</td>
+          <td>{{ kubeObject.status?.phase || "Unknown" }}</td>
+          <td>{{ formatClaim(kubeObject.spec.claimRef) }}</td>
           <td>
             {{ UtilsRelativeTime(kubeObject.metadata.creationTimestamp) }}
           </td>
           <td>
             <i
               class="bi bi-eye-fill"
-              v-on:click="
-                showDetails(
-                  kubeObject.metadata.namespace,
-                  kubeObject.metadata.name
-                )
-              "
+              v-on:click="showDetails(kubeObject.metadata.name)"
             ></i>
           </td>
         </tr>
@@ -65,9 +68,13 @@ export default {
     };
   },
   async created() {
-    KubernetesObjectStore().getSecrets();
+    KubernetesObjectStore().getPVs();
   },
   methods: {
+    formatClaim(claimRef) {
+      if (!claimRef) return "N/A";
+      return `${claimRef.namespace}/${claimRef.name}`;
+    },
     onCloseDetails() {
       this.dialogDetails = {
         enable: false,
@@ -75,7 +82,7 @@ export default {
         text: "",
       };
     },
-    async showDetails(namespace, objectName) {
+    async showDetails(objectName) {
       this.dialogDetails = {
         enable: true,
         title: "Details",
@@ -85,8 +92,7 @@ export default {
         .post(
           `${(await Config.get()).SERVER_URL}/kubectl/command`,
           {
-            namespace,
-            object: "secret",
+            object: "pv",
             command: "describe",
             argument: objectName,
             noJson: true,

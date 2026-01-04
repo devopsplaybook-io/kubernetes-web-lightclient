@@ -4,18 +4,25 @@
       <thead>
         <tr>
           <th>Namespace</th>
-          <th>Secret</th>
+          <th>CronJob</th>
+          <th>Schedule</th>
+          <th>Suspend</th>
+          <th>Active</th>
           <th>Age</th>
           <th>Details</th>
+          <th>Trigger</th>
         </tr>
       </thead>
       <tbody>
         <tr
-          v-for="kubeObject of kubernetesObjectStore.data.secrets"
+          v-for="kubeObject of kubernetesObjectStore.data.cronjobs"
           v-bind:key="kubeObject.metadata.uid"
         >
           <td>{{ kubeObject.metadata.namespace }}</td>
           <td>{{ kubeObject.metadata.name }}</td>
+          <td>{{ kubeObject.spec.schedule }}</td>
+          <td>{{ kubeObject.spec.suspend || false }}</td>
+          <td>{{ kubeObject.status?.active?.length || 0 }}</td>
           <td>
             {{ UtilsRelativeTime(kubeObject.metadata.creationTimestamp) }}
           </td>
@@ -28,6 +35,18 @@
                   kubeObject.metadata.name
                 )
               "
+            ></i>
+          </td>
+          <td>
+            <i
+              class="bi bi-play-circle-fill"
+              v-on:click="
+                triggerCronJob(
+                  kubeObject.metadata.namespace,
+                  kubeObject.metadata.name
+                )
+              "
+              title="Trigger CronJob"
             ></i>
           </td>
         </tr>
@@ -65,7 +84,7 @@ export default {
     };
   },
   async created() {
-    KubernetesObjectStore().getSecrets();
+    KubernetesObjectStore().getCronJobs();
   },
   methods: {
     onCloseDetails() {
@@ -86,7 +105,7 @@ export default {
           `${(await Config.get()).SERVER_URL}/kubectl/command`,
           {
             namespace,
-            object: "secret",
+            object: "cronjob",
             command: "describe",
             argument: objectName,
             noJson: true,
@@ -95,6 +114,30 @@ export default {
         )
         .then(async (res) => {
           this.dialogDetails.text = await UtilsDecompressData(res.data.result);
+        })
+        .catch(handleError);
+    },
+    async triggerCronJob(namespace, objectName) {
+      const jobName = `${objectName}-manual-${Date.now()}`;
+      if (!confirm(`Trigger CronJob "${objectName}" as job "${jobName}"?`)) {
+        return;
+      }
+      await axios
+        .post(
+          `${(await Config.get()).SERVER_URL}/kubectl/command`,
+          {
+            namespace,
+            object: "job",
+            command: "create",
+            argument: `--from=cronjob/${objectName} ${jobName}`,
+            noJson: true,
+          },
+          await AuthService.getAuthHeader()
+        )
+        .then(async (res) => {
+          alert(
+            `Job "${jobName}" created successfully from CronJob "${objectName}"`
+          );
         })
         .catch(handleError);
     },
