@@ -11,10 +11,12 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
       daemonsets: [],
       pods: [],
       jobs: [],
+      cronjobs: [],
       services: [],
       configmaps: [],
       secrets: [],
       pvcs: [],
+      pvs: [],
     },
     filter: "",
     lastCall: { payload: {}, type: "" },
@@ -58,6 +60,9 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
     getPVCs() {
       this.getObject("pvcs", { object: "pvc", command: "get", argument: "-A" });
     },
+    getPVs() {
+      this.getObject("pvs", { object: "pv", command: "get", argument: "" });
+    },
     getSecrets() {
       this.getObject("secrets", {
         object: "secrets",
@@ -95,6 +100,13 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
     },
     getJobs() {
       this.getObject("jobs", { object: "job", command: "get", argument: "-A" });
+    },
+    getCronJobs() {
+      this.getObject("cronjobs", {
+        object: "cronjob",
+        command: "get",
+        argument: "-A",
+      });
     },
     refreshLast() {
       this.getObject(this.lastCall.type, this.lastCall.payload);

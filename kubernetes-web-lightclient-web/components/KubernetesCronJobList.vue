@@ -4,18 +4,24 @@
       <thead>
         <tr>
           <th>Namespace</th>
-          <th>Secret</th>
+          <th>CronJob</th>
+          <th>Schedule</th>
+          <th>Suspend</th>
+          <th>Active</th>
           <th>Age</th>
           <th>Details</th>
         </tr>
       </thead>
       <tbody>
         <tr
-          v-for="kubeObject of kubernetesObjectStore.data.secrets"
+          v-for="kubeObject of kubernetesObjectStore.data.cronjobs"
           v-bind:key="kubeObject.metadata.uid"
         >
           <td>{{ kubeObject.metadata.namespace }}</td>
           <td>{{ kubeObject.metadata.name }}</td>
+          <td>{{ kubeObject.spec.schedule }}</td>
+          <td>{{ kubeObject.spec.suspend || false }}</td>
+          <td>{{ kubeObject.status?.active?.length || 0 }}</td>
           <td>
             {{ UtilsRelativeTime(kubeObject.metadata.creationTimestamp) }}
           </td>
@@ -65,7 +71,7 @@ export default {
     };
   },
   async created() {
-    KubernetesObjectStore().getSecrets();
+    KubernetesObjectStore().getCronJobs();
   },
   methods: {
     onCloseDetails() {
@@ -86,7 +92,7 @@ export default {
           `${(await Config.get()).SERVER_URL}/kubectl/command`,
           {
             namespace,
-            object: "secret",
+            object: "cronjob",
             command: "describe",
             argument: objectName,
             noJson: true,

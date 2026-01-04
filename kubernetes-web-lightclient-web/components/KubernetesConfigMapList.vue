@@ -10,14 +10,24 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="kubeObject of kubernetesObjectStore.data.configmaps" v-bind:key="kubeObject.metadata.uid">
+        <tr
+          v-for="kubeObject of kubernetesObjectStore.data.configmaps"
+          v-bind:key="kubeObject.metadata.uid"
+        >
           <td>{{ kubeObject.metadata.namespace }}</td>
           <td>{{ kubeObject.metadata.name }}</td>
-          <td>{{ UtilsRelativeTime(kubeObject.metadata.creationTimestamp) }}</td>
+          <td>
+            {{ UtilsRelativeTime(kubeObject.metadata.creationTimestamp) }}
+          </td>
           <td>
             <i
-              class="bi bi-file-text-fill"
-              v-on:click="showDetails(kubeObject.metadata.namespace, kubeObject.metadata.name)"
+              class="bi bi-eye-fill"
+              v-on:click="
+                showDetails(
+                  kubeObject.metadata.namespace,
+                  kubeObject.metadata.name
+                )
+              "
             ></i>
           </td>
         </tr>
@@ -74,7 +84,13 @@ export default {
       await axios
         .post(
           `${(await Config.get()).SERVER_URL}/kubectl/command`,
-          { namespace, object: "configmap", command: "describe", argument: objectName, noJson: true },
+          {
+            namespace,
+            object: "configmap",
+            command: "describe",
+            argument: objectName,
+            noJson: true,
+          },
           await AuthService.getAuthHeader()
         )
         .then(async (res) => {

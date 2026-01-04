@@ -17,8 +17,10 @@
         <option value="daemonset">DaemonSets</option>
         <option value="pod">Pods</option>
         <option value="job">Jobs</option>
+        <option value="cronjob">CronJobs</option>
         <option value="service">Services</option>
         <option value="pvc">PVC</option>
+        <option value="pv">PV</option>
         <option value="configmap">ConfigMap</option>
         <option value="secret">Secrets</option>
       </select>
@@ -34,8 +36,10 @@
       <KubernetesStatefulSetList v-else-if="objectType == 'statefulset'" />
       <KubernetesDaemonSetList v-else-if="objectType == 'daemonset'" />
       <KubernetesJobList v-else-if="objectType == 'job'" />
+      <KubernetesCronJobList v-else-if="objectType == 'cronjob'" />
       <KubernetesServiceList v-else-if="objectType == 'service'" />
       <KubernetesPVCList v-else-if="objectType == 'pvc'" />
+      <KubernetesPVList v-else-if="objectType == 'pv'" />
       <KubernetesConfigMapList v-else-if="objectType == 'configmap'" />
       <KubernetesSecretList v-else-if="objectType == 'secret'" />
     </div>
