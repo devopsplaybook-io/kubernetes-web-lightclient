@@ -17,30 +17,10 @@ export const NamespaceStore = defineStore("NamespaceStore", {
   actions: {
     setSelectedNamespace(namespace: string) {
       this.selectedNamespace = namespace;
-      // Save to localStorage
-      if (typeof localStorage !== "undefined") {
-        localStorage.setItem("SELECTED_NAMESPACE", namespace);
-      }
-    },
-
-    loadSelectedNamespace() {
-      if (typeof localStorage !== "undefined") {
-        const saved = localStorage.getItem("SELECTED_NAMESPACE");
-        if (saved) {
-          this.selectedNamespace = saved;
-        }
-      }
     },
 
     setAvailableNamespaces(namespaces: string[]) {
       this.availableNamespaces = namespaces;
-    },
-
-    addNamespace(namespace: string) {
-      if (!this.availableNamespaces.includes(namespace)) {
-        this.availableNamespaces.push(namespace);
-        this.availableNamespaces.sort();
-      }
     },
 
     async loadNamespaces() {

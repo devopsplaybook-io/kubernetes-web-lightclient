@@ -146,7 +146,6 @@ export default {
       useRouter().push({ path: "/users" });
     }
 
-    // Load namespaces first
     this.selectedNamespace = this.namespaceStore.selectedNamespace;
     await this.namespaceStore.loadNamespaces();
 
