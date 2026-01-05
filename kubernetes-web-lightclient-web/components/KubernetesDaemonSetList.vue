@@ -13,7 +13,7 @@
       </thead>
       <tbody>
         <tr
-          v-for="kubeObject of kubernetesObjectStore.data.daemonsets"
+          v-for="kubeObject of filteredDaemonSets"
           v-bind:key="kubeObject.metadata.uid"
         >
           <td>{{ kubeObject.metadata.namespace }}</td>
@@ -63,6 +63,7 @@
 <script setup>
 import { UtilsRelativeTime } from "~~/services/Utils";
 const kubernetesObjectStore = KubernetesObjectStore();
+const namespaceStore = NamespaceStore();
 </script>
 
 <script>
@@ -84,6 +85,24 @@ export default {
   },
   async created() {
     KubernetesObjectStore().getDaemonSets();
+  },
+  computed: {
+    filteredDaemonSets() {
+      const daemonsets = this.kubernetesObjectStore.data.daemonsets || [];
+      if (this.namespaceStore.selectedNamespace === "all") {
+        return daemonsets;
+      }
+      return daemonsets.filter(
+        (daemonset) =>
+          daemonset.metadata.namespace === this.namespaceStore.selectedNamespace
+      );
+    },
+    kubernetesObjectStore() {
+      return KubernetesObjectStore();
+    },
+    namespaceStore() {
+      return NamespaceStore();
+    },
   },
   methods: {
     onCloseDetails() {

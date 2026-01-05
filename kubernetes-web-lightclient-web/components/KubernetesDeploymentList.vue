@@ -13,7 +13,7 @@
       </thead>
       <tbody>
         <tr
-          v-for="kubeObject of kubernetesObjectStore.data.deployments"
+          v-for="kubeObject of filteredDeployments"
           v-bind:key="kubeObject.metadata.uid"
         >
           <td>{{ kubeObject.metadata.namespace }}</td>
@@ -63,6 +63,7 @@
 <script setup>
 import { UtilsRelativeTime } from "~~/services/Utils";
 const kubernetesObjectStore = KubernetesObjectStore();
+const namespaceStore = NamespaceStore();
 </script>
 
 <script>
@@ -84,6 +85,25 @@ export default {
   },
   async created() {
     KubernetesObjectStore().getDeployments();
+  },
+  computed: {
+    filteredDeployments() {
+      const deployments = this.kubernetesObjectStore.data.deployments || [];
+      if (this.namespaceStore.selectedNamespace === "all") {
+        return deployments;
+      }
+      return deployments.filter(
+        (deployment) =>
+          deployment.metadata.namespace ===
+          this.namespaceStore.selectedNamespace
+      );
+    },
+    kubernetesObjectStore() {
+      return KubernetesObjectStore();
+    },
+    namespaceStore() {
+      return NamespaceStore();
+    },
   },
   methods: {
     onCloseDetails() {

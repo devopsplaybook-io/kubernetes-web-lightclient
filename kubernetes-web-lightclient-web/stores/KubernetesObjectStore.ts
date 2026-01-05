@@ -42,35 +42,35 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
       await this.getObject("pods", {
         object: "pods",
         command: "get",
-        argument: NamespaceStore().getNamespaceArgument,
+        argument: "-A",
       });
     },
     async getDeployments() {
       await this.getObject("deployments", {
         object: "deployments",
         command: "get",
-        argument: NamespaceStore().getNamespaceArgument,
+        argument: "-A",
       });
     },
     async getServices() {
       await this.getObject("services", {
         object: "services",
         command: "get",
-        argument: NamespaceStore().getNamespaceArgument,
+        argument: "-A",
       });
     },
     async getConfigMaps() {
       await this.getObject("configmaps", {
         object: "configmaps",
         command: "get",
-        argument: NamespaceStore().getNamespaceArgument,
+        argument: "-A",
       });
     },
     async getPVCs() {
       await this.getObject("pvcs", {
         object: "pvc",
         command: "get",
-        argument: NamespaceStore().getNamespaceArgument,
+        argument: "-A",
       });
     },
     async getPVs() {
@@ -84,7 +84,7 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
       await this.getObject("secrets", {
         object: "secrets",
         command: "get",
-        argument: NamespaceStore().getNamespaceArgument,
+        argument: "-A",
       });
     },
     async getNodes() {
@@ -105,42 +105,42 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
       await this.getObject("statefulsets", {
         object: "statefulset",
         command: "get",
-        argument: NamespaceStore().getNamespaceArgument,
+        argument: "-A",
       });
     },
     async getDaemonSets() {
       await this.getObject("daemonsets", {
         object: "daemonset",
         command: "get",
-        argument: NamespaceStore().getNamespaceArgument,
+        argument: "-A",
       });
     },
     async getJobs() {
       await this.getObject("jobs", {
         object: "job",
         command: "get",
-        argument: NamespaceStore().getNamespaceArgument,
+        argument: "-A",
       });
     },
     async getCronJobs() {
       await this.getObject("cronjobs", {
         object: "cronjob",
         command: "get",
-        argument: NamespaceStore().getNamespaceArgument,
+        argument: "-A",
       });
     },
     async getServiceAccounts() {
       await this.getObject("serviceaccounts", {
         object: "serviceaccount",
         command: "get",
-        argument: NamespaceStore().getNamespaceArgument,
+        argument: "-A",
       });
     },
     async getRoles() {
       await this.getObject("roles", {
         object: "role",
         command: "get",
-        argument: NamespaceStore().getNamespaceArgument,
+        argument: "-A",
       });
     },
     async getClusterRoles() {
@@ -154,7 +154,7 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
       await this.getObject("rolebindings", {
         object: "rolebinding",
         command: "get",
-        argument: NamespaceStore().getNamespaceArgument,
+        argument: "-A",
       });
     },
     async getClusterRoleBindings() {
@@ -168,7 +168,7 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
       await this.getObject("ingresses", {
         object: "ingress",
         command: "get",
-        argument: NamespaceStore().getNamespaceArgument,
+        argument: "-A",
       });
     },
     async getCustomResourceDefinitions() {
@@ -179,8 +179,7 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
       });
     },
     refreshLast() {
-      (this.lastCall.payload as any).argument =
-        NamespaceStore().getNamespaceArgument;
+      (this.lastCall.payload as any).argument = "-A";
       this.getObject(this.lastCall.type, this.lastCall.payload);
     },
     async getObject(type: string, payload: any) {

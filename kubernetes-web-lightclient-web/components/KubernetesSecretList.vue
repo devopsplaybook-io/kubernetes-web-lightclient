@@ -11,7 +11,7 @@
       </thead>
       <tbody>
         <tr
-          v-for="kubeObject of kubernetesObjectStore.data.secrets"
+          v-for="kubeObject of filteredSecrets"
           v-bind:key="kubeObject.metadata.uid"
         >
           <td>{{ kubeObject.metadata.namespace }}</td>
@@ -45,6 +45,7 @@
 <script setup>
 import { UtilsRelativeTime } from "~~/services/Utils";
 const kubernetesObjectStore = KubernetesObjectStore();
+const namespaceStore = NamespaceStore();
 </script>
 
 <script>
@@ -66,6 +67,24 @@ export default {
   },
   async created() {
     KubernetesObjectStore().getSecrets();
+  },
+  computed: {
+    filteredSecrets() {
+      const secrets = this.kubernetesObjectStore.data.secrets || [];
+      if (this.namespaceStore.selectedNamespace === "all") {
+        return secrets;
+      }
+      return secrets.filter(
+        (secret) =>
+          secret.metadata.namespace === this.namespaceStore.selectedNamespace
+      );
+    },
+    kubernetesObjectStore() {
+      return KubernetesObjectStore();
+    },
+    namespaceStore() {
+      return NamespaceStore();
+    },
   },
   methods: {
     onCloseDetails() {

@@ -16,7 +16,7 @@
       </thead>
       <tbody>
         <tr
-          v-for="kubeObject of kubernetesObjectStore.data.pods"
+          v-for="kubeObject of filteredPods"
           v-bind:key="kubeObject.metadata.uuid"
         >
           <td>{{ kubeObject.metadata.namespace }}</td>
@@ -117,6 +117,7 @@
 <script setup>
 import { UtilsRelativeTime } from "~~/services/Utils";
 const kubernetesObjectStore = KubernetesObjectStore();
+const namespaceStore = NamespaceStore();
 </script>
 
 <script>
@@ -143,6 +144,24 @@ export default {
   },
   async created() {
     KubernetesObjectStore().getPods();
+  },
+  computed: {
+    filteredPods() {
+      const pods = this.kubernetesObjectStore.data.pods || [];
+      if (this.namespaceStore.selectedNamespace === "all") {
+        return pods;
+      }
+      return pods.filter(
+        (pod) =>
+          pod.metadata.namespace === this.namespaceStore.selectedNamespace
+      );
+    },
+    kubernetesObjectStore() {
+      return KubernetesObjectStore();
+    },
+    namespaceStore() {
+      return NamespaceStore();
+    },
   },
   methods: {
     async podDelete(namespace, podname) {

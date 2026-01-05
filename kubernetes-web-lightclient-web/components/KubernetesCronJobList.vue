@@ -15,7 +15,7 @@
       </thead>
       <tbody>
         <tr
-          v-for="kubeObject of kubernetesObjectStore.data.cronjobs"
+          v-for="kubeObject of filteredCronJobs"
           v-bind:key="kubeObject.metadata.uid"
         >
           <td>{{ kubeObject.metadata.namespace }}</td>
@@ -64,6 +64,7 @@
 <script setup>
 import { UtilsRelativeTime } from "~~/services/Utils";
 const kubernetesObjectStore = KubernetesObjectStore();
+const namespaceStore = NamespaceStore();
 </script>
 
 <script>
@@ -85,6 +86,24 @@ export default {
   },
   async created() {
     KubernetesObjectStore().getCronJobs();
+  },
+  computed: {
+    filteredCronJobs() {
+      const cronjobs = this.kubernetesObjectStore.data.cronjobs || [];
+      if (this.namespaceStore.selectedNamespace === "all") {
+        return cronjobs;
+      }
+      return cronjobs.filter(
+        (cronjob) =>
+          cronjob.metadata.namespace === this.namespaceStore.selectedNamespace
+      );
+    },
+    kubernetesObjectStore() {
+      return KubernetesObjectStore();
+    },
+    namespaceStore() {
+      return NamespaceStore();
+    },
   },
   methods: {
     onCloseDetails() {

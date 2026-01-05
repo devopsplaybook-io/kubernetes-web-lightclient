@@ -13,7 +13,7 @@
       </thead>
       <tbody>
         <tr
-          v-for="kubeObject of kubernetesObjectStore.data.statefulsets"
+          v-for="kubeObject of filteredStatefulSets"
           v-bind:key="kubeObject.metadata.uid"
         >
           <td>{{ kubeObject.metadata.namespace }}</td>
@@ -63,6 +63,7 @@
 <script setup>
 import { UtilsRelativeTime } from "~~/services/Utils";
 const kubernetesObjectStore = KubernetesObjectStore();
+const namespaceStore = NamespaceStore();
 </script>
 
 <script>
@@ -84,6 +85,25 @@ export default {
   },
   async created() {
     KubernetesObjectStore().getStatefulSets();
+  },
+  computed: {
+    filteredStatefulSets() {
+      const statefulsets = this.kubernetesObjectStore.data.statefulsets || [];
+      if (this.namespaceStore.selectedNamespace === "all") {
+        return statefulsets;
+      }
+      return statefulsets.filter(
+        (statefulset) =>
+          statefulset.metadata.namespace ===
+          this.namespaceStore.selectedNamespace
+      );
+    },
+    kubernetesObjectStore() {
+      return KubernetesObjectStore();
+    },
+    namespaceStore() {
+      return NamespaceStore();
+    },
   },
   methods: {
     onCloseDetails() {

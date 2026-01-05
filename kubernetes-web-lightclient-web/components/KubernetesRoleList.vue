@@ -11,7 +11,7 @@
       </thead>
       <tbody>
         <tr
-          v-for="kubeObject of kubernetesObjectStore.data.roles"
+          v-for="kubeObject of filteredRoles"
           v-bind:key="kubeObject.metadata.uid"
         >
           <td>{{ kubeObject.metadata.namespace }}</td>
@@ -45,6 +45,7 @@
 <script setup>
 import { UtilsRelativeTime } from "~~/services/Utils";
 const kubernetesObjectStore = KubernetesObjectStore();
+const namespaceStore = NamespaceStore();
 </script>
 
 <script>
@@ -66,6 +67,24 @@ export default {
   },
   async created() {
     KubernetesObjectStore().getRoles();
+  },
+  computed: {
+    filteredRoles() {
+      const roles = this.kubernetesObjectStore.data.roles || [];
+      if (this.namespaceStore.selectedNamespace === "all") {
+        return roles;
+      }
+      return roles.filter(
+        (role) =>
+          role.metadata.namespace === this.namespaceStore.selectedNamespace
+      );
+    },
+    kubernetesObjectStore() {
+      return KubernetesObjectStore();
+    },
+    namespaceStore() {
+      return NamespaceStore();
+    },
   },
   methods: {
     onCloseDetails() {

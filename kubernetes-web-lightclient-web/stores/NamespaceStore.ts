@@ -1,17 +1,11 @@
 export const NamespaceStore = defineStore("NamespaceStore", {
   state: () => ({
-    selectedNamespace: "all", // "all" or specific namespace name
+    selectedNamespace: "all",
     availableNamespaces: [] as string[],
   }),
 
   getters: {
     isAllNamespaces: (state) => state.selectedNamespace === "all",
-    getNamespaceArgument: (state) => {
-      if (state.selectedNamespace === "all") {
-        return "-A";
-      }
-      return `-n ${state.selectedNamespace}`;
-    },
   },
 
   actions: {
@@ -26,12 +20,10 @@ export const NamespaceStore = defineStore("NamespaceStore", {
     async loadNamespaces() {
       const KubernetesObjectStore = (await import("./KubernetesObjectStore"))
         .KubernetesObjectStore;
-      const store = KubernetesObjectStore();
-      await store.getNamespaces();
-      const namespaces = store.data.namespaces
-        .map((ns: any) => ns.metadata.name)
+      await KubernetesObjectStore().getNamespaces();
+      const namespaces = KubernetesObjectStore()
+        .data.namespaces.map((ns: any) => ns.metadata.name)
         .sort();
-      console.log("Loaded namespaces:", namespaces);
       this.setAvailableNamespaces(namespaces);
     },
   },
