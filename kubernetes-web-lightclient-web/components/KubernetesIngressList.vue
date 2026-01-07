@@ -14,7 +14,7 @@
       </thead>
       <tbody>
         <tr
-          v-for="kubeObject of filteredIngresses"
+          v-for="kubeObject of kubernetesObjectStore.data.ingresses"
           v-bind:key="kubeObject.metadata.uid"
         >
           <td>{{ kubeObject.metadata.namespace }}</td>
@@ -73,24 +73,6 @@ export default {
   },
   async created() {
     KubernetesObjectStore().getIngresses();
-  },
-  computed: {
-    filteredIngresses() {
-      const ingresses = this.kubernetesObjectStore.data.ingresses || [];
-      if (this.namespaceStore.selectedNamespace === "all") {
-        return ingresses;
-      }
-      return ingresses.filter(
-        (ingress) =>
-          ingress.metadata.namespace === this.namespaceStore.selectedNamespace
-      );
-    },
-    kubernetesObjectStore() {
-      return KubernetesObjectStore();
-    },
-    namespaceStore() {
-      return NamespaceStore();
-    },
   },
   methods: {
     formatHosts(rules) {

@@ -12,7 +12,7 @@
       </thead>
       <tbody>
         <tr
-          v-for="kubeObject of filteredServices"
+          v-for="kubeObject of kubernetesObjectStore.data.services"
           v-bind:key="kubeObject.metadata.uid"
         >
           <td>{{ kubeObject.metadata.namespace }}</td>
@@ -71,24 +71,6 @@ export default {
   },
   async created() {
     KubernetesObjectStore().getServices();
-  },
-  computed: {
-    filteredServices() {
-      const services = this.kubernetesObjectStore.data.services || [];
-      if (this.namespaceStore.selectedNamespace === "all") {
-        return services;
-      }
-      return services.filter(
-        (service) =>
-          service.metadata.namespace === this.namespaceStore.selectedNamespace
-      );
-    },
-    kubernetesObjectStore() {
-      return KubernetesObjectStore();
-    },
-    namespaceStore() {
-      return NamespaceStore();
-    },
   },
   methods: {
     formatPorts(ports) {

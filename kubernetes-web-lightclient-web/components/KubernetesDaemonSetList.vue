@@ -13,7 +13,7 @@
       </thead>
       <tbody>
         <tr
-          v-for="kubeObject of filteredDaemonSets"
+          v-for="kubeObject of kubernetesObjectStore.data.daemonSets"
           v-bind:key="kubeObject.metadata.uid"
         >
           <td>{{ kubeObject.metadata.namespace }}</td>
@@ -85,24 +85,6 @@ export default {
   },
   async created() {
     KubernetesObjectStore().getDaemonSets();
-  },
-  computed: {
-    filteredDaemonSets() {
-      const daemonsets = this.kubernetesObjectStore.data.daemonsets || [];
-      if (this.namespaceStore.selectedNamespace === "all") {
-        return daemonsets;
-      }
-      return daemonsets.filter(
-        (daemonset) =>
-          daemonset.metadata.namespace === this.namespaceStore.selectedNamespace
-      );
-    },
-    kubernetesObjectStore() {
-      return KubernetesObjectStore();
-    },
-    namespaceStore() {
-      return NamespaceStore();
-    },
   },
   methods: {
     onCloseDetails() {

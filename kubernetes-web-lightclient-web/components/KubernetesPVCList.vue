@@ -11,7 +11,7 @@
       </thead>
       <tbody>
         <tr
-          v-for="kubeObject of filteredPVCs"
+          v-for="kubeObject of kubernetesObjectStore.data.pvcs"
           v-bind:key="kubeObject.metadata.uid"
         >
           <td>{{ kubeObject.metadata.namespace }}</td>
@@ -67,24 +67,6 @@ export default {
   },
   async created() {
     KubernetesObjectStore().getPVCs();
-  },
-  computed: {
-    filteredPVCs() {
-      const pvcs = this.kubernetesObjectStore.data.pvcs || [];
-      if (this.namespaceStore.selectedNamespace === "all") {
-        return pvcs;
-      }
-      return pvcs.filter(
-        (pvc) =>
-          pvc.metadata.namespace === this.namespaceStore.selectedNamespace
-      );
-    },
-    kubernetesObjectStore() {
-      return KubernetesObjectStore();
-    },
-    namespaceStore() {
-      return NamespaceStore();
-    },
   },
   methods: {
     onCloseDetails() {

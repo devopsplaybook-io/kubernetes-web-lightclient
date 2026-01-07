@@ -7,36 +7,60 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
   state: () => ({
     data: {
       deployments: [],
+      deploymentsFull: [],
       statefulsets: [],
+      statefulsetsFull: [],
       daemonsets: [],
+      daemonsetsFull: [],
       pods: [],
+      podsFull: [],
       jobs: [],
+      jobsFull: [],
       cronjobs: [],
+      cronjobsFull: [],
       services: [],
+      servicesFull: [],
       configmaps: [],
+      configmapsFull: [],
       secrets: [],
+      secretsFull: [],
       pvcs: [],
+      pvcsFull: [],
       pvs: [],
+      pvsFull: [],
       nodes: [],
+      nodesFull: [],
       namespaces: [],
+      namespacesFull: [],
       serviceaccounts: [],
+      serviceaccountsFull: [],
       roles: [],
+      rolesFull: [],
       clusterroles: [],
+      clusterrolesFull: [],
       rolebindings: [],
+      rolebindingsFull: [],
       clusterrolebindings: [],
+      clusterrolebindingsFull: [],
       ingresses: [],
+      ingressesFull: [],
       customresourcedefinitions: [],
+      customresourcedefinitionsFull: [],
     },
-    filter: "",
+    filter: { keyword: "", namespace: "" },
     lastCall: { payload: {}, type: "" },
   }),
 
   getters: {},
 
   actions: {
-    setFilter(filter: string) {
-      this.filter = filter;
-      this.refreshLast();
+    setFilterNamespace(namespace: string) {
+      this.filter.namespace = namespace;
+      this.applyFilter(this.lastCall.type);
+    },
+    setFilterKeyword(keyword: string) {
+      this.filter.keyword = keyword;
+      this.applyFilter(this.lastCall.type);
     },
     async getPods() {
       await this.getObject("pods", {
@@ -178,13 +202,21 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
         argument: "",
       });
     },
-    refreshLast() {
-      (this.lastCall.payload as any).argument = "-A";
-      this.getObject(this.lastCall.type, this.lastCall.payload);
+    async refreshLast() {
+      await this.getObject(this.lastCall.type, this.lastCall.payload);
     },
     async getObject(type: string, payload: any) {
       this.lastCall.type = type;
       this.lastCall.payload = payload;
+      this.getObjectFull(type, payload)
+        .then(async () => {
+          return this.applyFilter(type);
+        })
+        .catch((error) => {
+          console.error(error);
+        });
+    },
+    async getObjectFull(type: string, payload: any) {
       await axios
         .post(
           `${(await Config.get()).SERVER_URL}/kubectl/command`,
@@ -196,26 +228,37 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
           for (const item of JSON.parse(
             await UtilsDecompressData(response.data.result)
           ).items) {
-            if (!this.filter.trim()) {
-              items.push(item);
-              continue;
-            }
-            const keywords = this.filter
-              .toLowerCase()
-              .trim()
-              .replace(/\s+/g, " ")
-              .split(" ");
-            const itemString = JSON.stringify(item).trim().toLowerCase();
-            if (keywords.every((keyword) => itemString.includes(keyword))) {
-              items.push(item);
-              continue;
-            }
+            items.push(item);
           }
-          (this.data as any)[type] = items;
-        })
-        .catch((error) => {
-          console.error(error);
+          (this.data as any)[type + "Full"] = items;
         });
+    },
+    async applyFilter(type: string) {
+      const itemsFull = (this.data as any)[type + "Full"];
+      const items: any[] = [];
+      for (const item of itemsFull) {
+        if (
+          this.filter.namespace &&
+          item.metadata.namespace !== this.filter.namespace
+        ) {
+          continue;
+        }
+        if (!this.filter.keyword?.trim()) {
+          items.push(item);
+          continue;
+        }
+        const keywords = this.filter.keyword
+          .toLowerCase()
+          .trim()
+          .replace(/\s+/g, " ")
+          .split(" ");
+        const itemString = JSON.stringify(item).trim().toLowerCase();
+        if (keywords.every((keyword) => itemString.includes(keyword))) {
+          items.push(item);
+          continue;
+        }
+      }
+      (this.data as any)[type] = items;
     },
   },
 });

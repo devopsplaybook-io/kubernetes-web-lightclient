@@ -6,7 +6,7 @@
       v-model="searchFilter"
       placeholder="Search"
       aria-label="Search"
-      v-on:input="filterChanged"
+      v-on:input="onKeywordChanged"
     />
     <div id="object-actions" class="actions">
       <select v-model="objectType">
@@ -23,7 +23,7 @@
         @change="onNamespaceChange"
         :disabled="!isCurrentFeatureNamespaced"
       >
-        <option value="all">All Namespaces</option>
+        <option value="*">All Namespaces</option>
         <option
           v-for="ns in namespaceStore.availableNamespaces"
           :key="ns"
@@ -129,7 +129,7 @@ export default {
       refreshIntervalId: null,
       refreshIntervalValue: RefreshIntervalService.get(),
       namespaceStore,
-      selectedNamespace: namespaceStore.selectedNamespace,
+      selectedNamespace: "*",
     };
   },
   computed: {
@@ -146,7 +146,6 @@ export default {
       useRouter().push({ path: "/users" });
     }
 
-    this.selectedNamespace = this.namespaceStore.selectedNamespace;
     await this.namespaceStore.loadNamespaces();
 
     const route = useRoute();
@@ -155,18 +154,22 @@ export default {
     }
     if (route.query.namespace) {
       this.selectedNamespace = route.query.namespace;
-      this.namespaceStore.setSelectedNamespace(route.query.namespace);
+      KubernetesObjectStore().setFilterNamespace(route.query.namespace);
+    } else {
+      this.selectedNamespace = "*";
+      KubernetesObjectStore().setFilterNamespace("");
     }
     if (route.query.search) {
       this.searchFilter = route.query.search;
-      KubernetesObjectStore().setFilter(this.searchFilter);
+      KubernetesObjectStore().setFilterKeyword(this.searchFilter);
     }
+
+    KubernetesObjectStore().refreshLast();
+
     this.refreshIntervalValue = RefreshIntervalService.get();
 
-    // Ensure the selected objectType is enabled
     const enabledIds = FeatureService.getEnabledFeatures();
     if (!enabledIds.includes(this.objectType)) {
-      // If current objectType is disabled, select the first enabled feature
       if (enabledIds.length > 0) {
         this.objectType = enabledIds[0];
       }
@@ -187,10 +190,8 @@ export default {
   },
   watch: {
     objectType(newType) {
-      // Reset namespace to "all" for non-namespaced resources
       if (!FeatureService.isFeatureNamespaced(newType)) {
-        this.selectedNamespace = "all";
-        this.namespaceStore.setSelectedNamespace("all");
+        this.selectedNamespace = "*";
       }
 
       const router = useRouter();
@@ -200,10 +201,9 @@ export default {
         objectType: newType,
         ...(this.searchFilter ? { search: this.searchFilter } : {}),
       };
-      // Add namespace to query if current feature is namespaced
       if (
         FeatureService.isFeatureNamespaced(newType) &&
-        this.selectedNamespace !== "all"
+        this.selectedNamespace !== "*"
       ) {
         query.namespace = this.selectedNamespace;
       } else {
@@ -223,7 +223,7 @@ export default {
       } else {
         delete query.search;
       }
-      if (this.isCurrentFeatureNamespaced && this.selectedNamespace !== "all") {
+      if (this.isCurrentFeatureNamespaced && this.selectedNamespace !== "*") {
         query.namespace = this.selectedNamespace;
       }
       router.replace({
@@ -236,20 +236,22 @@ export default {
     refreshObject() {
       KubernetesObjectStore().refreshLast();
     },
-    filterChanged: debounce(async function (e) {
-      KubernetesObjectStore().setFilter(this.searchFilter);
+    onKeywordChanged: debounce(async function (e) {
+      KubernetesObjectStore().setFilterKeyword(this.searchFilter);
     }, 500),
     isFeatureEnabled(featureId) {
       return FeatureService.isFeatureEnabled(featureId);
     },
     onNamespaceChange() {
-      this.namespaceStore.setSelectedNamespace(this.selectedNamespace);
-
-      // Update URL query
+      KubernetesObjectStore().setFilterNamespace(
+        this.selectedNamespace && this.selectedNamespace !== "*"
+          ? this.selectedNamespace
+          : ""
+      );
       const router = useRouter();
       const route = useRoute();
       const query = { ...route.query };
-      if (this.selectedNamespace === "all") {
+      if (this.selectedNamespace === "*") {
         delete query.namespace;
       } else {
         query.namespace = this.selectedNamespace;
@@ -258,9 +260,6 @@ export default {
         path: route.path,
         query,
       });
-
-      // Refresh the current view
-      this.refreshObject();
     },
   },
 };
