@@ -162,6 +162,9 @@ export default {
     if (route.query.search) {
       this.searchFilter = route.query.search;
       KubernetesObjectStore().setFilterKeyword(this.searchFilter);
+    } else {
+      this.searchFilter = "";
+      KubernetesObjectStore().setFilterKeyword("");
     }
 
     KubernetesObjectStore().refreshLast();

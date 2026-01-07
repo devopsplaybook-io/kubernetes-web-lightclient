@@ -206,6 +206,7 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
       await this.getObject(this.lastCall.type, this.lastCall.payload);
     },
     async getObject(type: string, payload: any) {
+      console.log(this.filter);
       this.lastCall.type = type;
       this.lastCall.payload = payload;
       this.getObjectFull(type, payload)
