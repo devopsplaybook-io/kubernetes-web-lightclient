@@ -58,6 +58,20 @@
       <button @click="toggleTheme" style="margin-bottom: 1em">
         Switch to {{ isDark ? "Light" : "Dark" }} Mode
       </button>
+
+      <h1>Features</h1>
+      <div class="features-grid">
+        <div v-for="feature in features" :key="feature.id" class="feature-item">
+          <label>
+            <input
+              type="checkbox"
+              :checked="!disabledFeatures.has(feature.id)"
+              @change="toggleFeature(feature.id)"
+            />
+            {{ feature.name }}
+          </label>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -74,6 +88,7 @@ import { handleError, EventBus, EventTypes } from "~~/services/EventBus";
 import { UserService } from "~~/services/UserService";
 import { RefreshIntervalService } from "~~/services/RefreshIntervalService";
 import { PreferencesService } from "~/services/PreferencesService";
+import { FeatureService, FEATURES } from "~/services/FeatureService";
 
 export default {
   data() {
@@ -92,6 +107,8 @@ export default {
       isChangePasswordStarted: false,
       isDark,
       refreshInterval: RefreshIntervalService.get(),
+      features: FEATURES,
+      disabledFeatures: FeatureService.getDisabledFeatures(),
     };
   },
   async created() {
@@ -209,18 +226,43 @@ export default {
     toggleTheme() {
       PreferencesService.toggleTheme(this);
     },
+    toggleFeature(featureId) {
+      const isEnabled = FeatureService.toggleFeature(featureId);
+      this.disabledFeatures = FeatureService.getDisabledFeatures();
+      EventBus.emit(EventTypes.ALERT_MESSAGE, {
+        type: "info",
+        text: `Feature ${featureId} ${isEnabled ? "enabled" : "disabled"}`,
+      });
+    },
   },
 };
 </script>
 
 <style scoped>
-.user-page {
-  width: min(100%, 50em);
-}
 button {
   margin-right: 1em;
 }
 h1 {
   margin-top: 1em;
+}
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.5em;
+  margin-top: 0.5em;
+}
+.feature-item {
+  display: flex;
+  align-items: center;
+}
+.feature-item label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+.feature-item input[type="checkbox"] {
+  margin-right: 0.5em;
+  cursor: pointer;
 }
 </style>

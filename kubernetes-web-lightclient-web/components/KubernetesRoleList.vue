@@ -4,14 +4,14 @@
       <thead>
         <tr>
           <th>Namespace</th>
-          <th>PVC</th>
+          <th>Role</th>
           <th>Age</th>
           <th>Details</th>
         </tr>
       </thead>
       <tbody>
         <tr
-          v-for="kubeObject of kubernetesObjectStore.data.pvcs"
+          v-for="kubeObject of kubernetesObjectStore.data.roles"
           v-bind:key="kubeObject.metadata.uid"
         >
           <td>{{ kubeObject.metadata.namespace }}</td>
@@ -66,7 +66,7 @@ export default {
     };
   },
   async created() {
-    KubernetesObjectStore().getPVCs();
+    KubernetesObjectStore().getRoles();
   },
   methods: {
     onCloseDetails() {
@@ -87,7 +87,7 @@ export default {
           `${(await Config.get()).SERVER_URL}/kubectl/command`,
           {
             namespace,
-            object: "pvc",
+            object: "role",
             command: "describe",
             argument: objectName,
             noJson: true,

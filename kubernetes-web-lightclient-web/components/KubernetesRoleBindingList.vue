@@ -4,18 +4,20 @@
       <thead>
         <tr>
           <th>Namespace</th>
-          <th>PVC</th>
+          <th>Role Binding</th>
+          <th>Role</th>
           <th>Age</th>
           <th>Details</th>
         </tr>
       </thead>
       <tbody>
         <tr
-          v-for="kubeObject of kubernetesObjectStore.data.pvcs"
+          v-for="kubeObject of kubernetesObjectStore.data.rolebindings"
           v-bind:key="kubeObject.metadata.uid"
         >
           <td>{{ kubeObject.metadata.namespace }}</td>
           <td>{{ kubeObject.metadata.name }}</td>
+          <td>{{ kubeObject.roleRef?.name || "N/A" }}</td>
           <td>
             {{ UtilsRelativeTime(kubeObject.metadata.creationTimestamp) }}
           </td>
@@ -66,7 +68,7 @@ export default {
     };
   },
   async created() {
-    KubernetesObjectStore().getPVCs();
+    KubernetesObjectStore().getRoleBindings();
   },
   methods: {
     onCloseDetails() {
@@ -87,7 +89,7 @@ export default {
           `${(await Config.get()).SERVER_URL}/kubectl/command`,
           {
             namespace,
-            object: "pvc",
+            object: "rolebinding",
             command: "describe",
             argument: objectName,
             noJson: true,

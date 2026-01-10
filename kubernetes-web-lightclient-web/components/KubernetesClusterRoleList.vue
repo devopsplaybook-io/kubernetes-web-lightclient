@@ -3,18 +3,16 @@
     <table class="striped">
       <thead>
         <tr>
-          <th>Namespace</th>
-          <th>PVC</th>
+          <th>Cluster Role</th>
           <th>Age</th>
           <th>Details</th>
         </tr>
       </thead>
       <tbody>
         <tr
-          v-for="kubeObject of kubernetesObjectStore.data.pvcs"
+          v-for="kubeObject of kubernetesObjectStore.data.clusterroles"
           v-bind:key="kubeObject.metadata.uid"
         >
-          <td>{{ kubeObject.metadata.namespace }}</td>
           <td>{{ kubeObject.metadata.name }}</td>
           <td>
             {{ UtilsRelativeTime(kubeObject.metadata.creationTimestamp) }}
@@ -22,12 +20,7 @@
           <td>
             <i
               class="bi bi-eye-fill"
-              v-on:click="
-                showDetails(
-                  kubeObject.metadata.namespace,
-                  kubeObject.metadata.name
-                )
-              "
+              v-on:click="showDetails(kubeObject.metadata.name)"
             ></i>
           </td>
         </tr>
@@ -45,7 +38,6 @@
 <script setup>
 import { UtilsRelativeTime } from "~~/services/Utils";
 const kubernetesObjectStore = KubernetesObjectStore();
-const namespaceStore = NamespaceStore();
 </script>
 
 <script>
@@ -66,7 +58,7 @@ export default {
     };
   },
   async created() {
-    KubernetesObjectStore().getPVCs();
+    KubernetesObjectStore().getClusterRoles();
   },
   methods: {
     onCloseDetails() {
@@ -76,7 +68,7 @@ export default {
         text: "",
       };
     },
-    async showDetails(namespace, objectName) {
+    async showDetails(objectName) {
       this.dialogDetails = {
         enable: true,
         title: "Details",
@@ -86,8 +78,7 @@ export default {
         .post(
           `${(await Config.get()).SERVER_URL}/kubectl/command`,
           {
-            namespace,
-            object: "pvc",
+            object: "clusterrole",
             command: "describe",
             argument: objectName,
             noJson: true,

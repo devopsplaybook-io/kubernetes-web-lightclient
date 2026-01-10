@@ -6,42 +6,111 @@
       v-model="searchFilter"
       placeholder="Search"
       aria-label="Search"
-      v-on:input="filterChanged"
+      v-on:input="onKeywordChanged"
     />
     <div id="object-actions" class="actions">
       <select v-model="objectType">
-        <option value="node">Nodes</option>
-        <option value="namespace">Namespaces</option>
-        <option value="deployment">Deployments</option>
-        <option value="statefulset">StatefulSets</option>
-        <option value="daemonset">DaemonSets</option>
-        <option value="pod">Pods</option>
-        <option value="job">Jobs</option>
-        <option value="cronjob">CronJobs</option>
-        <option value="service">Services</option>
-        <option value="pvc">PVC</option>
-        <option value="pv">PV</option>
-        <option value="configmap">ConfigMap</option>
-        <option value="secret">Secrets</option>
+        <option
+          v-for="feature in enabledFeatures"
+          :key="feature.id"
+          :value="feature.id"
+        >
+          {{ feature.name }}
+        </option>
+      </select>
+      <select
+        v-model="selectedNamespace"
+        @change="onNamespaceChange"
+        :disabled="!isCurrentFeatureNamespaced"
+      >
+        <option value="*">All Namespaces</option>
+        <option
+          v-for="ns in namespaceStore.availableNamespaces"
+          :key="ns"
+          :value="ns"
+        >
+          {{ ns }}
+        </option>
       </select>
       <span
         ><i class="bi bi-arrow-clockwise" v-on:click="refreshObject()"></i
       ></span>
     </div>
     <div id="object-list">
-      <KubernetesNodeList v-if="objectType == 'node'" />
-      <KubernetesNamespaceList v-if="objectType == 'namespace'" />
-      <KubernetesDeploymentList v-if="objectType == 'deployment'" />
-      <KubernetesPodList v-else-if="objectType == 'pod'" />
-      <KubernetesStatefulSetList v-else-if="objectType == 'statefulset'" />
-      <KubernetesDaemonSetList v-else-if="objectType == 'daemonset'" />
-      <KubernetesJobList v-else-if="objectType == 'job'" />
-      <KubernetesCronJobList v-else-if="objectType == 'cronjob'" />
-      <KubernetesServiceList v-else-if="objectType == 'service'" />
-      <KubernetesPVCList v-else-if="objectType == 'pvc'" />
-      <KubernetesPVList v-else-if="objectType == 'pv'" />
-      <KubernetesConfigMapList v-else-if="objectType == 'configmap'" />
-      <KubernetesSecretList v-else-if="objectType == 'secret'" />
+      <KubernetesNodeList
+        v-if="objectType == 'node' && isFeatureEnabled('node')"
+      />
+      <KubernetesNamespaceList
+        v-if="objectType == 'namespace' && isFeatureEnabled('namespace')"
+      />
+      <KubernetesDeploymentList
+        v-if="objectType == 'deployment' && isFeatureEnabled('deployment')"
+      />
+      <KubernetesPodList
+        v-else-if="objectType == 'pod' && isFeatureEnabled('pod')"
+      />
+      <KubernetesStatefulSetList
+        v-else-if="
+          objectType == 'statefulset' && isFeatureEnabled('statefulset')
+        "
+      />
+      <KubernetesDaemonSetList
+        v-else-if="objectType == 'daemonset' && isFeatureEnabled('daemonset')"
+      />
+      <KubernetesJobList
+        v-else-if="objectType == 'job' && isFeatureEnabled('job')"
+      />
+      <KubernetesCronJobList
+        v-else-if="objectType == 'cronjob' && isFeatureEnabled('cronjob')"
+      />
+      <KubernetesServiceList
+        v-else-if="objectType == 'service' && isFeatureEnabled('service')"
+      />
+      <KubernetesPVCList
+        v-else-if="objectType == 'pvc' && isFeatureEnabled('pvc')"
+      />
+      <KubernetesPVList
+        v-else-if="objectType == 'pv' && isFeatureEnabled('pv')"
+      />
+      <KubernetesConfigMapList
+        v-else-if="objectType == 'configmap' && isFeatureEnabled('configmap')"
+      />
+      <KubernetesSecretList
+        v-else-if="objectType == 'secret' && isFeatureEnabled('secret')"
+      />
+      <KubernetesServiceAccountList
+        v-else-if="
+          objectType == 'serviceaccount' && isFeatureEnabled('serviceaccount')
+        "
+      />
+      <KubernetesRoleList
+        v-else-if="objectType == 'role' && isFeatureEnabled('role')"
+      />
+      <KubernetesClusterRoleList
+        v-else-if="
+          objectType == 'clusterrole' && isFeatureEnabled('clusterrole')
+        "
+      />
+      <KubernetesRoleBindingList
+        v-else-if="
+          objectType == 'rolebinding' && isFeatureEnabled('rolebinding')
+        "
+      />
+      <KubernetesClusterRoleBindingList
+        v-else-if="
+          objectType == 'clusterrolebinding' &&
+          isFeatureEnabled('clusterrolebinding')
+        "
+      />
+      <KubernetesIngressList
+        v-else-if="objectType == 'ingress' && isFeatureEnabled('ingress')"
+      />
+      <KubernetesCustomResourceDefinitionList
+        v-else-if="
+          objectType == 'customresourcedefinition' &&
+          isFeatureEnabled('customresourcedefinition')
+        "
+      />
     </div>
   </div>
 </template>
@@ -49,29 +118,65 @@
 <script>
 import { debounce } from "lodash";
 import { RefreshIntervalService } from "~~/services/RefreshIntervalService";
+import { FeatureService, FEATURES } from "~~/services/FeatureService";
 
 export default {
   data() {
+    const namespaceStore = NamespaceStore();
     return {
       objectType: "pod",
       searchFilter: "",
       refreshIntervalId: null,
       refreshIntervalValue: RefreshIntervalService.get(),
+      namespaceStore,
+      selectedNamespace: "*",
     };
+  },
+  computed: {
+    enabledFeatures() {
+      const enabledIds = FeatureService.getEnabledFeatures();
+      return FEATURES.filter((f) => enabledIds.includes(f.id));
+    },
+    isCurrentFeatureNamespaced() {
+      return FeatureService.isFeatureNamespaced(this.objectType);
+    },
   },
   async created() {
     if (!(await AuthenticationStore().ensureAuthenticated())) {
       useRouter().push({ path: "/users" });
     }
+
+    await this.namespaceStore.loadNamespaces();
+
     const route = useRoute();
     if (route.query.objectType) {
       this.objectType = route.query.objectType;
     }
+    if (route.query.namespace) {
+      this.selectedNamespace = route.query.namespace;
+      KubernetesObjectStore().setFilterNamespace(route.query.namespace);
+    } else {
+      this.selectedNamespace = "*";
+      KubernetesObjectStore().setFilterNamespace("");
+    }
     if (route.query.search) {
       this.searchFilter = route.query.search;
-      KubernetesObjectStore().setFilter(this.searchFilter);
+      KubernetesObjectStore().setFilterKeyword(this.searchFilter);
+    } else {
+      this.searchFilter = "";
+      KubernetesObjectStore().setFilterKeyword("");
     }
+
+    KubernetesObjectStore().refreshLast();
+
     this.refreshIntervalValue = RefreshIntervalService.get();
+
+    const enabledIds = FeatureService.getEnabledFeatures();
+    if (!enabledIds.includes(this.objectType)) {
+      if (enabledIds.length > 0) {
+        this.objectType = enabledIds[0];
+      }
+    }
   },
   mounted() {
     const interval = parseInt(this.refreshIntervalValue, 10);
@@ -88,15 +193,28 @@ export default {
   },
   watch: {
     objectType(newType) {
+      if (!FeatureService.isFeatureNamespaced(newType)) {
+        this.selectedNamespace = "*";
+      }
+
       const router = useRouter();
       const route = useRoute();
+      const query = {
+        ...route.query,
+        objectType: newType,
+        ...(this.searchFilter ? { search: this.searchFilter } : {}),
+      };
+      if (
+        FeatureService.isFeatureNamespaced(newType) &&
+        this.selectedNamespace !== "*"
+      ) {
+        query.namespace = this.selectedNamespace;
+      } else {
+        delete query.namespace;
+      }
       router.replace({
         path: route.path,
-        query: {
-          ...route.query,
-          objectType: newType,
-          ...(this.searchFilter ? { search: this.searchFilter } : {}),
-        },
+        query,
       });
     },
     searchFilter(newFilter) {
@@ -108,6 +226,9 @@ export default {
       } else {
         delete query.search;
       }
+      if (this.isCurrentFeatureNamespaced && this.selectedNamespace !== "*") {
+        query.namespace = this.selectedNamespace;
+      }
       router.replace({
         path: route.path,
         query,
@@ -118,9 +239,31 @@ export default {
     refreshObject() {
       KubernetesObjectStore().refreshLast();
     },
-    filterChanged: debounce(async function (e) {
-      KubernetesObjectStore().setFilter(this.searchFilter);
+    onKeywordChanged: debounce(async function (e) {
+      KubernetesObjectStore().setFilterKeyword(this.searchFilter);
     }, 500),
+    isFeatureEnabled(featureId) {
+      return FeatureService.isFeatureEnabled(featureId);
+    },
+    onNamespaceChange() {
+      KubernetesObjectStore().setFilterNamespace(
+        this.selectedNamespace && this.selectedNamespace !== "*"
+          ? this.selectedNamespace
+          : ""
+      );
+      const router = useRouter();
+      const route = useRoute();
+      const query = { ...route.query };
+      if (this.selectedNamespace === "*") {
+        delete query.namespace;
+      } else {
+        query.namespace = this.selectedNamespace;
+      }
+      router.replace({
+        path: route.path,
+        query,
+      });
+    },
   },
 };
 </script>
@@ -138,7 +281,8 @@ select {
 }
 #object-actions {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 0.5em;
 }
 #object-actions span {
   padding-top: 0.3rem;

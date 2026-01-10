@@ -3,31 +3,31 @@
     <table class="striped">
       <thead>
         <tr>
-          <th>Namespace</th>
-          <th>PVC</th>
+          <th>Name</th>
+          <th>Group</th>
+          <th>Version</th>
+          <th>Scope</th>
           <th>Age</th>
           <th>Details</th>
         </tr>
       </thead>
       <tbody>
         <tr
-          v-for="kubeObject of kubernetesObjectStore.data.pvcs"
+          v-for="kubeObject of kubernetesObjectStore.data
+            .customresourcedefinitions"
           v-bind:key="kubeObject.metadata.uid"
         >
-          <td>{{ kubeObject.metadata.namespace }}</td>
           <td>{{ kubeObject.metadata.name }}</td>
+          <td>{{ kubeObject.spec?.group || "N/A" }}</td>
+          <td>{{ formatVersions(kubeObject.spec?.versions) }}</td>
+          <td>{{ kubeObject.spec?.scope || "N/A" }}</td>
           <td>
             {{ UtilsRelativeTime(kubeObject.metadata.creationTimestamp) }}
           </td>
           <td>
             <i
               class="bi bi-eye-fill"
-              v-on:click="
-                showDetails(
-                  kubeObject.metadata.namespace,
-                  kubeObject.metadata.name
-                )
-              "
+              v-on:click="showDetails(kubeObject.metadata.name)"
             ></i>
           </td>
         </tr>
@@ -45,7 +45,6 @@
 <script setup>
 import { UtilsRelativeTime } from "~~/services/Utils";
 const kubernetesObjectStore = KubernetesObjectStore();
-const namespaceStore = NamespaceStore();
 </script>
 
 <script>
@@ -66,9 +65,14 @@ export default {
     };
   },
   async created() {
-    KubernetesObjectStore().getPVCs();
+    KubernetesObjectStore().getCustomResourceDefinitions();
   },
   methods: {
+    formatVersions(versions) {
+      if (!versions || !Array.isArray(versions)) return "N/A";
+      const versionNames = versions.filter((v) => v.served).map((v) => v.name);
+      return versionNames.length > 0 ? versionNames.join(", ") : "N/A";
+    },
     onCloseDetails() {
       this.dialogDetails = {
         enable: false,
@@ -76,7 +80,7 @@ export default {
         text: "",
       };
     },
-    async showDetails(namespace, objectName) {
+    async showDetails(objectName) {
       this.dialogDetails = {
         enable: true,
         title: "Details",
@@ -86,8 +90,7 @@ export default {
         .post(
           `${(await Config.get()).SERVER_URL}/kubectl/command`,
           {
-            namespace,
-            object: "pvc",
+            object: "customresourcedefinition",
             command: "describe",
             argument: objectName,
             noJson: true,
