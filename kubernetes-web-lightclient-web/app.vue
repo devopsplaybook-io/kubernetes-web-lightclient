@@ -105,4 +105,16 @@ main {
     color: inherit;
   }
 }
+
+.vue-apexcharts,
+[role="button"] {
+  padding: 0;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  appearance: none;
+}
 </style>

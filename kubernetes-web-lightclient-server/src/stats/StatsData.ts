@@ -30,7 +30,9 @@ export async function StatsDataInit(
     "kubernetes.stats.nodes.cpu",
     (observableResult) => {
       stats.forEach((stat) => {
-        observableResult.observe(stat.cpuUsage, { node: stat.node });
+        if (stat.cpuUsage !== null) {
+          observableResult.observe(stat.cpuUsage, { node: stat.node });
+        }
       });
     },
     { description: "CPU % Usage for each node" },
@@ -40,7 +42,9 @@ export async function StatsDataInit(
     "kubernetes.stats.nodes.memory",
     (observableResult) => {
       stats.forEach((stat) => {
-        observableResult.observe(stat.memoryUsage, { node: stat.node });
+        if (stat.memoryUsage !== null) {
+          observableResult.observe(stat.memoryUsage, { node: stat.node });
+        }
       });
     },
     { description: "Memory % Usage for each node" },
@@ -113,21 +117,26 @@ async function StatsDataCapture(): Promise<void> {
     const nodeName = node.metadata.name;
     const measurement = new StatsNodeMesurement({
       node: nodeName,
-      cpuUsage: 0,
-      memoryUsage: 0,
+      cpuUsage: null,
+      memoryUsage: null,
       pods: 0,
       timestamp,
-      podRestarts: 0, // Add podRestarts property
+      podRestarts: 0,
     });
-    const topNodeStr = await kubernetesCommand(
-      `kubectl top node ${nodeName} --no-headers`,
-    );
-    const topNodeParts = topNodeStr.trim().split(/\s+/);
-    if (topNodeParts.length < 5) {
-      continue;
+    try {
+      const topNodeStr = await kubernetesCommand(
+        `kubectl top node ${nodeName} --no-headers`,
+      );
+      const topNodeParts = topNodeStr.trim().split(/\s+/);
+      if (topNodeParts.length >= 5) {
+        measurement.cpuUsage = parseFloat(topNodeParts[2].replace("%", ""));
+        measurement.memoryUsage = parseFloat(topNodeParts[4].replace("%", ""));
+      }
+    } catch (error) {
+      logger.warn(
+        `kubectl top node failed for ${nodeName} - metrics server may not be installed. CPU/memory usage will be reported as unknown.`,
+      );
     }
-    measurement.cpuUsage = parseFloat(topNodeParts[2].replace("%", ""));
-    measurement.memoryUsage = parseFloat(topNodeParts[4].replace("%", ""));
     if (podsObj.items) {
       measurement.pods = podsObj.items.filter(
         (pod: { spec?: { nodeName?: string } }) =>
