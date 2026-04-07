@@ -18,6 +18,7 @@ This client is meant to be deployed with Kubernetes. Here is an example YAML fil
 
 - Adjust the service account permissions as needed.
 - `APPLICATION_TITLE` is an optional name that can be given to the instance.
+- For the Stats page to be fully functional (CPU/memory usage metrics), the [Kubernetes Metrics Server](https://github.com/kubernetes-sigs/metrics-server) must be installed in the cluster.
 
 To launch the application in Kubernetes with the default configuration:
 

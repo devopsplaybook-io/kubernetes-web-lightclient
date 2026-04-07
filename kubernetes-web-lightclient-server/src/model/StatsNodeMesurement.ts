@@ -1,8 +1,8 @@
 export class StatsNodeMesurement {
   //
   public node: string;
-  public cpuUsage: number;
-  public memoryUsage: number;
+  public cpuUsage: number | null;
+  public memoryUsage: number | null;
   public pods: number;
   public timestamp: Date;
   public podRestarts: number;
