@@ -1,6 +1,6 @@
 <template>
   <div id="stats-page">
-    <h2>Metrics</h2>
+    <h3>Metrics</h3>
     <div id="stats-layout">
       <apexchart
         width="100%"
@@ -21,7 +21,7 @@
         :series="podsChartSeries"
       />
     </div>
-    <h2>Requests/Limits/Usage</h2>
+    <h3>Requests/Limits/Usage</h3>
     <h6>By Pods</h6>
     <div v-if="podResources.length === 0" class="no-data">
       No pod resource data available
@@ -275,25 +275,13 @@ export default {
     // Parse Kubernetes CPU string to millicores (number)
     _parseCpuToMillicores(val) {
       if (!val) return null;
-      // handle compound values like "100m+200m"
-      if (val.includes("+")) {
-        return val.split("+").reduce((sum, v) => {
-          const p = this._parseCpuToMillicores(v);
-          return p !== null ? sum + p : sum;
-        }, 0);
-      }
       if (val.endsWith("m")) return parseFloat(val);
-      return parseFloat(val) * 1000;
+      const n = parseFloat(val);
+      return isNaN(n) ? null : n * 1000;
     },
     // Parse Kubernetes memory string to MiB (number)
     _parseMemoryToMiB(val) {
       if (!val) return null;
-      if (val.includes("+")) {
-        return val.split("+").reduce((sum, v) => {
-          const p = this._parseMemoryToMiB(v);
-          return p !== null ? sum + p : sum;
-        }, 0);
-      }
       if (val.endsWith("Ki")) return parseFloat(val) / 1024;
       if (val.endsWith("Mi")) return parseFloat(val);
       if (val.endsWith("Gi")) return parseFloat(val) * 1024;
@@ -301,7 +289,8 @@ export default {
       if (val.endsWith("k") || val.endsWith("K")) return parseFloat(val) / 1000;
       if (val.endsWith("M")) return parseFloat(val);
       if (val.endsWith("G")) return parseFloat(val) * 1000;
-      return parseFloat(val) / (1024 * 1024);
+      const n = parseFloat(val);
+      return isNaN(n) ? null : n / (1024 * 1024);
     },
     _formatCpu(millicores) {
       if (millicores === null || isNaN(millicores)) return "-";
@@ -386,10 +375,6 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 2em;
-}
-
-.section-title {
-  margin: 0 0 1em 0;
 }
 
 #stats-layout {

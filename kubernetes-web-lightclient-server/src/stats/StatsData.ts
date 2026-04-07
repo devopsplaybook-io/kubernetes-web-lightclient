@@ -204,32 +204,33 @@ async function PodResourcesCapture(): Promise<void> {
 
     if (!podName || !namespace) continue;
 
-    let cpuRequest: string | null = null;
-    let cpuLimit: string | null = null;
-    let memoryRequest: string | null = null;
-    let memoryLimit: string | null = null;
+    let cpuRequestMillicores: number | null = null;
+    let cpuLimitMillicores: number | null = null;
+    let memoryRequestKiB: number | null = null;
+    let memoryLimitKiB: number | null = null;
 
-    // Aggregate requests and limits from all containers
+    // Aggregate requests and limits from all containers by summing parsed values
     if (pod.spec?.containers) {
       for (const container of pod.spec.containers) {
         const req = container.resources?.requests;
         const lim = container.resources?.limits;
 
         if (req?.cpu) {
-          cpuRequest = cpuRequest ? `${cpuRequest}+${req.cpu}` : req.cpu;
+          const v = parseCpuToMillicores(req.cpu);
+          if (v !== null)
+            cpuRequestMillicores = (cpuRequestMillicores ?? 0) + v;
         }
         if (req?.memory) {
-          memoryRequest = memoryRequest
-            ? `${memoryRequest}+${req.memory}`
-            : req.memory;
+          const v = parseMemoryToKiB(req.memory);
+          if (v !== null) memoryRequestKiB = (memoryRequestKiB ?? 0) + v;
         }
         if (lim?.cpu) {
-          cpuLimit = cpuLimit ? `${cpuLimit}+${lim.cpu}` : lim.cpu;
+          const v = parseCpuToMillicores(lim.cpu);
+          if (v !== null) cpuLimitMillicores = (cpuLimitMillicores ?? 0) + v;
         }
         if (lim?.memory) {
-          memoryLimit = memoryLimit
-            ? `${memoryLimit}+${lim.memory}`
-            : lim.memory;
+          const v = parseMemoryToKiB(lim.memory);
+          if (v !== null) memoryLimitKiB = (memoryLimitKiB ?? 0) + v;
         }
       }
     }
@@ -244,10 +245,17 @@ async function PodResourcesCapture(): Promise<void> {
         name: podName,
         namespace,
         node: nodeName,
-        cpuRequest,
-        cpuLimit,
-        memoryRequest,
-        memoryLimit,
+        cpuRequest:
+          cpuRequestMillicores !== null
+            ? formatMillicores(cpuRequestMillicores)
+            : null,
+        cpuLimit:
+          cpuLimitMillicores !== null
+            ? formatMillicores(cpuLimitMillicores)
+            : null,
+        memoryRequest:
+          memoryRequestKiB !== null ? formatKiB(memoryRequestKiB) : null,
+        memoryLimit: memoryLimitKiB !== null ? formatKiB(memoryLimitKiB) : null,
         cpuUsage,
         memoryUsage,
         timestamp,
@@ -256,6 +264,37 @@ async function PodResourcesCapture(): Promise<void> {
   }
 
   podResources = newPodResources;
+}
+
+function parseCpuToMillicores(val: string): number | null {
+  if (!val) return null;
+  if (val.endsWith("m")) return parseFloat(val);
+  const n = parseFloat(val);
+  return isNaN(n) ? null : n * 1000;
+}
+
+function parseMemoryToKiB(val: string): number | null {
+  if (!val) return null;
+  if (val.endsWith("Ki")) return parseFloat(val);
+  if (val.endsWith("Mi")) return parseFloat(val) * 1024;
+  if (val.endsWith("Gi")) return parseFloat(val) * 1024 * 1024;
+  if (val.endsWith("Ti")) return parseFloat(val) * 1024 * 1024 * 1024;
+  if (val.endsWith("k") || val.endsWith("K")) return parseFloat(val);
+  if (val.endsWith("M")) return parseFloat(val) * 1000;
+  if (val.endsWith("G")) return parseFloat(val) * 1000 * 1000;
+  const n = parseFloat(val);
+  return isNaN(n) ? null : n / 1024;
+}
+
+function formatMillicores(m: number): string {
+  if (m >= 1000) return `${(m / 1000).toFixed(2)}`;
+  return `${Math.round(m)}m`;
+}
+
+function formatKiB(kib: number): string {
+  if (kib >= 1024 * 1024) return `${(kib / (1024 * 1024)).toFixed(2)}Gi`;
+  if (kib >= 1024) return `${(kib / 1024).toFixed(2)}Mi`;
+  return `${Math.round(kib)}Ki`;
 }
 
 export async function kubernetesCommand(command: string) {
