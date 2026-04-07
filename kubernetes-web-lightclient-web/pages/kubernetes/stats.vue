@@ -26,7 +26,7 @@
     <div v-if="podResources.length === 0" class="no-data">
       No pod resource data available
     </div>
-    <div v-else>
+    <div v-else class="table-scroll">
       <table class="striped">
         <thead>
           <tr>
@@ -47,11 +47,9 @@
             <td>{{ pod.namespace }}</td>
             <td>{{ pod.name }}</td>
             <td>{{ pod.node }}</td>
-            <td class="resource-cell">
-              {{ pod.cpuRequest || "-" }} / {{ pod.cpuLimit || "-" }}
-            </td>
+            <td>{{ pod.cpuRequest || "-" }} / {{ pod.cpuLimit || "-" }}</td>
             <td>{{ pod.cpuUsage || "-" }}</td>
-            <td class="resource-cell">
+            <td>
               {{ pod.memoryRequest || "-" }} / {{ pod.memoryLimit || "-" }}
             </td>
             <td>{{ pod.memoryUsage || "-" }}</td>
@@ -67,7 +65,7 @@
     <div v-if="podResources.length === 0" class="no-data">
       No pod resource data available
     </div>
-    <div v-else>
+    <div v-else class="table-scroll">
       <table class="striped">
         <thead>
           <tr>
@@ -81,13 +79,9 @@
         <tbody>
           <tr v-for="row in namespaceAggregates" :key="row.namespace">
             <td>{{ row.namespace }}</td>
-            <td class="resource-cell">
-              {{ row.cpuRequest }} / {{ row.cpuLimit }}
-            </td>
+            <td>{{ row.cpuRequest }} / {{ row.cpuLimit }}</td>
             <td>{{ row.cpuUsage }}</td>
-            <td class="resource-cell">
-              {{ row.memoryRequest }} / {{ row.memoryLimit }}
-            </td>
+            <td>{{ row.memoryRequest }} / {{ row.memoryLimit }}</td>
             <td>{{ row.memoryUsage }}</td>
           </tr>
         </tbody>
@@ -98,7 +92,7 @@
     <div v-if="podResources.length === 0" class="no-data">
       No pod resource data available
     </div>
-    <div v-else>
+    <div v-else class="table-scroll">
       <table class="striped">
         <thead>
           <tr>
@@ -112,13 +106,9 @@
         <tbody>
           <tr v-for="row in nodeAggregates" :key="row.node">
             <td>{{ row.node }}</td>
-            <td class="resource-cell">
-              {{ row.cpuRequest }} / {{ row.cpuLimit }}
-            </td>
+            <td>{{ row.cpuRequest }} / {{ row.cpuLimit }}</td>
             <td>{{ row.cpuUsage }}</td>
-            <td class="resource-cell">
-              {{ row.memoryRequest }} / {{ row.memoryLimit }}
-            </td>
+            <td>{{ row.memoryRequest }} / {{ row.memoryLimit }}</td>
             <td>{{ row.memoryUsage }}</td>
           </tr>
         </tbody>
@@ -393,8 +383,18 @@ export default {
   font-size: 0.85em;
 }
 
-.resource-cell {
+.table-scroll {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.table-scroll td {
   white-space: nowrap;
+}
+
+.table-scroll td,
+.table-scroll th {
+  font-size: 0.9em;
 }
 </style>
 
