@@ -19,6 +19,7 @@ export class Config implements ConfigOTelInterface {
   public LOG_LEVEL = "info";
   public STATS_FETCH_FREQUENCY = 60;
   public STATS_RETENTION = 60 * 60 * 24;
+  public POD_RESOURCES_FETCH_FREQUENCY = 60 * 60; // Default: once per hour
   public OPENTELEMETRY_COLLECTOR_HTTP_TRACES = "";
   public OPENTELEMETRY_COLLECTOR_HTTP_METRICS = "";
   public OPENTELEMETRY_COLLECTOR_HTTP_LOGS = "";
@@ -54,11 +55,11 @@ export class Config implements ConfigOTelInterface {
       }
       if (displayLog) {
         logger.info(
-          `Configuration Value: ${field}: ${this[field]} (from ${fromEnv})`
+          `Configuration Value: ${field}: ${this[field]} (from ${fromEnv})`,
         );
       } else {
         logger.info(
-          `Configuration Value: ${field}: ******************** (from ${fromEnv})`
+          `Configuration Value: ${field}: ******************** (from ${fromEnv})`,
         );
       }
     };
@@ -71,6 +72,7 @@ export class Config implements ConfigOTelInterface {
     setIfSet("LOG_LEVEL");
     setIfSet("STATS_FETCH_FREQUENCY");
     setIfSet("STATS_RETENTION");
+    setIfSet("POD_RESOURCES_FETCH_FREQUENCY");
     setIfSet("OPENTELEMETRY_COLLECTOR_HTTP_TRACES");
     setIfSet("OPENTELEMETRY_COLLECTOR_HTTP_METRICS");
     setIfSet("OPENTELEMETRY_COLLECTOR_HTTP_LOGS");

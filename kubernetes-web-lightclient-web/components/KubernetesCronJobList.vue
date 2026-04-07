@@ -15,7 +15,7 @@
       </thead>
       <tbody>
         <tr
-          v-for="kubeObject of kubernetesObjectStore.data.cronJobs"
+          v-for="kubeObject of kubernetesObjectStore.data.cronjobs"
           v-bind:key="kubeObject.metadata.uid"
         >
           <td>{{ kubeObject.metadata.namespace }}</td>
@@ -32,7 +32,7 @@
               v-on:click="
                 showDetails(
                   kubeObject.metadata.namespace,
-                  kubeObject.metadata.name
+                  kubeObject.metadata.name,
                 )
               "
             ></i>
@@ -43,7 +43,7 @@
               v-on:click="
                 triggerCronJob(
                   kubeObject.metadata.namespace,
-                  kubeObject.metadata.name
+                  kubeObject.metadata.name,
                 )
               "
               title="Trigger CronJob"
@@ -111,7 +111,7 @@ export default {
             argument: objectName,
             noJson: true,
           },
-          await AuthService.getAuthHeader()
+          await AuthService.getAuthHeader(),
         )
         .then(async (res) => {
           this.dialogDetails.text = await UtilsDecompressData(res.data.result);
@@ -133,11 +133,11 @@ export default {
             argument: `--from=cronjob/${objectName} ${jobName}`,
             noJson: true,
           },
-          await AuthService.getAuthHeader()
+          await AuthService.getAuthHeader(),
         )
         .then(async (res) => {
           alert(
-            `Job "${jobName}" created successfully from CronJob "${objectName}"`
+            `Job "${jobName}" created successfully from CronJob "${objectName}"`,
           );
         })
         .catch(handleError);

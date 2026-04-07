@@ -1,6 +1,7 @@
 import { FastifyInstance, RequestGenericInterface } from "fastify";
 import { AuthGetUserSession } from "../users/Auth";
 import { SystemCommandExecute } from "../utils-std-ts/SystemCommand";
+import { OTelTracer } from "../OTelContext";
 
 export class KubeCtlCommandRoutes {
   //
@@ -43,13 +44,17 @@ export class KubeCtlCommandRoutes {
       const namespaceArg = req.body.namespace ? `-n ${req.body.namespace}` : "";
       const jsonArg = req.body.noJson ? "" : "-o json";
       const kubectlCommand = `kubectl ${commandArg} ${objectArg} ${namespaceArg} ${argumentArg} ${jsonArg}`;
+
+      const span = OTelTracer().startSpan("KubeCtlCommand");
+      span.setAttribute("parameters", JSON.stringify(req.body));
       const commandOutput = await SystemCommandExecute(
         `${kubectlCommand} | gzip | base64 -w 0`,
         {
           timeout: 20000,
           maxBuffer: 1024 * 1024 * 10,
-        }
+        },
       );
+      span.end();
       return res.status(201).send({ result: commandOutput });
     });
   }
