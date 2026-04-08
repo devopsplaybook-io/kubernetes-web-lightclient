@@ -57,7 +57,9 @@
                 <span class="range-bound">{{ pod.cpuMax }}</span>
               </span>
             </td>
-            <td>{{ pod.memoryRequest || "-" }} / {{ pod.memoryLimit || "-" }}</td>
+            <td>
+              {{ pod.memoryRequest || "-" }} / {{ pod.memoryLimit || "-" }}
+            </td>
             <td>
               <span class="usage-range">
                 <span class="range-bound">{{ pod.memMin }}</span>

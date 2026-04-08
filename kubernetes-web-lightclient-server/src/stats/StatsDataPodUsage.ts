@@ -221,8 +221,7 @@ async function persistPodUsageStats(config: Config): Promise<void> {
         cpu: {
           min: v.cpuMin !== null ? formatMillicores(v.cpuMin) : null,
           max: v.cpuMax !== null ? formatMillicores(v.cpuMax) : null,
-          latest:
-            v.cpuLatest !== null ? formatMillicores(v.cpuLatest) : null,
+          latest: v.cpuLatest !== null ? formatMillicores(v.cpuLatest) : null,
           minRaw: v.cpuMin,
           maxRaw: v.cpuMax,
           latestRaw: v.cpuLatest,
@@ -230,8 +229,7 @@ async function persistPodUsageStats(config: Config): Promise<void> {
         memory: {
           min: v.memoryMin !== null ? formatKiB(v.memoryMin) : null,
           max: v.memoryMax !== null ? formatKiB(v.memoryMax) : null,
-          latest:
-            v.memoryLatest !== null ? formatKiB(v.memoryLatest) : null,
+          latest: v.memoryLatest !== null ? formatKiB(v.memoryLatest) : null,
           minRaw: v.memoryMin,
           maxRaw: v.memoryMax,
           latestRaw: v.memoryLatest,
