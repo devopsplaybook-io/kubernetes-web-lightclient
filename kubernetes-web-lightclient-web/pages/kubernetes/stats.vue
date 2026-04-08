@@ -23,8 +23,8 @@
     </div>
     <h3>Requests/Limits/Usage</h3>
     <h6>By Pods</h6>
-    <div v-if="podUsageStats.length === 0" class="no-data">
-      No pod usage history available yet
+    <div v-if="mergedPodRows.length === 0" class="no-data">
+      No pod data available
     </div>
     <div v-else class="table-scroll">
       <table class="striped">
@@ -33,39 +33,46 @@
             <th>Namespace</th>
             <th>Pod</th>
             <th>Node</th>
-            <th>CPU Usage</th>
-            <th>Memory Usage</th>
+            <th>CPU Req / Limit</th>
+            <th>CPU Usage (min / latest / max)</th>
+            <th>Mem Req / Limit</th>
+            <th>Mem Usage (min / latest / max)</th>
           </tr>
         </thead>
         <tbody>
           <tr
-            v-for="pod in sortedPodUsageStats"
+            v-for="pod in mergedPodRows"
             :key="`${pod.namespace}-${pod.name}`"
           >
             <td>{{ pod.namespace }}</td>
             <td>{{ pod.name }}</td>
             <td>{{ pod.node }}</td>
+            <td>{{ pod.cpuRequest || "-" }} / {{ pod.cpuLimit || "-" }}</td>
             <td>
               <span class="usage-range">
-                <span class="range-bound">{{ formatCpuRaw(pod.cpuMin) }}</span>
+                <span class="range-bound">{{ pod.cpuMin }}</span>
                 <span class="range-sep"> &lt; </span>
-                <span class="range-latest">{{ formatCpuRaw(pod.cpuLatest) }}</span>
+                <span class="range-latest">{{ pod.cpuLatest }}</span>
                 <span class="range-sep"> &lt; </span>
-                <span class="range-bound">{{ formatCpuRaw(pod.cpuMax) }}</span>
+                <span class="range-bound">{{ pod.cpuMax }}</span>
               </span>
             </td>
+            <td>{{ pod.memoryRequest || "-" }} / {{ pod.memoryLimit || "-" }}</td>
             <td>
               <span class="usage-range">
-                <span class="range-bound">{{ formatMemRaw(pod.memoryMin) }}</span>
+                <span class="range-bound">{{ pod.memMin }}</span>
                 <span class="range-sep"> &lt; </span>
-                <span class="range-latest">{{ formatMemRaw(pod.memoryLatest) }}</span>
+                <span class="range-latest">{{ pod.memLatest }}</span>
                 <span class="range-sep"> &lt; </span>
-                <span class="range-bound">{{ formatMemRaw(pod.memoryMax) }}</span>
+                <span class="range-bound">{{ pod.memMax }}</span>
               </span>
             </td>
           </tr>
         </tbody>
       </table>
+      <div v-if="podResourcesTimestamp" class="timestamp-info">
+        Last updated: {{ formatTimestamp(podResourcesTimestamp) }}
+      </div>
     </div>
 
     <h6>By Namespace</h6>
@@ -183,6 +190,57 @@ export default {
         }
         return a.name.localeCompare(b.name);
       });
+    },
+    mergedPodRows() {
+      const usageMap = new Map();
+      for (const u of this.podUsageStats) {
+        usageMap.set(`${u.namespace}/${u.name}`, u);
+      }
+      // Start from podResources as the base (has req/limit), union with usage-only pods
+      const rows = [];
+      const seen = new Set();
+      for (const r of this.sortedPodResources) {
+        const key = `${r.namespace}/${r.name}`;
+        seen.add(key);
+        const u = usageMap.get(key);
+        rows.push({
+          namespace: r.namespace,
+          name: r.name,
+          node: r.node,
+          cpuRequest: r.cpuRequest,
+          cpuLimit: r.cpuLimit,
+          memoryRequest: r.memoryRequest,
+          memoryLimit: r.memoryLimit,
+          cpuMin: u ? this.formatCpuRaw(u.cpuMin) : "-",
+          cpuLatest: u ? this.formatCpuRaw(u.cpuLatest) : "-",
+          cpuMax: u ? this.formatCpuRaw(u.cpuMax) : "-",
+          memMin: u ? this.formatMemRaw(u.memoryMin) : "-",
+          memLatest: u ? this.formatMemRaw(u.memoryLatest) : "-",
+          memMax: u ? this.formatMemRaw(u.memoryMax) : "-",
+        });
+      }
+      // Add pods only in usageStats but not in podResources
+      for (const u of this.sortedPodUsageStats) {
+        const key = `${u.namespace}/${u.name}`;
+        if (!seen.has(key)) {
+          rows.push({
+            namespace: u.namespace,
+            name: u.name,
+            node: u.node,
+            cpuRequest: null,
+            cpuLimit: null,
+            memoryRequest: null,
+            memoryLimit: null,
+            cpuMin: this.formatCpuRaw(u.cpuMin),
+            cpuLatest: this.formatCpuRaw(u.cpuLatest),
+            cpuMax: this.formatCpuRaw(u.cpuMax),
+            memMin: this.formatMemRaw(u.memoryMin),
+            memLatest: this.formatMemRaw(u.memoryLatest),
+            memMax: this.formatMemRaw(u.memoryMax),
+          });
+        }
+      }
+      return rows;
     },
     namespaceAggregates() {
       return this._buildAggregates("namespace");
