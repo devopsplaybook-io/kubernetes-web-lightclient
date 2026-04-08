@@ -1,6 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { AuthGetUserSession } from "../users/Auth";
-import { StatsDataGet, PodResourcesGet } from "./StatsData";
+import { StatsDataGet, PodResourcesGet, PodUsageStatsGet } from "./StatsData";
 
 export class StatsRoutes {
   //
@@ -20,6 +20,14 @@ export class StatsRoutes {
         return res.status(403).send({ error: "Access Denied" });
       }
       return res.status(201).send({ podResources: await PodResourcesGet() });
+    });
+
+    fastify.get("/pod-usage", async (req, res) => {
+      const userSession = await AuthGetUserSession(req);
+      if (!userSession.isAuthenticated) {
+        return res.status(403).send({ error: "Access Denied" });
+      }
+      return res.status(201).send({ podUsageStats: await PodUsageStatsGet() });
     });
   }
 }

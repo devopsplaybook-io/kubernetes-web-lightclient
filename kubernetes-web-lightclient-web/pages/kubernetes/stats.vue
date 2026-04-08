@@ -61,6 +61,52 @@
       </div>
     </div>
 
+    <h6>Pod Usage History (min / latest / max)</h6>
+    <div v-if="podUsageStats.length === 0" class="no-data">
+      No pod usage history available yet
+    </div>
+    <div v-else class="table-scroll">
+      <table class="striped">
+        <thead>
+          <tr>
+            <th>Namespace</th>
+            <th>Pod</th>
+            <th>Node</th>
+            <th>CPU Usage</th>
+            <th>Memory Usage</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="pod in sortedPodUsageStats"
+            :key="`${pod.namespace}-${pod.name}`"
+          >
+            <td>{{ pod.namespace }}</td>
+            <td>{{ pod.name }}</td>
+            <td>{{ pod.node }}</td>
+            <td>
+              <span class="usage-range">
+                <span class="range-bound">{{ formatCpuRaw(pod.cpuMin) }}</span>
+                <span class="range-sep"> &lt; </span>
+                <span class="range-latest">{{ formatCpuRaw(pod.cpuLatest) }}</span>
+                <span class="range-sep"> &lt; </span>
+                <span class="range-bound">{{ formatCpuRaw(pod.cpuMax) }}</span>
+              </span>
+            </td>
+            <td>
+              <span class="usage-range">
+                <span class="range-bound">{{ formatMemRaw(pod.memoryMin) }}</span>
+                <span class="range-sep"> &lt; </span>
+                <span class="range-latest">{{ formatMemRaw(pod.memoryLatest) }}</span>
+                <span class="range-sep"> &lt; </span>
+                <span class="range-bound">{{ formatMemRaw(pod.memoryMax) }}</span>
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
     <h6>By Namespace</h6>
     <div v-if="podResources.length === 0" class="no-data">
       No pod resource data available
@@ -133,6 +179,7 @@ export default {
     return {
       stats: [],
       podResources: [],
+      podUsageStats: [],
       podResourcesTimestamp: null,
       refreshIntervalId: null,
       refreshIntervalValue: RefreshIntervalService.get(),
@@ -168,6 +215,14 @@ export default {
         return a.name.localeCompare(b.name);
       });
     },
+    sortedPodUsageStats() {
+      return [...this.podUsageStats].sort((a, b) => {
+        if (a.namespace !== b.namespace) {
+          return a.namespace.localeCompare(b.namespace);
+        }
+        return a.name.localeCompare(b.name);
+      });
+    },
     namespaceAggregates() {
       return this._buildAggregates("namespace");
     },
@@ -181,6 +236,7 @@ export default {
     }
     this.refreshStats();
     this.refreshPodResources();
+    this.refreshPodUsageStats();
     this.refreshIntervalValue = RefreshIntervalService.get();
   },
   mounted() {
@@ -189,6 +245,7 @@ export default {
       this.refreshIntervalId = setInterval(() => {
         this.refreshStats();
         this.refreshPodResources();
+        this.refreshPodUsageStats();
       }, interval);
     }
   },
@@ -223,6 +280,30 @@ export default {
           }
         })
         .catch(handleError);
+    },
+    async refreshPodUsageStats() {
+      await axios
+        .get(
+          `${(await Config.get()).SERVER_URL}/stats/pod-usage`,
+          await AuthService.getAuthHeader(),
+        )
+        .then((res) => {
+          this.podUsageStats = res.data.podUsageStats;
+        })
+        .catch(handleError);
+    },
+    // Format raw millicores number to human-readable CPU string
+    formatCpuRaw(millicores) {
+      if (millicores === null || millicores === undefined) return "-";
+      if (millicores >= 1000) return `${(millicores / 1000).toFixed(2)}`;
+      return `${Math.round(millicores)}m`;
+    },
+    // Format raw KiB number to human-readable memory string
+    formatMemRaw(kib) {
+      if (kib === null || kib === undefined) return "-";
+      if (kib >= 1024 * 1024) return `${(kib / (1024 * 1024)).toFixed(2)}Gi`;
+      if (kib >= 1024) return `${(kib / 1024).toFixed(2)}Mi`;
+      return `${Math.round(kib)}Ki`;
     },
     updateCharts() {
       const statsByNode = {};
@@ -395,6 +476,28 @@ export default {
 .table-scroll td,
 .table-scroll th {
   font-size: 0.9em;
+}
+
+.usage-range {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1em;
+}
+
+.range-bound {
+  font-size: 0.82em;
+  opacity: 0.5;
+  font-weight: normal;
+}
+
+.range-latest {
+  font-size: 1em;
+  font-weight: 600;
+}
+
+.range-sep {
+  font-size: 0.75em;
+  opacity: 0.4;
 }
 </style>
 
