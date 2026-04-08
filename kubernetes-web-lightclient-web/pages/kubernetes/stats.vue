@@ -22,11 +22,8 @@
       />
     </div>
     <h3>Requests/Limits/Usage</h3>
-    <h6>By Pods</h6>
-    <div v-if="mergedPodRows.length === 0" class="no-data">
-      No pod data available
-    </div>
-    <div v-else class="table-scroll">
+    <div class="table-scroll">
+      <h6>By Pods</h6>
       <table class="striped">
         <thead>
           <tr>
@@ -74,11 +71,8 @@
       </table>
     </div>
 
-    <h6>By Namespace</h6>
-    <div v-if="podResources.length === 0" class="no-data">
-      No pod resource data available
-    </div>
-    <div v-else class="table-scroll">
+    <div class="table-scroll">
+      <h6>By Namespace</h6>
       <table class="striped">
         <thead>
           <tr>
@@ -101,11 +95,8 @@
       </table>
     </div>
 
-    <h6>By Node</h6>
-    <div v-if="podResources.length === 0" class="no-data">
-      No pod resource data available
-    </div>
-    <div v-else class="table-scroll">
+    <div class="table-scroll">
+      <h6>By Node</h6>
       <table class="striped">
         <thead>
           <tr>
