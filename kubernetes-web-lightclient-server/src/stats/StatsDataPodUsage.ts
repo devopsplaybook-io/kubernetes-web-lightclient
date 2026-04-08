@@ -16,11 +16,9 @@ export async function StatsDataPodUsageInit(
   context: Span,
   config: Config,
 ): Promise<void> {
-  // Reset on startup: clear the persisted file
-  const filePath = path.join(config.DATA_DIR, POD_USAGE_STATS_FILE);
   await fse.ensureDir(config.DATA_DIR);
-  await fse.writeJson(filePath, {}, { spaces: 2 });
-  podUsageStats = new Map();
+  const filePath = path.join(config.DATA_DIR, POD_USAGE_STATS_FILE);
+  podUsageStats = await loadPodUsageStats(filePath);
 
   const executePodResourcesCapture = async () => {
     const span = OTelTracer().startSpan("StatsDataPodUsage-Loop");
@@ -207,6 +205,49 @@ async function PodResourcesCapture(config: Config): Promise<void> {
 
   // Persist to JSON file
   await persistPodUsageStats(config);
+}
+
+async function loadPodUsageStats(
+  filePath: string,
+): Promise<Map<string, PodUsageStats>> {
+  const map = new Map<string, PodUsageStats>();
+  try {
+    if (await fse.pathExists(filePath)) {
+      const raw = await fse.readJson(filePath);
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+        logger.warn(
+          `Pod usage stats file has unexpected format, starting fresh: ${filePath}`,
+        );
+        return map;
+      }
+      const data: Record<string, any> = raw;
+      for (const [key, v] of Object.entries(data)) {
+        if (!v || typeof v !== "object" || !v.name || !v.namespace) {
+          logger.warn(`Skipping corrupted pod entry: ${key}`);
+          continue;
+        }
+        map.set(
+          key,
+          new PodUsageStats({
+            name: v.name,
+            namespace: v.namespace,
+            node: v.node,
+            cpuMin: v.cpu?.minRaw ?? null,
+            cpuMax: v.cpu?.maxRaw ?? null,
+            cpuLatest: v.cpu?.latestRaw ?? null,
+            memoryMin: v.memory?.minRaw ?? null,
+            memoryMax: v.memory?.maxRaw ?? null,
+            memoryLatest: v.memory?.latestRaw ?? null,
+            updatedAt: v.updatedAt ? new Date(v.updatedAt) : new Date(),
+          }),
+        );
+      }
+      logger.info(`Loaded ${map.size} pod usage stats from ${filePath}`);
+    }
+  } catch (error) {
+    logger.error("Failed to load pod usage stats from file", error);
+  }
+  return map;
 }
 
 async function persistPodUsageStats(config: Config): Promise<void> {
