@@ -72,9 +72,6 @@
           </tr>
         </tbody>
       </table>
-      <div v-if="podResourcesTimestamp" class="timestamp-info">
-        Last updated: {{ formatTimestamp(podResourcesTimestamp) }}
-      </div>
     </div>
 
     <h6>By Namespace</h6>
