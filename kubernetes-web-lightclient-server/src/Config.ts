@@ -19,7 +19,7 @@ export class Config implements ConfigOTelInterface {
   public LOG_LEVEL = "info";
   public STATS_FETCH_FREQUENCY = 60;
   public STATS_RETENTION = 60 * 60 * 24;
-  public POD_RESOURCES_FETCH_FREQUENCY = 60 * 60; // Default: once per hour
+  public POD_RESOURCES_FETCH_FREQUENCY = 30 * 60;
   public OPENTELEMETRY_COLLECTOR_HTTP_TRACES = "";
   public OPENTELEMETRY_COLLECTOR_HTTP_METRICS = "";
   public OPENTELEMETRY_COLLECTOR_HTTP_LOGS = "";

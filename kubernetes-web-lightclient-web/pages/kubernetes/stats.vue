@@ -23,8 +23,8 @@
     </div>
     <h3>Requests/Limits/Usage</h3>
     <h6>By Pods</h6>
-    <div v-if="podResources.length === 0" class="no-data">
-      No pod resource data available
+    <div v-if="mergedPodRows.length === 0" class="no-data">
+      No pod data available
     </div>
     <div v-else class="table-scroll">
       <table class="striped">
@@ -34,31 +34,44 @@
             <th>Pod</th>
             <th>Node</th>
             <th>CPU Req / Limit</th>
-            <th>CPU Usage</th>
+            <th>CPU Usage (min / latest / max)</th>
             <th>Mem Req / Limit</th>
-            <th>Mem Usage</th>
+            <th>Mem Usage (min / latest / max)</th>
           </tr>
         </thead>
         <tbody>
           <tr
-            v-for="pod in sortedPodResources"
+            v-for="pod in mergedPodRows"
             :key="`${pod.namespace}-${pod.name}`"
           >
             <td>{{ pod.namespace }}</td>
             <td>{{ pod.name }}</td>
             <td>{{ pod.node }}</td>
             <td>{{ pod.cpuRequest || "-" }} / {{ pod.cpuLimit || "-" }}</td>
-            <td>{{ pod.cpuUsage || "-" }}</td>
+            <td>
+              <span class="usage-range">
+                <span class="range-bound">{{ pod.cpuMin }}</span>
+                <span class="range-sep"> &lt; </span>
+                <span class="range-latest">{{ pod.cpuLatest }}</span>
+                <span class="range-sep"> &lt; </span>
+                <span class="range-bound">{{ pod.cpuMax }}</span>
+              </span>
+            </td>
             <td>
               {{ pod.memoryRequest || "-" }} / {{ pod.memoryLimit || "-" }}
             </td>
-            <td>{{ pod.memoryUsage || "-" }}</td>
+            <td>
+              <span class="usage-range">
+                <span class="range-bound">{{ pod.memMin }}</span>
+                <span class="range-sep"> &lt; </span>
+                <span class="range-latest">{{ pod.memLatest }}</span>
+                <span class="range-sep"> &lt; </span>
+                <span class="range-bound">{{ pod.memMax }}</span>
+              </span>
+            </td>
           </tr>
         </tbody>
       </table>
-      <div v-if="podResourcesTimestamp" class="timestamp-info">
-        Last updated: {{ formatTimestamp(podResourcesTimestamp) }}
-      </div>
     </div>
 
     <h6>By Namespace</h6>
@@ -133,6 +146,7 @@ export default {
     return {
       stats: [],
       podResources: [],
+      podUsageStats: [],
       podResourcesTimestamp: null,
       refreshIntervalId: null,
       refreshIntervalValue: RefreshIntervalService.get(),
@@ -168,6 +182,65 @@ export default {
         return a.name.localeCompare(b.name);
       });
     },
+    sortedPodUsageStats() {
+      return [...this.podUsageStats].sort((a, b) => {
+        if (a.namespace !== b.namespace) {
+          return a.namespace.localeCompare(b.namespace);
+        }
+        return a.name.localeCompare(b.name);
+      });
+    },
+    mergedPodRows() {
+      const usageMap = new Map();
+      for (const u of this.podUsageStats) {
+        usageMap.set(`${u.namespace}/${u.name}`, u);
+      }
+      // Start from podResources as the base (has req/limit), union with usage-only pods
+      const rows = [];
+      const seen = new Set();
+      for (const r of this.sortedPodResources) {
+        const key = `${r.namespace}/${r.name}`;
+        seen.add(key);
+        const u = usageMap.get(key);
+        rows.push({
+          namespace: r.namespace,
+          name: r.name,
+          node: r.node,
+          cpuRequest: r.cpuRequest,
+          cpuLimit: r.cpuLimit,
+          memoryRequest: r.memoryRequest,
+          memoryLimit: r.memoryLimit,
+          cpuMin: u ? this.formatCpuRaw(u.cpuMin) : "-",
+          cpuLatest: u ? this.formatCpuRaw(u.cpuLatest) : "-",
+          cpuMax: u ? this.formatCpuRaw(u.cpuMax) : "-",
+          memMin: u ? this.formatMemRaw(u.memoryMin) : "-",
+          memLatest: u ? this.formatMemRaw(u.memoryLatest) : "-",
+          memMax: u ? this.formatMemRaw(u.memoryMax) : "-",
+        });
+      }
+      // Add pods only in usageStats but not in podResources
+      for (const u of this.sortedPodUsageStats) {
+        const key = `${u.namespace}/${u.name}`;
+        if (!seen.has(key)) {
+          rows.push({
+            namespace: u.namespace,
+            name: u.name,
+            node: u.node,
+            cpuRequest: null,
+            cpuLimit: null,
+            memoryRequest: null,
+            memoryLimit: null,
+            cpuMin: this.formatCpuRaw(u.cpuMin),
+            cpuLatest: this.formatCpuRaw(u.cpuLatest),
+            cpuMax: this.formatCpuRaw(u.cpuMax),
+            memMin: this.formatMemRaw(u.memoryMin),
+            memLatest: this.formatMemRaw(u.memoryLatest),
+            memMax: this.formatMemRaw(u.memoryMax),
+          });
+        }
+      }
+      return rows;
+    },
     namespaceAggregates() {
       return this._buildAggregates("namespace");
     },
@@ -181,6 +254,7 @@ export default {
     }
     this.refreshStats();
     this.refreshPodResources();
+    this.refreshPodUsageStats();
     this.refreshIntervalValue = RefreshIntervalService.get();
   },
   mounted() {
@@ -189,6 +263,7 @@ export default {
       this.refreshIntervalId = setInterval(() => {
         this.refreshStats();
         this.refreshPodResources();
+        this.refreshPodUsageStats();
       }, interval);
     }
   },
@@ -223,6 +298,30 @@ export default {
           }
         })
         .catch(handleError);
+    },
+    async refreshPodUsageStats() {
+      await axios
+        .get(
+          `${(await Config.get()).SERVER_URL}/stats/pod-usage`,
+          await AuthService.getAuthHeader(),
+        )
+        .then((res) => {
+          this.podUsageStats = res.data.podUsageStats;
+        })
+        .catch(handleError);
+    },
+    // Format raw millicores number to human-readable CPU string
+    formatCpuRaw(millicores) {
+      if (millicores === null || millicores === undefined) return "-";
+      if (millicores >= 1000) return `${(millicores / 1000).toFixed(2)}`;
+      return `${Math.round(millicores)}m`;
+    },
+    // Format raw KiB number to human-readable memory string
+    formatMemRaw(kib) {
+      if (kib === null || kib === undefined) return "-";
+      if (kib >= 1024 * 1024) return `${(kib / (1024 * 1024)).toFixed(2)}Gi`;
+      if (kib >= 1024) return `${(kib / 1024).toFixed(2)}Mi`;
+      return `${Math.round(kib)}Ki`;
     },
     updateCharts() {
       const statsByNode = {};
@@ -395,6 +494,28 @@ export default {
 .table-scroll td,
 .table-scroll th {
   font-size: 0.9em;
+}
+
+.usage-range {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1em;
+}
+
+.range-bound {
+  font-size: 0.82em;
+  opacity: 0.5;
+  font-weight: normal;
+}
+
+.range-latest {
+  font-size: 1em;
+  font-weight: 600;
+}
+
+.range-sep {
+  font-size: 0.75em;
+  opacity: 0.4;
 }
 </style>
 
