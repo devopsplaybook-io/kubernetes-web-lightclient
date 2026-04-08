@@ -23,45 +23,6 @@
     </div>
     <h3>Requests/Limits/Usage</h3>
     <h6>By Pods</h6>
-    <div v-if="podResources.length === 0" class="no-data">
-      No pod resource data available
-    </div>
-    <div v-else class="table-scroll">
-      <table class="striped">
-        <thead>
-          <tr>
-            <th>Namespace</th>
-            <th>Pod</th>
-            <th>Node</th>
-            <th>CPU Req / Limit</th>
-            <th>CPU Usage</th>
-            <th>Mem Req / Limit</th>
-            <th>Mem Usage</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="pod in sortedPodResources"
-            :key="`${pod.namespace}-${pod.name}`"
-          >
-            <td>{{ pod.namespace }}</td>
-            <td>{{ pod.name }}</td>
-            <td>{{ pod.node }}</td>
-            <td>{{ pod.cpuRequest || "-" }} / {{ pod.cpuLimit || "-" }}</td>
-            <td>{{ pod.cpuUsage || "-" }}</td>
-            <td>
-              {{ pod.memoryRequest || "-" }} / {{ pod.memoryLimit || "-" }}
-            </td>
-            <td>{{ pod.memoryUsage || "-" }}</td>
-          </tr>
-        </tbody>
-      </table>
-      <div v-if="podResourcesTimestamp" class="timestamp-info">
-        Last updated: {{ formatTimestamp(podResourcesTimestamp) }}
-      </div>
-    </div>
-
-    <h6>Pod Usage History (min / latest / max)</h6>
     <div v-if="podUsageStats.length === 0" class="no-data">
       No pod usage history available yet
     </div>
