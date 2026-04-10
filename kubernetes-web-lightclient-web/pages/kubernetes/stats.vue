@@ -80,19 +80,21 @@
         <thead>
           <tr>
             <th>Namespace</th>
-            <th>CPU Req / Limit</th>
-            <th>CPU Usage</th>
-            <th>Mem Req / Limit</th>
-            <th>Mem Usage</th>
+            <th>CPU</th>
+            <th>Memory</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="row in namespaceAggregates" :key="row.namespace">
             <td>{{ row.namespace }}</td>
-            <td>{{ row.cpuRequest }} / {{ row.cpuLimit }}</td>
-            <td>{{ row.cpuUsage }}</td>
-            <td>{{ row.memoryRequest }} / {{ row.memoryLimit }}</td>
-            <td>{{ row.memoryUsage }}</td>
+            <td>
+              <div>{{ row.cpuRequest }} / {{ row.cpuLimit }}</div>
+              <div class="cell-sub">{{ row.cpuUsage }}</div>
+            </td>
+            <td>
+              <div>{{ row.memoryRequest }} / {{ row.memoryLimit }}</div>
+              <div class="cell-sub">{{ row.memoryUsage }}</div>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -104,19 +106,21 @@
         <thead>
           <tr>
             <th>Node</th>
-            <th>CPU Req / Limit</th>
-            <th>CPU Usage</th>
-            <th>Mem Req / Limit</th>
-            <th>Mem Usage</th>
+            <th>CPU</th>
+            <th>Memory</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="row in nodeAggregates" :key="row.node">
             <td>{{ row.node }}</td>
-            <td>{{ row.cpuRequest }} / {{ row.cpuLimit }}</td>
-            <td>{{ row.cpuUsage }}</td>
-            <td>{{ row.memoryRequest }} / {{ row.memoryLimit }}</td>
-            <td>{{ row.memoryUsage }}</td>
+            <td>
+              <div>{{ row.cpuRequest }} / {{ row.cpuLimit }}</div>
+              <div class="cell-sub">{{ row.cpuUsage }}</div>
+            </td>
+            <td>
+              <div>{{ row.memoryRequest }} / {{ row.memoryLimit }}</div>
+              <div class="cell-sub">{{ row.memoryUsage }}</div>
+            </td>
           </tr>
         </tbody>
       </table>
