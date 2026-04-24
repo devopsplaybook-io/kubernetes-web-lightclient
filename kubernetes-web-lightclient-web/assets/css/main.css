@@ -50,7 +50,9 @@
 .actions i,
 td > i[class^="bi"],
 td > i[class*=" bi"] {
-  transition: transform 0.12s ease, opacity 0.12s ease;
+  transition:
+    transform 0.12s ease,
+    opacity 0.12s ease;
   display: inline-block;
 }
 
@@ -87,7 +89,10 @@ td > i[class*=" bi"]:active {
    ============================================================ */
 
 button {
-  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease,
+    filter 0.12s ease;
 }
 button:hover {
   transform: translateY(-1px);
