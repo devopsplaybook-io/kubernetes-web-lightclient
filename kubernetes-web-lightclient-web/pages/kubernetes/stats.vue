@@ -27,13 +27,9 @@
       <table class="striped">
         <thead>
           <tr>
-            <th>Namespace</th>
-            <th>Pod</th>
-            <th>Node</th>
-            <th>CPU Req / Limit</th>
-            <th>CPU Usage (min / latest / max)</th>
-            <th>Mem Req / Limit</th>
-            <th>Mem Usage (min / latest / max)</th>
+            <th>Pod / Namespace / Node</th>
+            <th>CPU</th>
+            <th>Memory</th>
           </tr>
         </thead>
         <tbody>
@@ -41,30 +37,37 @@
             v-for="pod in mergedPodRows"
             :key="`${pod.namespace}-${pod.name}`"
           >
-            <td>{{ pod.namespace }}</td>
-            <td>{{ pod.name }}</td>
-            <td>{{ pod.node }}</td>
-            <td>{{ pod.cpuRequest || "-" }} / {{ pod.cpuLimit || "-" }}</td>
             <td>
-              <span class="usage-range">
-                <span class="range-bound">{{ pod.cpuMin }}</span>
-                <span class="range-sep"> &lt; </span>
-                <span class="range-latest">{{ pod.cpuLatest }}</span>
-                <span class="range-sep"> &lt; </span>
-                <span class="range-bound">{{ pod.cpuMax }}</span>
-              </span>
+              <div>{{ pod.name }}</div>
+              <div class="cell-sub">
+                {{ pod.namespace }} &middot; {{ pod.node }}
+              </div>
             </td>
             <td>
-              {{ pod.memoryRequest || "-" }} / {{ pod.memoryLimit || "-" }}
+              <div>{{ pod.cpuRequest || "-" }} / {{ pod.cpuLimit || "-" }}</div>
+              <div class="cell-sub">
+                <span class="usage-range">
+                  <span class="range-bound">{{ pod.cpuMin }}</span>
+                  <span class="range-sep"> &lt; </span>
+                  <span class="range-latest">{{ pod.cpuLatest }}</span>
+                  <span class="range-sep"> &lt; </span>
+                  <span class="range-bound">{{ pod.cpuMax }}</span>
+                </span>
+              </div>
             </td>
             <td>
-              <span class="usage-range">
-                <span class="range-bound">{{ pod.memMin }}</span>
-                <span class="range-sep"> &lt; </span>
-                <span class="range-latest">{{ pod.memLatest }}</span>
-                <span class="range-sep"> &lt; </span>
-                <span class="range-bound">{{ pod.memMax }}</span>
-              </span>
+              <div>
+                {{ pod.memoryRequest || "-" }} / {{ pod.memoryLimit || "-" }}
+              </div>
+              <div class="cell-sub">
+                <span class="usage-range">
+                  <span class="range-bound">{{ pod.memMin }}</span>
+                  <span class="range-sep"> &lt; </span>
+                  <span class="range-latest">{{ pod.memLatest }}</span>
+                  <span class="range-sep"> &lt; </span>
+                  <span class="range-bound">{{ pod.memMax }}</span>
+                </span>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -77,19 +80,21 @@
         <thead>
           <tr>
             <th>Namespace</th>
-            <th>CPU Req / Limit</th>
-            <th>CPU Usage</th>
-            <th>Mem Req / Limit</th>
-            <th>Mem Usage</th>
+            <th>CPU</th>
+            <th>Memory</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="row in namespaceAggregates" :key="row.namespace">
             <td>{{ row.namespace }}</td>
-            <td>{{ row.cpuRequest }} / {{ row.cpuLimit }}</td>
-            <td>{{ row.cpuUsage }}</td>
-            <td>{{ row.memoryRequest }} / {{ row.memoryLimit }}</td>
-            <td>{{ row.memoryUsage }}</td>
+            <td>
+              <div>{{ row.cpuRequest }} / {{ row.cpuLimit }}</div>
+              <div class="cell-sub">{{ row.cpuUsage }}</div>
+            </td>
+            <td>
+              <div>{{ row.memoryRequest }} / {{ row.memoryLimit }}</div>
+              <div class="cell-sub">{{ row.memoryUsage }}</div>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -101,19 +106,21 @@
         <thead>
           <tr>
             <th>Node</th>
-            <th>CPU Req / Limit</th>
-            <th>CPU Usage</th>
-            <th>Mem Req / Limit</th>
-            <th>Mem Usage</th>
+            <th>CPU</th>
+            <th>Memory</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="row in nodeAggregates" :key="row.node">
             <td>{{ row.node }}</td>
-            <td>{{ row.cpuRequest }} / {{ row.cpuLimit }}</td>
-            <td>{{ row.cpuUsage }}</td>
-            <td>{{ row.memoryRequest }} / {{ row.memoryLimit }}</td>
-            <td>{{ row.memoryUsage }}</td>
+            <td>
+              <div>{{ row.cpuRequest }} / {{ row.cpuLimit }}</div>
+              <div class="cell-sub">{{ row.cpuUsage }}</div>
+            </td>
+            <td>
+              <div>{{ row.memoryRequest }} / {{ row.memoryLimit }}</div>
+              <div class="cell-sub">{{ row.memoryUsage }}</div>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -491,6 +498,12 @@ export default {
   display: inline-flex;
   align-items: center;
   gap: 0.1em;
+}
+
+.cell-sub {
+  font-size: 0.8em;
+  opacity: 0.5;
+  margin-top: 0.15em;
 }
 
 .range-bound {
