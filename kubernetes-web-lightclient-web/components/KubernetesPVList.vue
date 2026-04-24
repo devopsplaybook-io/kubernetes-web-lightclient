@@ -22,7 +22,7 @@
           <td>{{ kubeObject.spec.capacity?.storage || "N/A" }}</td>
           <td>{{ kubeObject.spec.accessModes?.join(", ") || "N/A" }}</td>
           <td>{{ kubeObject.spec.persistentVolumeReclaimPolicy || "N/A" }}</td>
-          <td>{{ kubeObject.status?.phase || "Unknown" }}</td>
+          <td :class="pvStatusClass(kubeObject.status?.phase)">{{ kubeObject.status?.phase || "Unknown" }}</td>
           <td>{{ formatClaim(kubeObject.spec.claimRef) }}</td>
           <td>
             {{ UtilsRelativeTime(kubeObject.metadata.creationTimestamp) }}
@@ -71,6 +71,14 @@ export default {
     KubernetesObjectStore().getPVs();
   },
   methods: {
+    pvStatusClass(phase) {
+      if (!phase) return 'status-neutral';
+      const p = phase.toLowerCase();
+      if (p === 'bound') return 'status-ok';
+      if (p === 'available') return 'status-warning';
+      if (p === 'released' || p === 'failed') return 'status-error';
+      return 'status-neutral';
+    },
     formatClaim(claimRef) {
       if (!claimRef) return "N/A";
       return `${claimRef.namespace}/${claimRef.name}`;
@@ -107,5 +115,3 @@ export default {
   },
 };
 </script>
-
-<style scoped></style>

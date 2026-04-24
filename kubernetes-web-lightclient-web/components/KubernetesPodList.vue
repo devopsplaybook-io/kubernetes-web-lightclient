@@ -21,7 +21,7 @@
         >
           <td>{{ kubeObject.metadata.namespace }}</td>
           <td>{{ kubeObject.metadata.name }}</td>
-          <td>{{ kubeObject.status.phase }}</td>
+          <td :class="podStatusClass(kubeObject.status.phase)">{{ kubeObject.status.phase }}</td>
           <td>
             {{ UtilsRelativeTime(kubeObject.metadata.creationTimestamp) }}
           </td>
@@ -146,6 +146,14 @@ export default {
     KubernetesObjectStore().getPods();
   },
   methods: {
+    podStatusClass(phase) {
+      if (!phase) return 'status-neutral';
+      const p = phase.toLowerCase();
+      if (p === 'running' || p === 'succeeded') return 'status-ok';
+      if (p === 'pending' || p === 'terminating') return 'status-warning';
+      if (p === 'failed' || p === 'unknown') return 'status-error';
+      return 'status-neutral';
+    },
     async podDelete(namespace, podname) {
       if (!confirm(`Delete pod ${podname} (${namespace})`)) {
         return;
@@ -218,5 +226,3 @@ export default {
   },
 };
 </script>
-
-<style scoped></style>

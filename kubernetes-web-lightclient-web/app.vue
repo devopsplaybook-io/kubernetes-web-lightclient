@@ -62,17 +62,6 @@ main {
   margin-right: 0.5em;
 }
 
-@media (prefers-color-scheme: dark) {
-  .actions i {
-    color: #bcc6ce;
-  }
-}
-@media (prefers-color-scheme: light) {
-  .actions i {
-    color: #1d2832;
-  }
-}
-
 /* Aninations */
 
 .fade-in-slow {
