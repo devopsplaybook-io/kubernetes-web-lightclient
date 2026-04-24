@@ -85,7 +85,7 @@ export default {
             argument: objectName,
             noJson: true,
           },
-          await AuthService.getAuthHeader()
+          await AuthService.getAuthHeader(),
         )
         .then(async (res) => {
           this.dialogDetails.text = await UtilsDecompressData(res.data.result);

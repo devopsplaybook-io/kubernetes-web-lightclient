@@ -32,7 +32,7 @@
               v-on:click="
                 showDetails(
                   kubeObject.metadata.namespace,
-                  kubeObject.metadata.name
+                  kubeObject.metadata.name,
                 )
               "
             ></i>
@@ -43,7 +43,7 @@
               v-on:click="
                 daemonsetRestart(
                   kubeObject.metadata.namespace,
-                  kubeObject.metadata.name
+                  kubeObject.metadata.name,
                 )
               "
             ></i>
@@ -110,7 +110,7 @@ export default {
             argument: objectName,
             noJson: true,
           },
-          await AuthService.getAuthHeader()
+          await AuthService.getAuthHeader(),
         )
         .then(async (res) => {
           this.dialogDetails.text = await UtilsDecompressData(res.data.result);
@@ -120,7 +120,7 @@ export default {
     async daemonsetRestart(namespace, daemonsetName) {
       if (
         !confirm(
-          `Perform a rollout restart of daemonset ${daemonsetName} (${namespace})`
+          `Perform a rollout restart of daemonset ${daemonsetName} (${namespace})`,
         )
       ) {
         return;
@@ -135,7 +135,7 @@ export default {
             argument: daemonsetName,
             noJson: true,
           },
-          await AuthService.getAuthHeader()
+          await AuthService.getAuthHeader(),
         )
         .then(() => {
           EventBus.emit(EventTypes.ALERT_MESSAGE, {

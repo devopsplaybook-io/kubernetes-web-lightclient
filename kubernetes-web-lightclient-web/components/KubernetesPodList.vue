@@ -21,7 +21,9 @@
         >
           <td>{{ kubeObject.metadata.namespace }}</td>
           <td>{{ kubeObject.metadata.name }}</td>
-          <td :class="podStatusClass(getPodStatus(kubeObject))">{{ getPodStatus(kubeObject) }}</td>
+          <td :class="podStatusClass(getPodStatus(kubeObject))">
+            {{ getPodStatus(kubeObject) }}
+          </td>
           <td>
             {{ UtilsRelativeTime(kubeObject.metadata.creationTimestamp) }}
           </td>
@@ -41,7 +43,7 @@
                 const statuses = kubeObject.status?.containerStatuses || [];
                 return statuses.reduce(
                   (sum, s) => sum + (s.restartCount || 0),
-                  0
+                  0,
                 );
               })()
             }}
@@ -53,7 +55,7 @@
                   .map(
                     (s) =>
                       s.state?.terminated?.finishedAt ||
-                      s.lastState?.terminated?.finishedAt
+                      s.lastState?.terminated?.finishedAt,
                   )
                   .filter(Boolean)
                   .sort()
@@ -68,7 +70,7 @@
               v-on:click="
                 showDetails(
                   kubeObject.metadata.namespace,
-                  kubeObject.metadata.name
+                  kubeObject.metadata.name,
                 )
               "
             ></i>
@@ -79,7 +81,7 @@
               v-on:click="
                 showLogs(
                   kubeObject.metadata.namespace,
-                  kubeObject.metadata.name
+                  kubeObject.metadata.name,
                 )
               "
             ></i>
@@ -90,7 +92,7 @@
               v-on:click="
                 podDelete(
                   kubeObject.metadata.namespace,
-                  kubeObject.metadata.name
+                  kubeObject.metadata.name,
                 )
               "
             ></i>
@@ -147,14 +149,17 @@ export default {
   },
   methods: {
     getPodStatus(pod) {
-      const phase = pod.status?.phase || 'Unknown';
+      const phase = pod.status?.phase || "Unknown";
       // If pod is being deleted
-      if (pod.metadata?.deletionTimestamp) return 'Terminating';
+      if (pod.metadata?.deletionTimestamp) return "Terminating";
       // Check init containers first
       const initStatuses = pod.status?.initContainerStatuses || [];
       for (const cs of initStatuses) {
         if (cs.state?.waiting?.reason) return `Init:${cs.state.waiting.reason}`;
-        if (cs.state?.terminated?.reason && cs.state.terminated.reason !== 'Completed') {
+        if (
+          cs.state?.terminated?.reason &&
+          cs.state.terminated.reason !== "Completed"
+        ) {
           return `Init:${cs.state.terminated.reason}`;
         }
       }
@@ -167,30 +172,33 @@ export default {
       return phase;
     },
     podStatusClass(status) {
-      if (!status) return 'status-neutral';
+      if (!status) return "status-neutral";
       const s = status.toLowerCase();
-      if (s === 'running' || s === 'succeeded' || s === 'completed') return 'status-ok';
+      if (s === "running" || s === "succeeded" || s === "completed")
+        return "status-ok";
       if (
-        s === 'pending' ||
-        s === 'containercreating' ||
-        s === 'podscheduled' ||
-        s === 'terminating' ||
-        s.startsWith('init:')
-      ) return 'status-warning';
+        s === "pending" ||
+        s === "containercreating" ||
+        s === "podscheduled" ||
+        s === "terminating" ||
+        s.startsWith("init:")
+      )
+        return "status-warning";
       if (
-        s === 'failed' ||
-        s === 'unknown' ||
-        s === 'crashloopbackoff' ||
-        s === 'imagepullbackoff' ||
-        s === 'errimagepull' ||
-        s === 'oomkilled' ||
-        s === 'error' ||
-        s === 'evicted' ||
-        s === 'startuperror' ||
-        s === 'createcontainerconfigerror' ||
-        s === 'invalidimagenam'
-      ) return 'status-error';
-      return 'status-neutral';
+        s === "failed" ||
+        s === "unknown" ||
+        s === "crashloopbackoff" ||
+        s === "imagepullbackoff" ||
+        s === "errimagepull" ||
+        s === "oomkilled" ||
+        s === "error" ||
+        s === "evicted" ||
+        s === "startuperror" ||
+        s === "createcontainerconfigerror" ||
+        s === "invalidimagenam"
+      )
+        return "status-error";
+      return "status-neutral";
     },
     async podDelete(namespace, podname) {
       if (!confirm(`Delete pod ${podname} (${namespace})`)) {
@@ -206,7 +214,7 @@ export default {
             argument: podname,
             noJson: true,
           },
-          await AuthService.getAuthHeader()
+          await AuthService.getAuthHeader(),
         )
         .then(() => {
           EventBus.emit(EventTypes.ALERT_MESSAGE, {
@@ -247,7 +255,7 @@ export default {
             argument: objectName,
             noJson: true,
           },
-          await AuthService.getAuthHeader()
+          await AuthService.getAuthHeader(),
         )
         .then(async (res) => {
           this.dialogDetails.text = await UtilsDecompressData(res.data.result);
