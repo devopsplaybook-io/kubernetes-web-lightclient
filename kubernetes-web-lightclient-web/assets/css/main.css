@@ -7,22 +7,22 @@
    ============================================================ */
 
 :root {
-  /* Status: healthy / running / ready */
-  --status-ok-color: var(--pico-color-jade-550);
-  /* Status: warning / pending / suspended */
-  --status-warning-color: var(--pico-color-amber-550);
-  /* Status: error / failed / not-ready */
-  --status-error-color: var(--pico-color-red-550);
-  /* Status: unknown / neutral */
-  --status-neutral-color: var(--pico-color-slate-500);
+  /* Status: healthy / running / ready — jade green */
+  --status-ok-color: #2d9b6f;
+  /* Status: warning / pending / suspended — amber */
+  --status-warning-color: #d97706;
+  /* Status: error / failed / not-ready — red */
+  --status-error-color: #dc2626;
+  /* Status: unknown / neutral — slate */
+  --status-neutral-color: #64748b;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --status-ok-color: var(--pico-color-jade-400);
-    --status-warning-color: var(--pico-color-amber-400);
-    --status-error-color: var(--pico-color-red-400);
-    --status-neutral-color: var(--pico-color-slate-400);
+    --status-ok-color: #34d399;
+    --status-warning-color: #fbbf24;
+    --status-error-color: #f87171;
+    --status-neutral-color: #94a3b8;
   }
 }
 

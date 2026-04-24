@@ -21,7 +21,7 @@
         >
           <td>{{ kubeObject.metadata.namespace }}</td>
           <td>{{ kubeObject.metadata.name }}</td>
-          <td :class="podStatusClass(kubeObject.status.phase)">{{ kubeObject.status.phase }}</td>
+          <td :class="podStatusClass(getPodStatus(kubeObject))">{{ getPodStatus(kubeObject) }}</td>
           <td>
             {{ UtilsRelativeTime(kubeObject.metadata.creationTimestamp) }}
           </td>
@@ -146,12 +146,50 @@ export default {
     KubernetesObjectStore().getPods();
   },
   methods: {
-    podStatusClass(phase) {
-      if (!phase) return 'status-neutral';
-      const p = phase.toLowerCase();
-      if (p === 'running' || p === 'succeeded') return 'status-ok';
-      if (p === 'pending' || p === 'terminating') return 'status-warning';
-      if (p === 'failed' || p === 'unknown') return 'status-error';
+    getPodStatus(pod) {
+      const phase = pod.status?.phase || 'Unknown';
+      // If pod is being deleted
+      if (pod.metadata?.deletionTimestamp) return 'Terminating';
+      // Check init containers first
+      const initStatuses = pod.status?.initContainerStatuses || [];
+      for (const cs of initStatuses) {
+        if (cs.state?.waiting?.reason) return `Init:${cs.state.waiting.reason}`;
+        if (cs.state?.terminated?.reason && cs.state.terminated.reason !== 'Completed') {
+          return `Init:${cs.state.terminated.reason}`;
+        }
+      }
+      // Check regular containers
+      const containerStatuses = pod.status?.containerStatuses || [];
+      for (const cs of containerStatuses) {
+        if (cs.state?.waiting?.reason) return cs.state.waiting.reason;
+        if (cs.state?.terminated?.reason) return cs.state.terminated.reason;
+      }
+      return phase;
+    },
+    podStatusClass(status) {
+      if (!status) return 'status-neutral';
+      const s = status.toLowerCase();
+      if (s === 'running' || s === 'succeeded' || s === 'completed') return 'status-ok';
+      if (
+        s === 'pending' ||
+        s === 'containercreating' ||
+        s === 'podscheduled' ||
+        s === 'terminating' ||
+        s.startsWith('init:')
+      ) return 'status-warning';
+      if (
+        s === 'failed' ||
+        s === 'unknown' ||
+        s === 'crashloopbackoff' ||
+        s === 'imagepullbackoff' ||
+        s === 'errimagepull' ||
+        s === 'oomkilled' ||
+        s === 'error' ||
+        s === 'evicted' ||
+        s === 'startuperror' ||
+        s === 'createcontainerconfigerror' ||
+        s === 'invalidimagenam'
+      ) return 'status-error';
       return 'status-neutral';
     },
     async podDelete(namespace, podname) {
