@@ -1,2 +1,105 @@
 @import "@picocss/pico/css/pico.min.css";
 @import "bootstrap-icons/font/bootstrap-icons.css";
+
+/* ============================================================
+   STATUS COLORS (Pico CSS color palette)
+   https://picocss.com/docs/colors
+   ============================================================ */
+
+:root {
+  /* Status: healthy / running / ready — jade green */
+  --status-ok-color: #2d9b6f;
+  /* Status: warning / pending / suspended — amber */
+  --status-warning-color: #d97706;
+  /* Status: error / failed / not-ready — red */
+  --status-error-color: #dc2626;
+  /* Status: unknown / neutral — slate */
+  --status-neutral-color: #64748b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --status-ok-color: #34d399;
+    --status-warning-color: #fbbf24;
+    --status-error-color: #f87171;
+    --status-neutral-color: #94a3b8;
+  }
+}
+
+.status-ok {
+  color: var(--status-ok-color);
+  font-weight: 600;
+}
+.status-warning {
+  color: var(--status-warning-color);
+  font-weight: 600;
+}
+.status-error {
+  color: var(--status-error-color);
+  font-weight: 600;
+}
+.status-neutral {
+  color: var(--status-neutral-color);
+}
+
+/* ============================================================
+   ICON BUTTON INTERACTIONS
+   Hover glow + click push-down for .actions icons and table cell action icons
+   ============================================================ */
+
+.actions i,
+td > i[class^="bi"],
+td > i[class*=" bi"] {
+  transition:
+    transform 0.12s ease,
+    opacity 0.12s ease;
+  display: inline-block;
+}
+
+@media (prefers-color-scheme: dark) {
+  .actions i,
+  td > i[class^="bi"],
+  td > i[class*=" bi"] {
+    color: #bcc6ce;
+  }
+}
+@media (prefers-color-scheme: light) {
+  .actions i,
+  td > i[class^="bi"],
+  td > i[class*=" bi"] {
+    color: #1d2832;
+  }
+}
+.actions i:hover,
+td > i[class^="bi"]:hover,
+td > i[class*=" bi"]:hover {
+  opacity: 0.75;
+  transform: scale(1.15);
+}
+.actions i:active,
+td > i[class^="bi"]:active,
+td > i[class*=" bi"]:active {
+  transform: scale(0.88) translateY(1px);
+  opacity: 1;
+}
+
+/* ============================================================
+   BUTTON INTERACTIONS
+   Hover lift + click push-down for <button> elements
+   ============================================================ */
+
+button {
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease,
+    filter 0.12s ease;
+}
+button:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+}
+button:active {
+  transform: translateY(1px) scale(0.97);
+  box-shadow: none;
+  filter: brightness(0.95);
+}

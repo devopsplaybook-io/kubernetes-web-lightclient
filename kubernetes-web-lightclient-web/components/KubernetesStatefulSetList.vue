@@ -32,7 +32,7 @@
               v-on:click="
                 showDetails(
                   kubeObject.metadata.namespace,
-                  kubeObject.metadata.name
+                  kubeObject.metadata.name,
                 )
               "
             ></i>
@@ -43,7 +43,7 @@
               v-on:click="
                 statefulsetRestart(
                   kubeObject.metadata.namespace,
-                  kubeObject.metadata.name
+                  kubeObject.metadata.name,
                 )
               "
             ></i>
@@ -110,7 +110,7 @@ export default {
             argument: objectName,
             noJson: true,
           },
-          await AuthService.getAuthHeader()
+          await AuthService.getAuthHeader(),
         )
         .then(async (res) => {
           this.dialogDetails.text = await UtilsDecompressData(res.data.result);
@@ -120,7 +120,7 @@ export default {
     async statefulsetRestart(namespace, statefulsetName) {
       if (
         !confirm(
-          `Perform a rollout restart of statefulset ${statefulsetName} (${namespace})`
+          `Perform a rollout restart of statefulset ${statefulsetName} (${namespace})`,
         )
       ) {
         return;
@@ -135,7 +135,7 @@ export default {
             argument: statefulsetName,
             noJson: true,
           },
-          await AuthService.getAuthHeader()
+          await AuthService.getAuthHeader(),
         )
         .then(() => {
           EventBus.emit(EventTypes.ALERT_MESSAGE, {
@@ -151,5 +151,3 @@ export default {
   },
 };
 </script>
-
-<style scoped></style>

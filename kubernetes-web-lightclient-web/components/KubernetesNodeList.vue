@@ -20,7 +20,9 @@
           v-bind:key="kubeObject.metadata.uid"
         >
           <td>{{ kubeObject.metadata.name }}</td>
-          <td>{{ getNodeStatus(kubeObject) }}</td>
+          <td :class="nodeStatusClass(getNodeStatus(kubeObject))">
+            {{ getNodeStatus(kubeObject) }}
+          </td>
           <td>{{ getNodeRole(kubeObject) }}</td>
           <td>{{ kubeObject.status.nodeInfo.kubeletVersion }}</td>
           <td>{{ getNodeMemory(kubeObject) }}</td>
@@ -73,6 +75,11 @@ export default {
     KubernetesObjectStore().getNodes();
   },
   methods: {
+    nodeStatusClass(status) {
+      if (status === "Ready") return "status-ok";
+      if (status === "NotReady") return "status-error";
+      return "status-neutral";
+    },
     getNodeMemory(node) {
       const capacity = node.status?.capacity?.memory;
       if (!capacity) return "N/A";
@@ -121,7 +128,7 @@ export default {
     },
     getNodeStatus(node) {
       const readyCondition = node.status.conditions?.find(
-        (condition) => condition.type === "Ready"
+        (condition) => condition.type === "Ready",
       );
       return readyCondition?.status === "True" ? "Ready" : "NotReady";
     },
@@ -147,7 +154,7 @@ export default {
             argument: objectName,
             noJson: true,
           },
-          await AuthService.getAuthHeader()
+          await AuthService.getAuthHeader(),
         )
         .then(async (res) => {
           this.dialogDetails.text = await UtilsDecompressData(res.data.result);
@@ -157,5 +164,3 @@ export default {
   },
 };
 </script>
-
-<style scoped></style>

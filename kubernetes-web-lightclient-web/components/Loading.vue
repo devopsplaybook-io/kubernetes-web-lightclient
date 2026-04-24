@@ -1,5 +1,7 @@
 <template>
-  <div class="fade-in-slow blink"><i class="bi bi-hourglass-split"></i> Loading...</div>
+  <div class="fade-in-slow blink">
+    <i class="bi bi-hourglass-split"></i> Loading...
+  </div>
 </template>
 
 <script>
@@ -10,5 +12,3 @@ export default {
   methods: {},
 };
 </script>
-
-<style scoped></style>
