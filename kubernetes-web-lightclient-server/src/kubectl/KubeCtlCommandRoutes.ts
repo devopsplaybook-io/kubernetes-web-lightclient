@@ -67,4 +67,5 @@ const allowedCommands = [
   "delete",
   "rollout restart",
   "create",
+  "scale",
 ];
