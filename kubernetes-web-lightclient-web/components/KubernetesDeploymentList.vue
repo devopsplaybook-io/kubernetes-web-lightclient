@@ -9,6 +9,7 @@
           <th>Age</th>
           <th>Details</th>
           <th>Restart</th>
+          <th>Scale</th>
         </tr>
       </thead>
       <tbody>
@@ -48,6 +49,18 @@
               "
             ></i>
           </td>
+          <td>
+            <i
+              class="bi bi-layers"
+              v-on:click="
+                showScale(
+                  kubeObject.metadata.namespace,
+                  kubeObject.metadata.name,
+                  kubeObject.spec.replicas,
+                )
+              "
+            ></i>
+          </td>
         </tr>
       </tbody>
     </table>
@@ -56,6 +69,14 @@
       :text="dialogDetails.text"
       :title="dialogDetails.title"
       @onClose="onCloseDetails()"
+    />
+    <DialogScaleDeployment
+      v-if="dialogScale.enable"
+      :namespace="dialogScale.namespace"
+      :deploymentName="dialogScale.deploymentName"
+      :currentReplicas="dialogScale.currentReplicas"
+      @onClose="onCloseScale()"
+      @onScale="onScale"
     />
   </div>
 </template>
@@ -80,6 +101,12 @@ export default {
         enable: false,
         title: "",
         text: "",
+      },
+      dialogScale: {
+        enable: false,
+        namespace: "",
+        deploymentName: "",
+        currentReplicas: 0,
       },
     };
   },
@@ -114,6 +141,47 @@ export default {
         )
         .then(async (res) => {
           this.dialogDetails.text = await UtilsDecompressData(res.data.result);
+        })
+        .catch(handleError);
+    },
+    showScale(namespace, deploymentName, currentReplicas) {
+      this.dialogScale = {
+        enable: true,
+        namespace,
+        deploymentName,
+        currentReplicas: currentReplicas || 0,
+      };
+    },
+    onCloseScale() {
+      this.dialogScale = {
+        enable: false,
+        namespace: "",
+        deploymentName: "",
+        currentReplicas: 0,
+      };
+    },
+    async onScale({ namespace, deploymentName, replicas }) {
+      this.onCloseScale();
+      await axios
+        .post(
+          `${(await Config.get()).SERVER_URL}/kubectl/command`,
+          {
+            namespace,
+            object: "deployment",
+            command: "scale",
+            argument: `${deploymentName} --replicas=${replicas}`,
+            noJson: true,
+          },
+          await AuthService.getAuthHeader(),
+        )
+        .then(() => {
+          EventBus.emit(EventTypes.ALERT_MESSAGE, {
+            type: "info",
+            text: `Deployment ${deploymentName} scaled to ${replicas} replica(s)`,
+          });
+          setTimeout(() => {
+            KubernetesObjectStore().getDeployments();
+          }, 1000);
         })
         .catch(handleError);
     },
