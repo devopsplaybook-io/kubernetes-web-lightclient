@@ -35,13 +35,18 @@
       <span
         ><i
           class="bi bi-arrow-clockwise"
-          :class="{ 'spin': kubernetesObjectStore.loading }"
+          :class="{ spin: kubernetesObjectStore.loading }"
           v-on:click="refreshObject()"
         ></i
       ></span>
     </div>
     <div id="object-list">
-      <Loading v-if="kubernetesObjectStore.loading && kubernetesObjectStore.data[objectTypePlural].length === 0" />
+      <Loading
+        v-if="
+          kubernetesObjectStore.loading &&
+          kubernetesObjectStore.data[objectTypePlural].length === 0
+        "
+      />
       <KubernetesNodeList
         v-if="objectType == 'node' && isFeatureEnabled('node')"
       />
@@ -261,7 +266,7 @@ export default {
       KubernetesObjectStore().setFilterNamespace(
         this.selectedNamespace && this.selectedNamespace !== "*"
           ? this.selectedNamespace
-          : ""
+          : "",
       );
       const router = useRouter();
       const route = useRoute();

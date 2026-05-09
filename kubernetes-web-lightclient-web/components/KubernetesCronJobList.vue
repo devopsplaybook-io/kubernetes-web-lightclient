@@ -1,6 +1,9 @@
 <template>
   <div>
-    <table class="striped" v-if="kubernetesObjectStore.data.cronjobs.length > 0">
+    <table
+      class="striped"
+      v-if="kubernetesObjectStore.data.cronjobs.length > 0"
+    >
       <thead>
         <tr>
           <th>Namespace</th>
@@ -152,7 +155,8 @@ export default {
       };
     },
     async onConfirmTrigger() {
-      const { namespace, objectName, jobName } = this.dialogConfirm.pendingTrigger;
+      const { namespace, objectName, jobName } =
+        this.dialogConfirm.pendingTrigger;
       this.dialogConfirm.enable = false;
       await axios
         .post(

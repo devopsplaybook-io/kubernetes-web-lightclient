@@ -1,6 +1,9 @@
 <template>
   <div>
-    <table class="striped" v-if="kubernetesObjectStore.data.statefulsets.length > 0">
+    <table
+      class="striped"
+      v-if="kubernetesObjectStore.data.statefulsets.length > 0"
+    >
       <thead>
         <tr>
           <th>Namespace</th>

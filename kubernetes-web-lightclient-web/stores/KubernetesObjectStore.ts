@@ -228,12 +228,12 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
         .post(
           `${(await Config.get()).SERVER_URL}/kubectl/command`,
           payload,
-          await AuthService.getAuthHeader()
+          await AuthService.getAuthHeader(),
         )
         .then(async (response) => {
           const items: any[] = [];
           for (const item of JSON.parse(
-            await UtilsDecompressData(response.data.result)
+            await UtilsDecompressData(response.data.result),
           ).items) {
             items.push(item);
           }
@@ -272,6 +272,6 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
 
 if (import.meta.hot) {
   import.meta.hot.accept(
-    acceptHMRUpdate(KubernetesObjectStore, import.meta.hot)
+    acceptHMRUpdate(KubernetesObjectStore, import.meta.hot),
   );
 }

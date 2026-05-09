@@ -108,11 +108,11 @@ main {
   }
 }
 .loading-indicator {
-  width: 15%;
+  width: 5%;
   margin-left: auto;
   margin-right: auto;
-  margin-top: 20%;
-  margin-bottom: 20%;
+  margin-top: 5%;
+  margin-bottom: 5%;
   aspect-ratio: 1;
   background:
     var(--c) 0% 50%,
