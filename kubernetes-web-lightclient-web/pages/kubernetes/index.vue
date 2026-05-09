@@ -41,86 +41,83 @@
       ></span>
     </div>
     <div id="object-list">
-      <Loading
-        v-if="
-          kubernetesObjectStore.loading &&
-          kubernetesObjectStore.data[objectTypePlural].length === 0
-        "
-      />
-      <KubernetesNodeList
-        v-if="objectType == 'node' && isFeatureEnabled('node')"
-      />
-      <KubernetesNamespaceList
-        v-if="objectType == 'namespace' && isFeatureEnabled('namespace')"
-      />
-      <KubernetesDeploymentList
-        v-if="objectType == 'deployment' && isFeatureEnabled('deployment')"
-      />
-      <KubernetesPodList
-        v-else-if="objectType == 'pod' && isFeatureEnabled('pod')"
-      />
-      <KubernetesStatefulSetList
-        v-else-if="
-          objectType == 'statefulset' && isFeatureEnabled('statefulset')
-        "
-      />
-      <KubernetesDaemonSetList
-        v-else-if="objectType == 'daemonset' && isFeatureEnabled('daemonset')"
-      />
-      <KubernetesJobList
-        v-else-if="objectType == 'job' && isFeatureEnabled('job')"
-      />
-      <KubernetesCronJobList
-        v-else-if="objectType == 'cronjob' && isFeatureEnabled('cronjob')"
-      />
-      <KubernetesServiceList
-        v-else-if="objectType == 'service' && isFeatureEnabled('service')"
-      />
-      <KubernetesPVCList
-        v-else-if="objectType == 'pvc' && isFeatureEnabled('pvc')"
-      />
-      <KubernetesPVList
-        v-else-if="objectType == 'pv' && isFeatureEnabled('pv')"
-      />
-      <KubernetesConfigMapList
-        v-else-if="objectType == 'configmap' && isFeatureEnabled('configmap')"
-      />
-      <KubernetesSecretList
-        v-else-if="objectType == 'secret' && isFeatureEnabled('secret')"
-      />
-      <KubernetesServiceAccountList
-        v-else-if="
-          objectType == 'serviceaccount' && isFeatureEnabled('serviceaccount')
-        "
-      />
-      <KubernetesRoleList
-        v-else-if="objectType == 'role' && isFeatureEnabled('role')"
-      />
-      <KubernetesClusterRoleList
-        v-else-if="
-          objectType == 'clusterrole' && isFeatureEnabled('clusterrole')
-        "
-      />
-      <KubernetesRoleBindingList
-        v-else-if="
-          objectType == 'rolebinding' && isFeatureEnabled('rolebinding')
-        "
-      />
-      <KubernetesClusterRoleBindingList
-        v-else-if="
-          objectType == 'clusterrolebinding' &&
-          isFeatureEnabled('clusterrolebinding')
-        "
-      />
-      <KubernetesIngressList
-        v-else-if="objectType == 'ingress' && isFeatureEnabled('ingress')"
-      />
-      <KubernetesCustomResourceDefinitionList
-        v-else-if="
-          objectType == 'customresourcedefinition' &&
-          isFeatureEnabled('customresourcedefinition')
-        "
-      />
+      <Loading v-if="kubernetesObjectStore.loading" />
+      <template v-else>
+        <KubernetesNodeList
+          v-if="objectType == 'node' && isFeatureEnabled('node')"
+        />
+        <KubernetesNamespaceList
+          v-if="objectType == 'namespace' && isFeatureEnabled('namespace')"
+        />
+        <KubernetesDeploymentList
+          v-if="objectType == 'deployment' && isFeatureEnabled('deployment')"
+        />
+        <KubernetesPodList
+          v-else-if="objectType == 'pod' && isFeatureEnabled('pod')"
+        />
+        <KubernetesStatefulSetList
+          v-else-if="
+            objectType == 'statefulset' && isFeatureEnabled('statefulset')
+          "
+        />
+        <KubernetesDaemonSetList
+          v-else-if="objectType == 'daemonset' && isFeatureEnabled('daemonset')"
+        />
+        <KubernetesJobList
+          v-else-if="objectType == 'job' && isFeatureEnabled('job')"
+        />
+        <KubernetesCronJobList
+          v-else-if="objectType == 'cronjob' && isFeatureEnabled('cronjob')"
+        />
+        <KubernetesServiceList
+          v-else-if="objectType == 'service' && isFeatureEnabled('service')"
+        />
+        <KubernetesPVCList
+          v-else-if="objectType == 'pvc' && isFeatureEnabled('pvc')"
+        />
+        <KubernetesPVList
+          v-else-if="objectType == 'pv' && isFeatureEnabled('pv')"
+        />
+        <KubernetesConfigMapList
+          v-else-if="objectType == 'configmap' && isFeatureEnabled('configmap')"
+        />
+        <KubernetesSecretList
+          v-else-if="objectType == 'secret' && isFeatureEnabled('secret')"
+        />
+        <KubernetesServiceAccountList
+          v-else-if="
+            objectType == 'serviceaccount' && isFeatureEnabled('serviceaccount')
+          "
+        />
+        <KubernetesRoleList
+          v-else-if="objectType == 'role' && isFeatureEnabled('role')"
+        />
+        <KubernetesClusterRoleList
+          v-else-if="
+            objectType == 'clusterrole' && isFeatureEnabled('clusterrole')
+          "
+        />
+        <KubernetesRoleBindingList
+          v-else-if="
+            objectType == 'rolebinding' && isFeatureEnabled('rolebinding')
+          "
+        />
+        <KubernetesClusterRoleBindingList
+          v-else-if="
+            objectType == 'clusterrolebinding' &&
+            isFeatureEnabled('clusterrolebinding')
+          "
+        />
+        <KubernetesIngressList
+          v-else-if="objectType == 'ingress' && isFeatureEnabled('ingress')"
+        />
+        <KubernetesCustomResourceDefinitionList
+          v-else-if="
+            objectType == 'customresourcedefinition' &&
+            isFeatureEnabled('customresourcedefinition')
+          "
+        />
+      </template>
     </div>
   </div>
 </template>
@@ -150,9 +147,6 @@ export default {
     enabledFeatures() {
       const enabledIds = FeatureService.getEnabledFeatures();
       return FEATURES.filter((f) => enabledIds.includes(f.id));
-    },
-    objectTypePlural() {
-      return this.objectType + "s";
     },
     isCurrentFeatureNamespaced() {
       return FeatureService.isFeatureNamespaced(this.objectType);
