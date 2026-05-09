@@ -41,8 +41,8 @@
       ></span>
     </div>
     <div id="object-list">
-      <Loading v-if="kubernetesObjectStore.loading" />
-      <div v-show="!kubernetesObjectStore.loading">
+      <Loading v-if="kubernetesObjectStore.loading && !kubernetesObjectStore.hasEverLoaded" />
+      <div v-show="kubernetesObjectStore.hasEverLoaded || !kubernetesObjectStore.loading">
         <KubernetesNodeList
           v-if="objectType == 'node' && isFeatureEnabled('node')"
         />

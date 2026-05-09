@@ -50,6 +50,7 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
     filter: { keyword: "", namespace: "" },
     lastCall: { payload: {}, type: "" },
     loading: false,
+    hasEverLoaded: false,
   }),
 
   getters: {},
@@ -216,6 +217,7 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
       this.getObjectFull(type, payload)
         .then(async () => {
           this.loading = false;
+          this.hasEverLoaded = true;
           return this.applyFilter(type);
         })
         .catch((error) => {
