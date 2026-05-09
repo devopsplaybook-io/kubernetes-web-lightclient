@@ -42,7 +42,7 @@
     </div>
     <div id="object-list">
       <Loading v-if="kubernetesObjectStore.loading" />
-      <template v-else>
+      <div v-show="!kubernetesObjectStore.loading">
         <KubernetesNodeList
           v-if="objectType == 'node' && isFeatureEnabled('node')"
         />
@@ -117,7 +117,7 @@
             isFeatureEnabled('customresourcedefinition')
           "
         />
-      </template>
+      </div>
     </div>
   </div>
 </template>
