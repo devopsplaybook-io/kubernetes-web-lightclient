@@ -1,6 +1,6 @@
 <template>
   <div>
-    <table class="striped">
+    <table class="striped" v-if="kubernetesObjectStore.data.pods.length > 0">
       <thead>
         <tr>
           <th>Namespace</th>
@@ -113,6 +113,13 @@
       :title="dialogLogs.title"
       @onClose="onCloseDetails()"
     />
+    <DialogConfirm
+      v-if="dialogConfirm.enable"
+      :title="dialogConfirm.title"
+      :message="dialogConfirm.message"
+      @onConfirm="onConfirmDelete()"
+      @onCancel="onCancelDelete()"
+    />
   </div>
 </template>
 
@@ -141,6 +148,12 @@ export default {
         enable: false,
         podname: "",
         namespace: "",
+      },
+      dialogConfirm: {
+        enable: false,
+        title: "",
+        message: "",
+        pendingDelete: null,
       },
     };
   },
@@ -201,9 +214,16 @@ export default {
       return "status-neutral";
     },
     async podDelete(namespace, podname) {
-      if (!confirm(`Delete pod ${podname} (${namespace})`)) {
-        return;
-      }
+      this.dialogConfirm = {
+        enable: true,
+        title: "Confirm Delete",
+        message: `Delete pod ${podname} (${namespace})?`,
+        pendingDelete: { namespace, podname },
+      };
+    },
+    async onConfirmDelete() {
+      const { namespace, podname } = this.dialogConfirm.pendingDelete;
+      this.dialogConfirm.enable = false;
       await axios
         .post(
           `${(await Config.get()).SERVER_URL}/kubectl/command`,
@@ -226,6 +246,9 @@ export default {
           }, 1000);
         })
         .catch(handleError);
+    },
+    onCancelDelete() {
+      this.dialogConfirm.enable = false;
     },
     onCloseDetails() {
       this.dialogDetails = {

@@ -49,6 +49,7 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
     },
     filter: { keyword: "", namespace: "" },
     lastCall: { payload: {}, type: "" },
+    loading: false,
   }),
 
   getters: {},
@@ -205,14 +206,20 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
     async refreshLast() {
       await this.getObject(this.lastCall.type, this.lastCall.payload);
     },
+    setLoading(value: boolean) {
+      this.loading = value;
+    },
     async getObject(type: string, payload: any) {
       this.lastCall.type = type;
       this.lastCall.payload = payload;
+      this.loading = true;
       this.getObjectFull(type, payload)
         .then(async () => {
+          this.loading = false;
           return this.applyFilter(type);
         })
         .catch((error) => {
+          this.loading = false;
           console.error(error);
         });
     },

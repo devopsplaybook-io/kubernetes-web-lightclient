@@ -1,6 +1,6 @@
 <template>
   <div>
-    <table class="striped">
+    <table class="striped" v-if="kubernetesObjectStore.data.cronjobs.length > 0">
       <thead>
         <tr>
           <th>Namespace</th>
@@ -58,6 +58,19 @@
       :title="dialogDetails.title"
       @onClose="onCloseDetails()"
     />
+    <DialogConfirm
+      v-if="dialogConfirm.enable"
+      :title="dialogConfirm.title"
+      :message="dialogConfirm.message"
+      @onConfirm="onConfirmTrigger()"
+      @onCancel="onCancelTrigger()"
+    />
+    <DialogAlert
+      v-if="dialogAlert.enable"
+      :title="dialogAlert.title"
+      :message="dialogAlert.message"
+      @onClose="onCloseAlert()"
+    />
   </div>
 </template>
 
@@ -81,6 +94,17 @@ export default {
         enable: false,
         title: "",
         text: "",
+      },
+      dialogConfirm: {
+        enable: false,
+        title: "",
+        message: "",
+        pendingTrigger: null,
+      },
+      dialogAlert: {
+        enable: false,
+        title: "",
+        message: "",
       },
     };
   },
@@ -120,9 +144,16 @@ export default {
     },
     async triggerCronJob(namespace, objectName) {
       const jobName = `${objectName}-manual-${Date.now()}`;
-      if (!confirm(`Trigger CronJob "${objectName}" as job "${jobName}"?`)) {
-        return;
-      }
+      this.dialogConfirm = {
+        enable: true,
+        title: "Confirm Trigger",
+        message: `Trigger CronJob "${objectName}" as job "${jobName}"?`,
+        pendingTrigger: { namespace, objectName, jobName },
+      };
+    },
+    async onConfirmTrigger() {
+      const { namespace, objectName, jobName } = this.dialogConfirm.pendingTrigger;
+      this.dialogConfirm.enable = false;
       await axios
         .post(
           `${(await Config.get()).SERVER_URL}/kubectl/command`,
@@ -136,11 +167,19 @@ export default {
           await AuthService.getAuthHeader(),
         )
         .then(async (res) => {
-          alert(
-            `Job "${jobName}" created successfully from CronJob "${objectName}"`,
-          );
+          this.dialogAlert = {
+            enable: true,
+            title: "Success",
+            message: `Job "${jobName}" created successfully from CronJob "${objectName}"`,
+          };
         })
         .catch(handleError);
+    },
+    onCancelTrigger() {
+      this.dialogConfirm.enable = false;
+    },
+    onCloseAlert() {
+      this.dialogAlert.enable = false;
     },
   },
 };

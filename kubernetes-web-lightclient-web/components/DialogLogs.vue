@@ -83,7 +83,7 @@ export default {
     return {
       text: "",
       wrapText: false,
-      logTime: "all",
+      logTime: "10m",
       filterText: "",
       debouncedFilter: null,
       containers: [],

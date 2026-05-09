@@ -33,10 +33,15 @@
         </option>
       </select>
       <span
-        ><i class="bi bi-arrow-clockwise" v-on:click="refreshObject()"></i
+        ><i
+          class="bi bi-arrow-clockwise"
+          :class="{ 'spin': kubernetesObjectStore.loading }"
+          v-on:click="refreshObject()"
+        ></i
       ></span>
     </div>
     <div id="object-list">
+      <Loading v-if="kubernetesObjectStore.loading && kubernetesObjectStore.data[objectTypePlural].length === 0" />
       <KubernetesNodeList
         v-if="objectType == 'node' && isFeatureEnabled('node')"
       />
@@ -115,6 +120,10 @@
   </div>
 </template>
 
+<script setup>
+const kubernetesObjectStore = KubernetesObjectStore();
+</script>
+
 <script>
 import { debounce } from "lodash";
 import { RefreshIntervalService } from "~~/services/RefreshIntervalService";
@@ -136,6 +145,9 @@ export default {
     enabledFeatures() {
       const enabledIds = FeatureService.getEnabledFeatures();
       return FEATURES.filter((f) => enabledIds.includes(f.id));
+    },
+    objectTypePlural() {
+      return this.objectType + "s";
     },
     isCurrentFeatureNamespaced() {
       return FeatureService.isFeatureNamespaced(this.objectType);
@@ -310,5 +322,18 @@ select {
 #object-list span,
 #object-list p {
   font-size: 0.9em;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
 }
 </style>
