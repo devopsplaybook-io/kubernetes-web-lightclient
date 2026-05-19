@@ -6,10 +6,7 @@ import {
   CrdScannerRefresh,
   ResourceType,
 } from "./CrdScanner";
-import {
-  UserSelectionLoad,
-  UserSelectionSave,
-} from "./UserResourceSelections";
+import { UserSelectionLoad, UserSelectionSave } from "./UserResourceSelections";
 import { Config } from "../Config";
 
 export class CrdRoutes {

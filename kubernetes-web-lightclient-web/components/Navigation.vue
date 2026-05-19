@@ -68,7 +68,7 @@ export default {
           .post(
             `${(await Config.get()).SERVER_URL}/users/session`,
             {},
-            await AuthService.getAuthHeader()
+            await AuthService.getAuthHeader(),
           )
           .then((res) => {
             AuthService.saveToken(res.data.token);

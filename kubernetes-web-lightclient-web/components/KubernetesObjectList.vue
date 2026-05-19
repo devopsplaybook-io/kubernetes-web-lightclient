@@ -13,26 +13,45 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="kubeObject of items" v-bind:key="kubeObject.metadata.uid || kubeObject.metadata.name">
+        <tr
+          v-for="kubeObject of items"
+          v-bind:key="kubeObject.metadata.uid || kubeObject.metadata.name"
+        >
           <td v-if="isNamespaced">{{ kubeObject.metadata.namespace }}</td>
           <td>{{ kubeObject.metadata.name }}</td>
-          <td>{{ UtilsRelativeTime(kubeObject.metadata.creationTimestamp) }}</td>
-          <td v-if="objectType === 'pod'" :class="podStatusClass(getPodStatus(kubeObject))">
+          <td>
+            {{ UtilsRelativeTime(kubeObject.metadata.creationTimestamp) }}
+          </td>
+          <td
+            v-if="objectType === 'pod'"
+            :class="podStatusClass(getPodStatus(kubeObject))"
+          >
             {{ getPodStatus(kubeObject) }}
           </td>
           <td>
             <i class="bi bi-eye-fill" v-on:click="showDetails(kubeObject)"></i>
           </td>
           <td v-if="objectType === 'pod'">
-            <i class="bi bi-file-text-fill" v-on:click="showLogs(kubeObject)"></i>
+            <i
+              class="bi bi-file-text-fill"
+              v-on:click="showLogs(kubeObject)"
+            ></i>
           </td>
           <td>
-            <i class="bi bi-x-circle-fill" v-on:click="confirmDelete(kubeObject)"></i>
+            <i
+              class="bi bi-x-circle-fill"
+              v-on:click="confirmDelete(kubeObject)"
+            ></i>
           </td>
         </tr>
       </tbody>
     </table>
-    <div v-else-if="!kubernetesObjectStore.loading && kubernetesObjectStore.hasEverLoaded" class="empty-state">
+    <div
+      v-else-if="
+        !kubernetesObjectStore.loading && kubernetesObjectStore.hasEverLoaded
+      "
+      class="empty-state"
+    >
       No {{ objectType }} found.
     </div>
     <DialogDetails
@@ -209,7 +228,10 @@ export default {
       const initStatuses = pod.status?.initContainerStatuses || [];
       for (const cs of initStatuses) {
         if (cs.state?.waiting?.reason) return `Init:${cs.state.waiting.reason}`;
-        if (cs.state?.terminated?.reason && cs.state.terminated.reason !== "Completed") {
+        if (
+          cs.state?.terminated?.reason &&
+          cs.state.terminated.reason !== "Completed"
+        ) {
           return `Init:${cs.state.terminated.reason}`;
         }
       }
@@ -223,9 +245,30 @@ export default {
     podStatusClass(status) {
       if (!status) return "status-neutral";
       const s = status.toLowerCase();
-      if (s === "running" || s === "succeeded" || s === "completed") return "status-ok";
-      if (s === "pending" || s === "containercreating" || s === "podscheduled" || s === "terminating" || s.startsWith("init:")) return "status-warning";
-      if (s === "failed" || s === "unknown" || s === "crashloopbackoff" || s === "imagepullbackoff" || s === "errimagepull" || s === "oomkilled" || s === "error" || s === "evicted" || s === "startuperror" || s === "createcontainerconfigerror" || s === "invalidimagename") return "status-error";
+      if (s === "running" || s === "succeeded" || s === "completed")
+        return "status-ok";
+      if (
+        s === "pending" ||
+        s === "containercreating" ||
+        s === "podscheduled" ||
+        s === "terminating" ||
+        s.startsWith("init:")
+      )
+        return "status-warning";
+      if (
+        s === "failed" ||
+        s === "unknown" ||
+        s === "crashloopbackoff" ||
+        s === "imagepullbackoff" ||
+        s === "errimagepull" ||
+        s === "oomkilled" ||
+        s === "error" ||
+        s === "evicted" ||
+        s === "startuperror" ||
+        s === "createcontainerconfigerror" ||
+        s === "invalidimagename"
+      )
+        return "status-error";
       return "status-neutral";
     },
   },

@@ -61,10 +61,6 @@
   </div>
 </template>
 
-<script setup>
-const kubernetesObjectStore = KubernetesObjectStore();
-</script>
-
 <script>
 import { debounce } from "lodash";
 import { RefreshIntervalService } from "~~/services/RefreshIntervalService";
@@ -86,7 +82,7 @@ export default {
   },
   computed: {
     enabledFeatures() {
-      const selectedIds = kubernetesObjectStore.selectedTypes;
+      const selectedIds = KubernetesObjectStore().selectedTypes;
       return this.availableTypes.filter((t) => selectedIds.includes(t.id));
     },
     isCurrentTypeNamespaced() {
@@ -103,7 +99,7 @@ export default {
     // Load available types and user selections
     try {
       this.availableTypes = await ResourceService.getAvailableTypes();
-      await kubernetesObjectStore.loadSelectedTypes();
+      await KubernetesObjectStore().loadSelectedTypes();
       this.typesLoaded = true;
     } catch (e) {
       console.error("Failed to load resource types", e);
@@ -135,7 +131,7 @@ export default {
     this.refreshIntervalValue = RefreshIntervalService.get();
 
     // Ensure first objectType is a selected one
-    const selectedIds = kubernetesObjectStore.selectedTypes;
+    const selectedIds = KubernetesObjectStore().selectedTypes;
     if (selectedIds.length > 0 && !selectedIds.includes(this.objectType)) {
       this.objectType = selectedIds[0];
     }
@@ -168,11 +164,7 @@ export default {
         objectType: newType,
         ...(this.searchFilter ? { search: this.searchFilter } : {}),
       };
-      if (
-        typeInfo &&
-        typeInfo.namespaced &&
-        this.selectedNamespace !== "*"
-      ) {
+      if (typeInfo && typeInfo.namespaced && this.selectedNamespace !== "*") {
         query.namespace = this.selectedNamespace;
       } else {
         delete query.namespace;
@@ -208,7 +200,7 @@ export default {
       KubernetesObjectStore().setFilterKeyword(this.searchFilter);
     }, 500),
     isTypeEnabled(featureId) {
-      return kubernetesObjectStore.selectedTypes.includes(featureId);
+      return KubernetesObjectStore().selectedTypes.includes(featureId);
     },
     onNamespaceChange() {
       KubernetesObjectStore().setFilterNamespace(

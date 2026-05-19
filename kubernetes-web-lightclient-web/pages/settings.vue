@@ -63,9 +63,7 @@ const kubernetesObjectStore = KubernetesObjectStore();
 </script>
 
 <script>
-import {
-  ResourceService,
-} from "~~/services/ResourceService";
+import { ResourceService } from "~~/services/ResourceService";
 import { handleError, EventBus, EventTypes } from "~~/services/EventBus";
 
 export default {

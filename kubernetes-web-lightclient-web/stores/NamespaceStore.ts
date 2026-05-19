@@ -13,7 +13,7 @@ export const NamespaceStore = defineStore("NamespaceStore", {
         argument: "",
       });
       const namespaces = JSON.parse(
-        JSON.stringify(KubernetesObjectStore().dataFull['namespaces'])
+        JSON.stringify(KubernetesObjectStore().dataFull["namespaces"]),
       )
         .map((ns: any) => ns.metadata.name)
         .sort();

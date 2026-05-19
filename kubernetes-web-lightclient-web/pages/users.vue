@@ -106,7 +106,7 @@ export default {
           .post(
             `${(await Config.get()).SERVER_URL}/users`,
             this.user,
-            await AuthService.getAuthHeader()
+            await AuthService.getAuthHeader(),
           )
           .then((res) => {
             EventBus.emit(EventTypes.ALERT_MESSAGE, {
@@ -130,7 +130,7 @@ export default {
           .post(
             `${(await Config.get()).SERVER_URL}/users/session`,
             this.user,
-            await AuthService.getAuthHeader()
+            await AuthService.getAuthHeader(),
           )
           .then((res) => {
             AuthService.saveToken(res.data.token);
@@ -155,7 +155,7 @@ export default {
           .put(
             `${(await Config.get()).SERVER_URL}/users/password`,
             this.user,
-            await AuthService.getAuthHeader()
+            await AuthService.getAuthHeader(),
           )
           .then((res) => {
             EventBus.emit(EventTypes.ALERT_MESSAGE, {
@@ -186,7 +186,7 @@ export default {
       EventBus.emit(EventTypes.ALERT_MESSAGE, {
         type: "info",
         text: `Refresh interval set to ${this.getRefreshIntervalLabel(
-          this.refreshInterval
+          this.refreshInterval,
         )}`,
       });
     },
@@ -220,5 +220,4 @@ button {
 h1 {
   margin-top: 1em;
 }
-
 </style>

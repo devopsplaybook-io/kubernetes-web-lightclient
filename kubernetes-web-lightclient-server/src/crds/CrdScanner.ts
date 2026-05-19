@@ -17,25 +17,115 @@ export interface ResourceType {
 
 const BUILT_IN_RESOURCES: ResourceType[] = [
   { id: "pod", name: "Pods", namespaced: true, isCrd: false, group: "" },
-  { id: "deployment", name: "Deployments", namespaced: true, isCrd: false, group: "apps" },
-  { id: "statefulset", name: "StatefulSets", namespaced: true, isCrd: false, group: "apps" },
-  { id: "daemonset", name: "DaemonSets", namespaced: true, isCrd: false, group: "apps" },
+  {
+    id: "deployment",
+    name: "Deployments",
+    namespaced: true,
+    isCrd: false,
+    group: "apps",
+  },
+  {
+    id: "statefulset",
+    name: "StatefulSets",
+    namespaced: true,
+    isCrd: false,
+    group: "apps",
+  },
+  {
+    id: "daemonset",
+    name: "DaemonSets",
+    namespaced: true,
+    isCrd: false,
+    group: "apps",
+  },
   { id: "job", name: "Jobs", namespaced: true, isCrd: false, group: "batch" },
-  { id: "cronjob", name: "CronJobs", namespaced: true, isCrd: false, group: "batch" },
-  { id: "service", name: "Services", namespaced: true, isCrd: false, group: "" },
-  { id: "ingress", name: "Ingresses", namespaced: true, isCrd: false, group: "networking.k8s.io" },
-  { id: "configmap", name: "ConfigMaps", namespaced: true, isCrd: false, group: "" },
+  {
+    id: "cronjob",
+    name: "CronJobs",
+    namespaced: true,
+    isCrd: false,
+    group: "batch",
+  },
+  {
+    id: "service",
+    name: "Services",
+    namespaced: true,
+    isCrd: false,
+    group: "",
+  },
+  {
+    id: "ingress",
+    name: "Ingresses",
+    namespaced: true,
+    isCrd: false,
+    group: "networking.k8s.io",
+  },
+  {
+    id: "configmap",
+    name: "ConfigMaps",
+    namespaced: true,
+    isCrd: false,
+    group: "",
+  },
   { id: "pvc", name: "PVCs", namespaced: true, isCrd: false, group: "" },
   { id: "secret", name: "Secrets", namespaced: true, isCrd: false, group: "" },
-  { id: "serviceaccount", name: "Service Accounts", namespaced: true, isCrd: false, group: "" },
-  { id: "role", name: "Roles", namespaced: true, isCrd: false, group: "rbac.authorization.k8s.io" },
-  { id: "rolebinding", name: "Role Bindings", namespaced: true, isCrd: false, group: "rbac.authorization.k8s.io" },
-  { id: "namespace", name: "Namespaces", namespaced: false, isCrd: false, group: "" },
+  {
+    id: "serviceaccount",
+    name: "Service Accounts",
+    namespaced: true,
+    isCrd: false,
+    group: "",
+  },
+  {
+    id: "role",
+    name: "Roles",
+    namespaced: true,
+    isCrd: false,
+    group: "rbac.authorization.k8s.io",
+  },
+  {
+    id: "rolebinding",
+    name: "Role Bindings",
+    namespaced: true,
+    isCrd: false,
+    group: "rbac.authorization.k8s.io",
+  },
+  {
+    id: "namespace",
+    name: "Namespaces",
+    namespaced: false,
+    isCrd: false,
+    group: "",
+  },
   { id: "node", name: "Nodes", namespaced: false, isCrd: false, group: "" },
-  { id: "pv", name: "PersistentVolumes", namespaced: false, isCrd: false, group: "" },
-  { id: "clusterrole", name: "Cluster Roles", namespaced: false, isCrd: false, group: "rbac.authorization.k8s.io" },
-  { id: "clusterrolebinding", name: "Cluster Role Bindings", namespaced: false, isCrd: false, group: "rbac.authorization.k8s.io" },
-  { id: "customresourcedefinition", name: "Custom Resource Definitions", namespaced: false, isCrd: false, group: "apiextensions.k8s.io" },
+  {
+    id: "pv",
+    name: "PersistentVolumes",
+    namespaced: false,
+    isCrd: false,
+    group: "",
+  },
+  {
+    id: "clusterrole",
+    name: "Cluster Roles",
+    namespaced: false,
+    isCrd: false,
+    group: "rbac.authorization.k8s.io",
+  },
+  {
+    id: "clusterrolebinding",
+    name: "Cluster Role Bindings",
+    namespaced: false,
+    isCrd: false,
+    group: "rbac.authorization.k8s.io",
+  },
+  {
+    id: "customresourcedefinition",
+    name: "Custom Resource Definitions",
+    namespaced: false,
+    isCrd: false,
+    group: "apiextensions.k8s.io",
+  },
 ];
 
 const CRD_SCAN_INTERVAL = "0 0 * * *"; // Daily at midnight
@@ -97,7 +187,9 @@ async function scanCrds(): Promise<void> {
         controller.close();
       },
     });
-    const response = new Response(readableStream.pipeThrough(decompressionStream));
+    const response = new Response(
+      readableStream.pipeThrough(decompressionStream),
+    );
     const arrayBuffer = await response.arrayBuffer();
     const jsonStr = new TextDecoder().decode(arrayBuffer);
     const crdList = JSON.parse(jsonStr);
@@ -141,7 +233,9 @@ async function scanCrds(): Promise<void> {
 
     availableResources = [...newBuiltIn, ...Array.from(crdMap.values())];
     await saveToDisk();
-    logger.info(`CRD scan complete: ${availableResources.length} total resources (${crdMap.size} CRDs)`);
+    logger.info(
+      `CRD scan complete: ${availableResources.length} total resources (${crdMap.size} CRDs)`,
+    );
   } catch (error) {
     logger.error(`CRD scan failed: ${error.message}`, error);
     // If we already have data on disk, keep using it

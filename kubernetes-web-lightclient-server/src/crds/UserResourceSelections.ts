@@ -13,7 +13,10 @@ export interface UserSelections {
   updatedAt: string;
 }
 
-export function UserSelectionGetFilePath(config: Config, userId: string): string {
+export function UserSelectionGetFilePath(
+  config: Config,
+  userId: string,
+): string {
   return path.join(config.DATA_DIR, `${BASE_SELECTIONS_FILE}-${userId}.json`);
 }
 
@@ -31,7 +34,9 @@ export async function UserSelectionLoad(
       }
     }
   } catch (error) {
-    logger.warn(`Could not load selections for user ${userId}: ${error.message}`);
+    logger.warn(
+      `Could not load selections for user ${userId}: ${error.message}`,
+    );
   }
 
   // Default: select all built-in resources
@@ -44,7 +49,10 @@ export async function UserSelectionLoad(
     await fse.ensureDir(path.dirname(filePath));
     await fse.writeJson(filePath, defaults, { spaces: 2 });
   } catch (error) {
-    logger.error(`Failed to save default selections for user ${userId}: ${error.message}`, error);
+    logger.error(
+      `Failed to save default selections for user ${userId}: ${error.message}`,
+      error,
+    );
   }
   return defaults;
 }
@@ -62,9 +70,14 @@ export async function UserSelectionSave(
   try {
     await fse.ensureDir(path.dirname(filePath));
     await fse.writeJson(filePath, selections, { spaces: 2 });
-    logger.info(`Saved selections for user ${userId}: ${selectedIds.length} types`);
+    logger.info(
+      `Saved selections for user ${userId}: ${selectedIds.length} types`,
+    );
   } catch (error) {
-    logger.error(`Failed to save selections for user ${userId}: ${error.message}`, error);
+    logger.error(
+      `Failed to save selections for user ${userId}: ${error.message}`,
+      error,
+    );
     throw error;
   }
 }
