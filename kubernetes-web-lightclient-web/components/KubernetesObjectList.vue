@@ -94,16 +94,29 @@ const props = defineProps({
 });
 
 const dialogDetails = ref({ enable: false, title: "", text: "" });
-const dialogLogs = ref({ enable: false, podname: "", namespace: "", title: "" });
-const dialogConfirm = ref({ enable: false, title: "", message: "", pendingDelete: null });
+const dialogLogs = ref({
+  enable: false,
+  podname: "",
+  namespace: "",
+  title: "",
+});
+const dialogConfirm = ref({
+  enable: false,
+  title: "",
+  message: "",
+  pendingDelete: null,
+});
 
 const items = computed(() => {
   return kubernetesObjectStore.data[props.objectType] || [];
 });
 
-watch(() => props.objectType, (newType) => {
-  fetchData(newType);
-});
+watch(
+  () => props.objectType,
+  (newType) => {
+    fetchData(newType);
+  },
+);
 
 onMounted(() => {
   fetchData(props.objectType);
