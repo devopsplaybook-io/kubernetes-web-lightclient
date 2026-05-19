@@ -146,16 +146,21 @@ export async function CrdScannerInit(config: Config): Promise<void> {
   resourcesFilePath = path.join(config.DATA_DIR, RESOURCES_FILE);
   logger.info(`Resources file path: ${resourcesFilePath}`);
 
-  // Load from disk first (if exists) so we have data even before first scan succeeds
+  // Immediately make standard built-in resources available
+  availableResources = [...BUILT_IN_RESOURCES];
+
+  // Load previously saved CRDs from disk if available
   await loadFromDisk();
 
-  // Initial scan
-  await scanCrds();
-
-  // Schedule daily scan
+  // Schedule daily CRD scan
   cron.schedule(CRD_SCAN_INTERVAL, async () => {
     logger.info("Running scheduled CRD scan");
     await scanCrds();
+  });
+
+  // Initial CRD scan - run asynchronously so server startup is not blocked
+  scanCrds().catch((error) => {
+    logger.error(`Initial CRD scan failed: ${error.message}`, error);
   });
 }
 

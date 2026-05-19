@@ -78,7 +78,8 @@ Promise.resolve().then(async () => {
   fastify.register(new StatsRoutes().getRoutes, {
     prefix: "/api/stats",
   });
-  fastify.register(new CrdRoutes(config).getRoutes, {
+  const crdRoutes = new CrdRoutes(config);
+  fastify.register(crdRoutes.getRoutes.bind(crdRoutes), {
     prefix: "/api/resources",
   });
   fastify.get("/api/status", async () => {
