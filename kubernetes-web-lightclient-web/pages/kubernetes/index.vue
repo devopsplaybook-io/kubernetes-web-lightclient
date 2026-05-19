@@ -78,6 +78,7 @@ export default {
       selectedNamespace: "*",
       availableTypes: [],
       typesLoaded: false,
+      kubernetesObjectStore: KubernetesObjectStore(),
     };
   },
   computed: {
