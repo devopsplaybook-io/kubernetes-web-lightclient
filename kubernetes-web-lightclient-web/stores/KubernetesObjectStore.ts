@@ -1,54 +1,16 @@
 import { AuthService } from "~~/services/AuthService";
 import Config from "~~/services/Config";
+import { ResourceService } from "~~/services/ResourceService";
 import axios from "axios";
 import { UtilsDecompressData } from "~/services/Utils";
 
 export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
   state: () => ({
-    data: {
-      deployments: [],
-      deploymentsFull: [],
-      statefulsets: [],
-      statefulsetsFull: [],
-      daemonsets: [],
-      daemonsetsFull: [],
-      pods: [],
-      podsFull: [],
-      jobs: [],
-      jobsFull: [],
-      cronjobs: [],
-      cronjobsFull: [],
-      services: [],
-      servicesFull: [],
-      configmaps: [],
-      configmapsFull: [],
-      secrets: [],
-      secretsFull: [],
-      pvcs: [],
-      pvcsFull: [],
-      pvs: [],
-      pvsFull: [],
-      nodes: [],
-      nodesFull: [],
-      namespaces: [],
-      namespacesFull: [],
-      serviceaccounts: [],
-      serviceaccountsFull: [],
-      roles: [],
-      rolesFull: [],
-      clusterroles: [],
-      clusterrolesFull: [],
-      rolebindings: [],
-      rolebindingsFull: [],
-      clusterrolebindings: [],
-      clusterrolebindingsFull: [],
-      ingresses: [],
-      ingressesFull: [],
-      customresourcedefinitions: [],
-      customresourcedefinitionsFull: [],
-    },
+    data: {} as { [key: string]: any[] },
+    dataFull: {} as { [key: string]: any[] },
+    selectedTypes: [] as string[],
     filter: { keyword: "", namespace: "" },
-    lastCall: { payload: {}, type: "" },
+    lastCall: { payload: {} as any, type: "" },
     loading: false,
     hasEverLoaded: false,
   }),
@@ -56,6 +18,12 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
   getters: {},
 
   actions: {
+    async loadSelectedTypes() {
+      this.selectedTypes = await ResourceService.getUserSelections();
+    },
+    isTypeSelected(type: string): boolean {
+      return this.selectedTypes.includes(type);
+    },
     setFilterNamespace(namespace: string) {
       this.filter.namespace = namespace;
       this.applyFilter(this.lastCall.type);
@@ -64,148 +32,10 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
       this.filter.keyword = keyword;
       this.applyFilter(this.lastCall.type);
     },
-    async getPods() {
-      await this.getObject("pods", {
-        object: "pods",
-        command: "get",
-        argument: "-A",
-      });
-    },
-    async getDeployments() {
-      await this.getObject("deployments", {
-        object: "deployments",
-        command: "get",
-        argument: "-A",
-      });
-    },
-    async getServices() {
-      await this.getObject("services", {
-        object: "services",
-        command: "get",
-        argument: "-A",
-      });
-    },
-    async getConfigMaps() {
-      await this.getObject("configmaps", {
-        object: "configmaps",
-        command: "get",
-        argument: "-A",
-      });
-    },
-    async getPVCs() {
-      await this.getObject("pvcs", {
-        object: "pvc",
-        command: "get",
-        argument: "-A",
-      });
-    },
-    async getPVs() {
-      await this.getObject("pvs", {
-        object: "pv",
-        command: "get",
-        argument: "",
-      });
-    },
-    async getSecrets() {
-      await this.getObject("secrets", {
-        object: "secrets",
-        command: "get",
-        argument: "-A",
-      });
-    },
-    async getNodes() {
-      await this.getObject("nodes", {
-        object: "nodes",
-        command: "get",
-        argument: "",
-      });
-    },
-    async getNamespaces() {
-      await this.getObject("namespaces", {
-        object: "namespaces",
-        command: "get",
-        argument: "",
-      });
-    },
-    async getStatefulSets() {
-      await this.getObject("statefulsets", {
-        object: "statefulset",
-        command: "get",
-        argument: "-A",
-      });
-    },
-    async getDaemonSets() {
-      await this.getObject("daemonsets", {
-        object: "daemonset",
-        command: "get",
-        argument: "-A",
-      });
-    },
-    async getJobs() {
-      await this.getObject("jobs", {
-        object: "job",
-        command: "get",
-        argument: "-A",
-      });
-    },
-    async getCronJobs() {
-      await this.getObject("cronjobs", {
-        object: "cronjob",
-        command: "get",
-        argument: "-A",
-      });
-    },
-    async getServiceAccounts() {
-      await this.getObject("serviceaccounts", {
-        object: "serviceaccount",
-        command: "get",
-        argument: "-A",
-      });
-    },
-    async getRoles() {
-      await this.getObject("roles", {
-        object: "role",
-        command: "get",
-        argument: "-A",
-      });
-    },
-    async getClusterRoles() {
-      await this.getObject("clusterroles", {
-        object: "clusterrole",
-        command: "get",
-        argument: "",
-      });
-    },
-    async getRoleBindings() {
-      await this.getObject("rolebindings", {
-        object: "rolebinding",
-        command: "get",
-        argument: "-A",
-      });
-    },
-    async getClusterRoleBindings() {
-      await this.getObject("clusterrolebindings", {
-        object: "clusterrolebinding",
-        command: "get",
-        argument: "",
-      });
-    },
-    async getIngresses() {
-      await this.getObject("ingresses", {
-        object: "ingress",
-        command: "get",
-        argument: "-A",
-      });
-    },
-    async getCustomResourceDefinitions() {
-      await this.getObject("customresourcedefinitions", {
-        object: "customresourcedefinition",
-        command: "get",
-        argument: "",
-      });
-    },
     async refreshLast() {
-      await this.getObject(this.lastCall.type, this.lastCall.payload);
+      if (this.lastCall.type) {
+        await this.getObject(this.lastCall.type, this.lastCall.payload);
+      }
     },
     setLoading(value: boolean) {
       this.loading = value;
@@ -234,16 +64,17 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
         )
         .then(async (response) => {
           const items: any[] = [];
-          for (const item of JSON.parse(
+          const parsed = JSON.parse(
             await UtilsDecompressData(response.data.result),
-          ).items) {
+          );
+          for (const item of parsed.items || []) {
             items.push(item);
           }
-          (this.data as any)[type + "Full"] = items;
+          this.dataFull[type] = items;
         });
     },
     async applyFilter(type: string) {
-      const itemsFull = (this.data as any)[type + "Full"];
+      const itemsFull = this.dataFull[type] || [];
       const items: any[] = [];
       for (const item of itemsFull) {
         if (
@@ -267,7 +98,7 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
           continue;
         }
       }
-      (this.data as any)[type] = items;
+      this.data[type] = items;
     },
   },
 });

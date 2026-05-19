@@ -21,7 +21,7 @@
       <select
         v-model="selectedNamespace"
         @change="onNamespaceChange"
-        :disabled="!isCurrentFeatureNamespaced"
+        :disabled="!isCurrentTypeNamespaced"
       >
         <option value="*">All Namespaces</option>
         <option
@@ -51,79 +51,10 @@
           kubernetesObjectStore.hasEverLoaded || !kubernetesObjectStore.loading
         "
       >
-        <KubernetesNodeList
-          v-if="objectType == 'node' && isFeatureEnabled('node')"
-        />
-        <KubernetesNamespaceList
-          v-if="objectType == 'namespace' && isFeatureEnabled('namespace')"
-        />
-        <KubernetesDeploymentList
-          v-if="objectType == 'deployment' && isFeatureEnabled('deployment')"
-        />
-        <KubernetesPodList
-          v-else-if="objectType == 'pod' && isFeatureEnabled('pod')"
-        />
-        <KubernetesStatefulSetList
-          v-else-if="
-            objectType == 'statefulset' && isFeatureEnabled('statefulset')
-          "
-        />
-        <KubernetesDaemonSetList
-          v-else-if="objectType == 'daemonset' && isFeatureEnabled('daemonset')"
-        />
-        <KubernetesJobList
-          v-else-if="objectType == 'job' && isFeatureEnabled('job')"
-        />
-        <KubernetesCronJobList
-          v-else-if="objectType == 'cronjob' && isFeatureEnabled('cronjob')"
-        />
-        <KubernetesServiceList
-          v-else-if="objectType == 'service' && isFeatureEnabled('service')"
-        />
-        <KubernetesPVCList
-          v-else-if="objectType == 'pvc' && isFeatureEnabled('pvc')"
-        />
-        <KubernetesPVList
-          v-else-if="objectType == 'pv' && isFeatureEnabled('pv')"
-        />
-        <KubernetesConfigMapList
-          v-else-if="objectType == 'configmap' && isFeatureEnabled('configmap')"
-        />
-        <KubernetesSecretList
-          v-else-if="objectType == 'secret' && isFeatureEnabled('secret')"
-        />
-        <KubernetesServiceAccountList
-          v-else-if="
-            objectType == 'serviceaccount' && isFeatureEnabled('serviceaccount')
-          "
-        />
-        <KubernetesRoleList
-          v-else-if="objectType == 'role' && isFeatureEnabled('role')"
-        />
-        <KubernetesClusterRoleList
-          v-else-if="
-            objectType == 'clusterrole' && isFeatureEnabled('clusterrole')
-          "
-        />
-        <KubernetesRoleBindingList
-          v-else-if="
-            objectType == 'rolebinding' && isFeatureEnabled('rolebinding')
-          "
-        />
-        <KubernetesClusterRoleBindingList
-          v-else-if="
-            objectType == 'clusterrolebinding' &&
-            isFeatureEnabled('clusterrolebinding')
-          "
-        />
-        <KubernetesIngressList
-          v-else-if="objectType == 'ingress' && isFeatureEnabled('ingress')"
-        />
-        <KubernetesCustomResourceDefinitionList
-          v-else-if="
-            objectType == 'customresourcedefinition' &&
-            isFeatureEnabled('customresourcedefinition')
-          "
+        <KubernetesObjectList
+          v-if="objectType"
+          :objectType="objectType"
+          :isNamespaced="isCurrentTypeNamespaced"
         />
       </div>
     </div>
@@ -137,7 +68,7 @@ const kubernetesObjectStore = KubernetesObjectStore();
 <script>
 import { debounce } from "lodash";
 import { RefreshIntervalService } from "~~/services/RefreshIntervalService";
-import { FeatureService, FEATURES } from "~~/services/FeatureService";
+import { ResourceService } from "~~/services/ResourceService";
 
 export default {
   data() {
@@ -149,20 +80,33 @@ export default {
       refreshIntervalValue: RefreshIntervalService.get(),
       namespaceStore,
       selectedNamespace: "*",
+      availableTypes: [],
+      typesLoaded: false,
     };
   },
   computed: {
     enabledFeatures() {
-      const enabledIds = FeatureService.getEnabledFeatures();
-      return FEATURES.filter((f) => enabledIds.includes(f.id));
+      const selectedIds = kubernetesObjectStore.selectedTypes;
+      return this.availableTypes.filter((t) => selectedIds.includes(t.id));
     },
-    isCurrentFeatureNamespaced() {
-      return FeatureService.isFeatureNamespaced(this.objectType);
+    isCurrentTypeNamespaced() {
+      const type = this.availableTypes.find((t) => t.id === this.objectType);
+      return type ? type.namespaced : true;
     },
   },
   async created() {
     if (!(await AuthenticationStore().ensureAuthenticated())) {
       useRouter().push({ path: "/users" });
+      return;
+    }
+
+    // Load available types and user selections
+    try {
+      this.availableTypes = await ResourceService.getAvailableTypes();
+      await kubernetesObjectStore.loadSelectedTypes();
+      this.typesLoaded = true;
+    } catch (e) {
+      console.error("Failed to load resource types", e);
     }
 
     await this.namespaceStore.loadNamespaces();
@@ -190,11 +134,10 @@ export default {
 
     this.refreshIntervalValue = RefreshIntervalService.get();
 
-    const enabledIds = FeatureService.getEnabledFeatures();
-    if (!enabledIds.includes(this.objectType)) {
-      if (enabledIds.length > 0) {
-        this.objectType = enabledIds[0];
-      }
+    // Ensure first objectType is a selected one
+    const selectedIds = kubernetesObjectStore.selectedTypes;
+    if (selectedIds.length > 0 && !selectedIds.includes(this.objectType)) {
+      this.objectType = selectedIds[0];
     }
   },
   mounted() {
@@ -212,7 +155,9 @@ export default {
   },
   watch: {
     objectType(newType) {
-      if (!FeatureService.isFeatureNamespaced(newType)) {
+      // Reset namespace if type is not namespaced
+      const typeInfo = this.availableTypes.find((t) => t.id === newType);
+      if (typeInfo && !typeInfo.namespaced) {
         this.selectedNamespace = "*";
       }
 
@@ -224,7 +169,8 @@ export default {
         ...(this.searchFilter ? { search: this.searchFilter } : {}),
       };
       if (
-        FeatureService.isFeatureNamespaced(newType) &&
+        typeInfo &&
+        typeInfo.namespaced &&
         this.selectedNamespace !== "*"
       ) {
         query.namespace = this.selectedNamespace;
@@ -245,7 +191,7 @@ export default {
       } else {
         delete query.search;
       }
-      if (this.isCurrentFeatureNamespaced && this.selectedNamespace !== "*") {
+      if (this.isCurrentTypeNamespaced && this.selectedNamespace !== "*") {
         query.namespace = this.selectedNamespace;
       }
       router.replace({
@@ -261,8 +207,8 @@ export default {
     onKeywordChanged: debounce(async function (e) {
       KubernetesObjectStore().setFilterKeyword(this.searchFilter);
     }, 500),
-    isFeatureEnabled(featureId) {
-      return FeatureService.isFeatureEnabled(featureId);
+    isTypeEnabled(featureId) {
+      return kubernetesObjectStore.selectedTypes.includes(featureId);
     },
     onNamespaceChange() {
       KubernetesObjectStore().setFilterNamespace(

@@ -20,6 +20,13 @@
           ><i class="bi bi-speedometer"></i
         ></NuxtLink>
       </li>
+      <li v-if="authenticationStore.isAuthenticated">
+        <NuxtLink
+          to="/settings"
+          :class="activeRoute == '/settings' ? 'active' : 'inactive'"
+          ><i class="bi bi-gear-fill"></i
+        ></NuxtLink>
+      </li>
       <li>
         <NuxtLink
           to="/users"
