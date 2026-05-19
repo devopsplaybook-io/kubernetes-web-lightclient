@@ -1,6 +1,9 @@
 <template>
   <div>
-    <table class="striped">
+    <table
+      class="striped"
+      v-if="kubernetesObjectStore.data.deployments.length > 0"
+    >
       <thead>
         <tr>
           <th>Namespace</th>
@@ -78,6 +81,13 @@
       @onClose="onCloseScale()"
       @onScale="onScale"
     />
+    <DialogConfirm
+      v-if="dialogConfirm.enable"
+      :title="dialogConfirm.title"
+      :message="dialogConfirm.message"
+      @onConfirm="onConfirmRestart()"
+      @onCancel="onCancelRestart()"
+    />
   </div>
 </template>
 
@@ -107,6 +117,12 @@ export default {
         namespace: "",
         deploymentName: "",
         currentReplicas: 0,
+      },
+      dialogConfirm: {
+        enable: false,
+        title: "",
+        message: "",
+        pendingRestart: null,
       },
     };
   },
@@ -186,13 +202,16 @@ export default {
         .catch(handleError);
     },
     async deploymentRestart(namespace, deploymentName) {
-      if (
-        !confirm(
-          `Perform a rollout restart of deployment ${deploymentName} (${namespace})`,
-        )
-      ) {
-        return;
-      }
+      this.dialogConfirm = {
+        enable: true,
+        title: "Confirm Restart",
+        message: `Perform a rollout restart of deployment ${deploymentName} (${namespace})?`,
+        pendingRestart: { namespace, deploymentName },
+      };
+    },
+    async onConfirmRestart() {
+      const { namespace, deploymentName } = this.dialogConfirm.pendingRestart;
+      this.dialogConfirm.enable = false;
       await axios
         .post(
           `${(await Config.get()).SERVER_URL}/kubectl/command`,
@@ -215,6 +234,9 @@ export default {
           }, 1000);
         })
         .catch(handleError);
+    },
+    onCancelRestart() {
+      this.dialogConfirm.enable = false;
     },
   },
 };

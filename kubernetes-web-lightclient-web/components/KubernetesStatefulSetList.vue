@@ -1,6 +1,9 @@
 <template>
   <div>
-    <table class="striped">
+    <table
+      class="striped"
+      v-if="kubernetesObjectStore.data.statefulsets.length > 0"
+    >
       <thead>
         <tr>
           <th>Namespace</th>
@@ -57,6 +60,13 @@
       :title="dialogDetails.title"
       @onClose="onCloseDetails()"
     />
+    <DialogConfirm
+      v-if="dialogConfirm.enable"
+      :title="dialogConfirm.title"
+      :message="dialogConfirm.message"
+      @onConfirm="onConfirmRestart()"
+      @onCancel="onCancelRestart()"
+    />
   </div>
 </template>
 
@@ -80,6 +90,12 @@ export default {
         enable: false,
         title: "",
         text: "",
+      },
+      dialogConfirm: {
+        enable: false,
+        title: "",
+        message: "",
+        pendingRestart: null,
       },
     };
   },
@@ -118,13 +134,16 @@ export default {
         .catch(handleError);
     },
     async statefulsetRestart(namespace, statefulsetName) {
-      if (
-        !confirm(
-          `Perform a rollout restart of statefulset ${statefulsetName} (${namespace})`,
-        )
-      ) {
-        return;
-      }
+      this.dialogConfirm = {
+        enable: true,
+        title: "Confirm Restart",
+        message: `Perform a rollout restart of statefulset ${statefulsetName} (${namespace})?`,
+        pendingRestart: { namespace, statefulsetName },
+      };
+    },
+    async onConfirmRestart() {
+      const { namespace, statefulsetName } = this.dialogConfirm.pendingRestart;
+      this.dialogConfirm.enable = false;
       await axios
         .post(
           `${(await Config.get()).SERVER_URL}/kubectl/command`,
@@ -147,6 +166,9 @@ export default {
           }, 1000);
         })
         .catch(handleError);
+    },
+    onCancelRestart() {
+      this.dialogConfirm.enable = false;
     },
   },
 };

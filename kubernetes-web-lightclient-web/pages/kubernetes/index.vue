@@ -33,87 +33,106 @@
         </option>
       </select>
       <span
-        ><i class="bi bi-arrow-clockwise" v-on:click="refreshObject()"></i
+        ><i
+          class="bi bi-arrow-clockwise"
+          :class="{ spin: kubernetesObjectStore.loading }"
+          v-on:click="refreshObject()"
+        ></i
       ></span>
     </div>
     <div id="object-list">
-      <KubernetesNodeList
-        v-if="objectType == 'node' && isFeatureEnabled('node')"
-      />
-      <KubernetesNamespaceList
-        v-if="objectType == 'namespace' && isFeatureEnabled('namespace')"
-      />
-      <KubernetesDeploymentList
-        v-if="objectType == 'deployment' && isFeatureEnabled('deployment')"
-      />
-      <KubernetesPodList
-        v-else-if="objectType == 'pod' && isFeatureEnabled('pod')"
-      />
-      <KubernetesStatefulSetList
-        v-else-if="
-          objectType == 'statefulset' && isFeatureEnabled('statefulset')
+      <Loading
+        v-if="
+          kubernetesObjectStore.loading && !kubernetesObjectStore.hasEverLoaded
         "
       />
-      <KubernetesDaemonSetList
-        v-else-if="objectType == 'daemonset' && isFeatureEnabled('daemonset')"
-      />
-      <KubernetesJobList
-        v-else-if="objectType == 'job' && isFeatureEnabled('job')"
-      />
-      <KubernetesCronJobList
-        v-else-if="objectType == 'cronjob' && isFeatureEnabled('cronjob')"
-      />
-      <KubernetesServiceList
-        v-else-if="objectType == 'service' && isFeatureEnabled('service')"
-      />
-      <KubernetesPVCList
-        v-else-if="objectType == 'pvc' && isFeatureEnabled('pvc')"
-      />
-      <KubernetesPVList
-        v-else-if="objectType == 'pv' && isFeatureEnabled('pv')"
-      />
-      <KubernetesConfigMapList
-        v-else-if="objectType == 'configmap' && isFeatureEnabled('configmap')"
-      />
-      <KubernetesSecretList
-        v-else-if="objectType == 'secret' && isFeatureEnabled('secret')"
-      />
-      <KubernetesServiceAccountList
-        v-else-if="
-          objectType == 'serviceaccount' && isFeatureEnabled('serviceaccount')
+      <div
+        v-show="
+          kubernetesObjectStore.hasEverLoaded || !kubernetesObjectStore.loading
         "
-      />
-      <KubernetesRoleList
-        v-else-if="objectType == 'role' && isFeatureEnabled('role')"
-      />
-      <KubernetesClusterRoleList
-        v-else-if="
-          objectType == 'clusterrole' && isFeatureEnabled('clusterrole')
-        "
-      />
-      <KubernetesRoleBindingList
-        v-else-if="
-          objectType == 'rolebinding' && isFeatureEnabled('rolebinding')
-        "
-      />
-      <KubernetesClusterRoleBindingList
-        v-else-if="
-          objectType == 'clusterrolebinding' &&
-          isFeatureEnabled('clusterrolebinding')
-        "
-      />
-      <KubernetesIngressList
-        v-else-if="objectType == 'ingress' && isFeatureEnabled('ingress')"
-      />
-      <KubernetesCustomResourceDefinitionList
-        v-else-if="
-          objectType == 'customresourcedefinition' &&
-          isFeatureEnabled('customresourcedefinition')
-        "
-      />
+      >
+        <KubernetesNodeList
+          v-if="objectType == 'node' && isFeatureEnabled('node')"
+        />
+        <KubernetesNamespaceList
+          v-if="objectType == 'namespace' && isFeatureEnabled('namespace')"
+        />
+        <KubernetesDeploymentList
+          v-if="objectType == 'deployment' && isFeatureEnabled('deployment')"
+        />
+        <KubernetesPodList
+          v-else-if="objectType == 'pod' && isFeatureEnabled('pod')"
+        />
+        <KubernetesStatefulSetList
+          v-else-if="
+            objectType == 'statefulset' && isFeatureEnabled('statefulset')
+          "
+        />
+        <KubernetesDaemonSetList
+          v-else-if="objectType == 'daemonset' && isFeatureEnabled('daemonset')"
+        />
+        <KubernetesJobList
+          v-else-if="objectType == 'job' && isFeatureEnabled('job')"
+        />
+        <KubernetesCronJobList
+          v-else-if="objectType == 'cronjob' && isFeatureEnabled('cronjob')"
+        />
+        <KubernetesServiceList
+          v-else-if="objectType == 'service' && isFeatureEnabled('service')"
+        />
+        <KubernetesPVCList
+          v-else-if="objectType == 'pvc' && isFeatureEnabled('pvc')"
+        />
+        <KubernetesPVList
+          v-else-if="objectType == 'pv' && isFeatureEnabled('pv')"
+        />
+        <KubernetesConfigMapList
+          v-else-if="objectType == 'configmap' && isFeatureEnabled('configmap')"
+        />
+        <KubernetesSecretList
+          v-else-if="objectType == 'secret' && isFeatureEnabled('secret')"
+        />
+        <KubernetesServiceAccountList
+          v-else-if="
+            objectType == 'serviceaccount' && isFeatureEnabled('serviceaccount')
+          "
+        />
+        <KubernetesRoleList
+          v-else-if="objectType == 'role' && isFeatureEnabled('role')"
+        />
+        <KubernetesClusterRoleList
+          v-else-if="
+            objectType == 'clusterrole' && isFeatureEnabled('clusterrole')
+          "
+        />
+        <KubernetesRoleBindingList
+          v-else-if="
+            objectType == 'rolebinding' && isFeatureEnabled('rolebinding')
+          "
+        />
+        <KubernetesClusterRoleBindingList
+          v-else-if="
+            objectType == 'clusterrolebinding' &&
+            isFeatureEnabled('clusterrolebinding')
+          "
+        />
+        <KubernetesIngressList
+          v-else-if="objectType == 'ingress' && isFeatureEnabled('ingress')"
+        />
+        <KubernetesCustomResourceDefinitionList
+          v-else-if="
+            objectType == 'customresourcedefinition' &&
+            isFeatureEnabled('customresourcedefinition')
+          "
+        />
+      </div>
     </div>
   </div>
 </template>
+
+<script setup>
+const kubernetesObjectStore = KubernetesObjectStore();
+</script>
 
 <script>
 import { debounce } from "lodash";
@@ -249,7 +268,7 @@ export default {
       KubernetesObjectStore().setFilterNamespace(
         this.selectedNamespace && this.selectedNamespace !== "*"
           ? this.selectedNamespace
-          : ""
+          : "",
       );
       const router = useRouter();
       const route = useRoute();
@@ -310,5 +329,18 @@ select {
 #object-list span,
 #object-list p {
   font-size: 0.9em;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
 }
 </style>

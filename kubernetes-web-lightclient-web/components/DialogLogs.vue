@@ -83,7 +83,7 @@ export default {
     return {
       text: "",
       wrapText: false,
-      logTime: "all",
+      logTime: "10m",
       filterText: "",
       debouncedFilter: null,
       containers: [],
@@ -124,14 +124,14 @@ export default {
             namespace: this.namespace,
             argument: this.podname,
           },
-          await AuthService.getAuthHeader()
+          await AuthService.getAuthHeader(),
         );
         const pod = JSON.parse(await UtilsDecompressData(res.data.result));
         this.containers = (pod.spec.containers || []).map((c) => c.name);
         this.selectedContainer = this.containers[0] || "";
         this.restartCount = (pod.status.containerStatuses || []).reduce(
           (sum, cs) => sum + (cs.restartCount || 0),
-          0
+          0,
         );
       } catch (e) {
         handleError(e);
@@ -156,7 +156,7 @@ export default {
         .post(
           `${(await Config.get()).SERVER_URL}/kubectl/logs`,
           payload,
-          await AuthService.getAuthHeader()
+          await AuthService.getAuthHeader(),
         )
         .then(async (res) => {
           this.text = await UtilsDecompressData(res.data.result);

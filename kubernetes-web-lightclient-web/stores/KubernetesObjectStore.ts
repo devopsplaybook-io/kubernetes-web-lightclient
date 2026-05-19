@@ -49,6 +49,8 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
     },
     filter: { keyword: "", namespace: "" },
     lastCall: { payload: {}, type: "" },
+    loading: false,
+    hasEverLoaded: false,
   }),
 
   getters: {},
@@ -205,14 +207,21 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
     async refreshLast() {
       await this.getObject(this.lastCall.type, this.lastCall.payload);
     },
+    setLoading(value: boolean) {
+      this.loading = value;
+    },
     async getObject(type: string, payload: any) {
       this.lastCall.type = type;
       this.lastCall.payload = payload;
+      this.loading = true;
       this.getObjectFull(type, payload)
         .then(async () => {
+          this.loading = false;
+          this.hasEverLoaded = true;
           return this.applyFilter(type);
         })
         .catch((error) => {
+          this.loading = false;
           console.error(error);
         });
     },
@@ -221,12 +230,12 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
         .post(
           `${(await Config.get()).SERVER_URL}/kubectl/command`,
           payload,
-          await AuthService.getAuthHeader()
+          await AuthService.getAuthHeader(),
         )
         .then(async (response) => {
           const items: any[] = [];
           for (const item of JSON.parse(
-            await UtilsDecompressData(response.data.result)
+            await UtilsDecompressData(response.data.result),
           ).items) {
             items.push(item);
           }
@@ -265,6 +274,6 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
 
 if (import.meta.hot) {
   import.meta.hot.accept(
-    acceptHMRUpdate(KubernetesObjectStore, import.meta.hot)
+    acceptHMRUpdate(KubernetesObjectStore, import.meta.hot),
   );
 }
