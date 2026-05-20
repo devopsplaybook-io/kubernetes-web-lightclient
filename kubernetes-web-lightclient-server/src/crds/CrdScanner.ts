@@ -62,12 +62,12 @@ const BUILT_IN_RESOURCES: ResourceType[] = [
   },
   {
     id: "configmap",
-    name: "ConfigMaps",
+    name: "ConfigMap",
     namespaced: true,
     isCrd: false,
     group: "",
   },
-  { id: "pvc", name: "PVCs", namespaced: true, isCrd: false, group: "" },
+  { id: "pvc", name: "PVC", namespaced: true, isCrd: false, group: "" },
   { id: "secret", name: "Secrets", namespaced: true, isCrd: false, group: "" },
   {
     id: "serviceaccount",
@@ -100,7 +100,7 @@ const BUILT_IN_RESOURCES: ResourceType[] = [
   { id: "node", name: "Nodes", namespaced: false, isCrd: false, group: "" },
   {
     id: "pv",
-    name: "PersistentVolumes",
+    name: "PV",
     namespaced: false,
     isCrd: false,
     group: "",

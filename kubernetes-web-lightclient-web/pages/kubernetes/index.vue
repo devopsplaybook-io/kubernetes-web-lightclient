@@ -51,11 +51,37 @@
           kubernetesObjectStore.hasEverLoaded || !kubernetesObjectStore.loading
         "
       >
+        <KubernetesPodList v-if="objectType === 'pod'" />
+        <KubernetesDeploymentList v-else-if="objectType === 'deployment'" />
+        <KubernetesStatefulSetList v-else-if="objectType === 'statefulset'" />
+        <KubernetesDaemonSetList v-else-if="objectType === 'daemonset'" />
+        <KubernetesJobList v-else-if="objectType === 'job'" />
+        <KubernetesCronJobList v-else-if="objectType === 'cronjob'" />
+        <KubernetesServiceList v-else-if="objectType === 'service'" />
+        <KubernetesIngressList v-else-if="objectType === 'ingress'" />
+        <KubernetesConfigMapList v-else-if="objectType === 'configmap'" />
+        <KubernetesPVCList v-else-if="objectType === 'pvc'" />
+        <KubernetesSecretList v-else-if="objectType === 'secret'" />
+        <KubernetesServiceAccountList
+          v-else-if="objectType === 'serviceaccount'"
+        />
+        <KubernetesRoleList v-else-if="objectType === 'role'" />
+        <KubernetesRoleBindingList v-else-if="objectType === 'rolebinding'" />
+        <KubernetesNamespaceList v-else-if="objectType === 'namespace'" />
+        <KubernetesNodeList v-else-if="objectType === 'node'" />
+        <KubernetesPVList v-else-if="objectType === 'pv'" />
+        <KubernetesClusterRoleList v-else-if="objectType === 'clusterrole'" />
+        <KubernetesClusterRoleBindingList
+          v-else-if="objectType === 'clusterrolebinding'"
+        />
+        <KubernetesCustomResourceDefinitionList
+          v-else-if="objectType === 'customresourcedefinition'"
+        />
         <KubernetesObjectList
-          v-if="objectType"
+          v-else-if="objectType"
           :objectType="objectType"
           :isNamespaced="isCurrentTypeNamespaced"
-          :isCrd="isCurrentTypeCrd"
+          :isCrd="true"
         />
       </div>
     </div>
@@ -66,6 +92,27 @@
 import { debounce } from "lodash";
 import { RefreshIntervalService } from "~~/services/RefreshIntervalService";
 import { ResourceService } from "~~/services/ResourceService";
+import KubernetesPodList from "~~/components/KubernetesPodList.vue";
+import KubernetesDeploymentList from "~~/components/KubernetesDeploymentList.vue";
+import KubernetesStatefulSetList from "~~/components/KubernetesStatefulSetList.vue";
+import KubernetesDaemonSetList from "~~/components/KubernetesDaemonSetList.vue";
+import KubernetesJobList from "~~/components/KubernetesJobList.vue";
+import KubernetesCronJobList from "~~/components/KubernetesCronJobList.vue";
+import KubernetesServiceList from "~~/components/KubernetesServiceList.vue";
+import KubernetesIngressList from "~~/components/KubernetesIngressList.vue";
+import KubernetesConfigMapList from "~~/components/KubernetesConfigMapList.vue";
+import KubernetesPVCList from "~~/components/KubernetesPVCList.vue";
+import KubernetesSecretList from "~~/components/KubernetesSecretList.vue";
+import KubernetesServiceAccountList from "~~/components/KubernetesServiceAccountList.vue";
+import KubernetesRoleList from "~~/components/KubernetesRoleList.vue";
+import KubernetesRoleBindingList from "~~/components/KubernetesRoleBindingList.vue";
+import KubernetesNamespaceList from "~~/components/KubernetesNamespaceList.vue";
+import KubernetesNodeList from "~~/components/KubernetesNodeList.vue";
+import KubernetesPVList from "~~/components/KubernetesPVList.vue";
+import KubernetesClusterRoleList from "~~/components/KubernetesClusterRoleList.vue";
+import KubernetesClusterRoleBindingList from "~~/components/KubernetesClusterRoleBindingList.vue";
+import KubernetesCustomResourceDefinitionList from "~~/components/KubernetesCustomResourceDefinitionList.vue";
+import KubernetesObjectList from "~~/components/KubernetesObjectList.vue";
 
 export default {
   data() {
