@@ -169,6 +169,8 @@ h2 {
   align-items: center;
   cursor: pointer;
   user-select: none;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 .resource-item input[type="checkbox"] {
   margin-right: 0.5em;
