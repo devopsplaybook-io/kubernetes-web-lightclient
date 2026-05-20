@@ -35,15 +35,23 @@ for (const [oldKey, typeId] of Object.entries(OLD_KEY_TO_TYPE)) {
 }
 
 export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
-  state: () => ({
-    data: {} as { [key: string]: any[] },
-    dataFull: {} as { [key: string]: any[] },
-    selectedTypes: [] as string[],
-    filter: { keyword: "", namespace: "" },
-    lastCall: { payload: {} as any, type: "" },
-    loading: false,
-    hasEverLoaded: false,
-  }),
+  state: () => {
+    // Pre-initialize all old-style data keys as empty arrays so per-type components
+    // can safely read .length before any data is fetched
+    const initialData: { [key: string]: any[] } = {};
+    for (const oldKey of Object.keys(OLD_KEY_TO_TYPE)) {
+      initialData[oldKey] = [];
+    }
+    return {
+      data: initialData,
+      dataFull: {} as { [key: string]: any[] },
+      selectedTypes: [] as string[],
+      filter: { keyword: "", namespace: "" },
+      lastCall: { payload: {} as any, type: "" },
+      loading: false,
+      hasEverLoaded: false,
+    };
+  },
 
   getters: {},
 
