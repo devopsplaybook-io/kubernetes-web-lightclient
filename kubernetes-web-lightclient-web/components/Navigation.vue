@@ -3,7 +3,7 @@
     <ul class="menu-links">
       <li>
         <NuxtLink to="/" class="brand-link"
-          ><img src="/images/logo.svg" alt="Kubernetes Web" class="nav-logo" />
+          ><img src="/icon.png" alt="Kubernetes Web" class="nav-logo" />
           <strong>{{ appTitle }}</strong></NuxtLink
         >
       </li>
