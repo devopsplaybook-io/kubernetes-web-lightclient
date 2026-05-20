@@ -58,10 +58,6 @@
   </div>
 </template>
 
-<script setup>
-const kubernetesObjectStore = KubernetesObjectStore();
-</script>
-
 <script>
 import { ResourceService } from "~~/services/ResourceService";
 import { handleError, EventBus, EventTypes } from "~~/services/EventBus";
@@ -119,8 +115,10 @@ export default {
     async saveSelections() {
       this.saving = true;
       try {
-        await ResourceService.saveUserSelections(Array.from(this.selectedIds));
-        await kubernetesObjectStore.loadSelectedTypes();
+        const selectedIds = Array.from(this.selectedIds);
+        await ResourceService.saveUserSelections(selectedIds);
+        // Update store directly so changes reflect immediately
+        KubernetesObjectStore().selectedTypes = selectedIds;
         EventBus.emit(EventTypes.ALERT_MESSAGE, {
           type: "info",
           text: "Resource selections saved",

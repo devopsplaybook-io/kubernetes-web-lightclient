@@ -9,7 +9,7 @@
           <th v-if="objectType === 'pod'">Status</th>
           <th>Details</th>
           <th v-if="objectType === 'pod'">Logs</th>
-          <th>Delete</th>
+          <th v-if="!isCrd">Delete</th>
         </tr>
       </thead>
       <tbody>
@@ -18,7 +18,7 @@
           v-bind:key="kubeObject.metadata.uid || kubeObject.metadata.name"
         >
           <td v-if="isNamespaced">{{ kubeObject.metadata.namespace }}</td>
-          <td>{{ kubeObject.metadata.name }}</td>
+          <td class="cell-name">{{ kubeObject.metadata.name }}</td>
           <td>
             {{ UtilsRelativeTime(kubeObject.metadata.creationTimestamp) }}
           </td>
@@ -37,7 +37,7 @@
               v-on:click="showLogs(kubeObject)"
             ></i>
           </td>
-          <td>
+          <td v-if="!isCrd">
             <i
               class="bi bi-x-circle-fill"
               v-on:click="confirmDelete(kubeObject)"
@@ -91,6 +91,7 @@ const kubernetesObjectStore = KubernetesObjectStore();
 const props = defineProps({
   objectType: { type: String, required: true },
   isNamespaced: { type: Boolean, default: true },
+  isCrd: { type: Boolean, default: false },
 });
 
 const dialogDetails = ref({ enable: false, title: "", text: "" });
@@ -268,5 +269,9 @@ function podStatusClass(status) {
   text-align: center;
   padding: 2em;
   opacity: 0.6;
+}
+
+.cell-name {
+  word-break: break-all;
 }
 </style>

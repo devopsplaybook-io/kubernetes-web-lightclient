@@ -55,6 +55,7 @@
           v-if="objectType"
           :objectType="objectType"
           :isNamespaced="isCurrentTypeNamespaced"
+          :isCrd="isCurrentTypeCrd"
         />
       </div>
     </div>
@@ -89,6 +90,10 @@ export default {
     isCurrentTypeNamespaced() {
       const type = this.availableTypes.find((t) => t.id === this.objectType);
       return type ? type.namespaced : true;
+    },
+    isCurrentTypeCrd() {
+      const type = this.availableTypes.find((t) => t.id === this.objectType);
+      return type ? type.isCrd : false;
     },
   },
   async created() {
