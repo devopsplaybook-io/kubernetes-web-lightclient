@@ -11,22 +11,42 @@
           ></a>
           Pod Log: {{ podname }} ({{ namespace }})
         </header>
-        <section class="log-controls-generic">
-          <label>
-            <input type="checkbox" v-model="wrapText" />
-            Wrap text
-          </label>
+        <section class="log-controls-basic">
           <select v-model="logTime" @change="fetchLogs">
             <option value="all">All</option>
             <option value="10m">Last 10min</option>
             <option value="1h">Last 1h</option>
             <option value="24h">Last 1 day</option>
           </select>
+          <label>
+            <input type="checkbox" v-model="wrapText" />
+            Wrap
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              v-model="showTimestamps"
+              @change="fetchLogs"
+            />
+            Timestamps
+          </label>
           <span class="actions"
             ><i class="bi bi-arrow-clockwise" v-on:click="fetchLogs"></i
           ></span>
         </section>
-        <section class="log-controls-specific">
+        <a
+          href="#"
+          class="advanced-toggle"
+          v-on:click.prevent="showAdvancedOptions = !showAdvancedOptions"
+        >
+          <i
+            :class="
+              showAdvancedOptions ? 'bi bi-chevron-down' : 'bi bi-chevron-right'
+            "
+          ></i>
+          Advanced
+        </a>
+        <section v-if="showAdvancedOptions" class="log-controls-advanced">
           <input
             type="text"
             v-model="filterText"
@@ -52,7 +72,7 @@
               v-model="showPreviousLog"
               @change="fetchLogs"
             />
-            Show previous log ({{ restartCount }} restarts)
+            Previous ({{ restartCount }} restarts)
           </label>
         </section>
         <pre
@@ -84,6 +104,8 @@ export default {
       text: "",
       wrapText: false,
       logTime: "10m",
+      showTimestamps: true,
+      showAdvancedOptions: false,
       filterText: "",
       debouncedFilter: null,
       containers: [],
@@ -133,12 +155,14 @@ export default {
         );
         this.containers = [...containers, ...initContainers];
         this.selectedContainer = this.containers[0] || "";
-        const containerRestarts = (
-          pod.status.containerStatuses || []
-        ).reduce((sum, cs) => sum + (cs.restartCount || 0), 0);
-        const initRestarts = (
-          pod.status.initContainerStatuses || []
-        ).reduce((sum, cs) => sum + (cs.restartCount || 0), 0);
+        const containerRestarts = (pod.status.containerStatuses || []).reduce(
+          (sum, cs) => sum + (cs.restartCount || 0),
+          0,
+        );
+        const initRestarts = (pod.status.initContainerStatuses || []).reduce(
+          (sum, cs) => sum + (cs.restartCount || 0),
+          0,
+        );
         this.restartCount = containerRestarts + initRestarts;
       } catch (e) {
         handleError(e);
@@ -158,6 +182,7 @@ export default {
       if (this.showPreviousLog) {
         payload.argument += ` --previous `;
       }
+      payload.timestamps = this.showTimestamps;
       this.text = "Loading logs...";
       await axios
         .post(
@@ -184,21 +209,41 @@ export default {
 #dialog-details-logs-text {
   overflow: auto;
 }
-#dialog-details-logs .log-controls-generic,
-#dialog-details-logs .log-controls-specific {
+
+/* Basic controls row: time select, toggles, refresh */
+#dialog-details-logs .log-controls-basic {
   display: grid;
-  grid-gap: 1rem;
+  grid-template-columns: auto auto auto 1fr auto;
+  gap: 0.75rem;
   margin: 0;
-  margin-bottom: 1rem;
+  margin-bottom: 0.25rem;
   align-items: center;
 }
 
-#dialog-details-logs .log-controls-generic {
-  grid-template-columns: auto 1fr auto;
+/* Advanced toggle link */
+#dialog-details-logs .advanced-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.85em;
+  opacity: 0.6;
+  cursor: pointer;
+  margin-bottom: 0.5rem;
+  text-decoration: none;
+  color: inherit;
+}
+#dialog-details-logs .advanced-toggle:hover {
+  opacity: 1;
 }
 
-#dialog-details-logs .log-controls-specific {
-  grid-template-columns: 1fr 1fr 1fr;
+/* Advanced options grid: filter, container, previous */
+#dialog-details-logs .log-controls-advanced {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 0.75rem;
+  margin: 0;
+  margin-bottom: 0.75rem;
+  align-items: center;
 }
 
 #dialog-details-logs section select,
@@ -210,11 +255,24 @@ export default {
   height: 2.6rem;
 }
 
-#dialog-details-logs .log-controls-specific label {
+#dialog-details-logs .log-controls-advanced label {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
   display: block;
+}
+
+/* Responsive: stack controls on narrow screens */
+@media (max-width: 700px) {
+  #dialog-details-logs .log-controls-basic {
+    grid-template-columns: 1fr 1fr;
+  }
+  #dialog-details-logs .log-controls-basic .actions {
+    justify-self: end;
+  }
+  #dialog-details-logs .log-controls-advanced {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

@@ -13,6 +13,7 @@ export class KubeCtlLogsRoutes {
         pod: string;
         container?: string;
         argument?: string;
+        timestamps?: boolean;
       };
     }
     fastify.post<PostCommand>("/", async (req, res) => {
@@ -41,7 +42,9 @@ export class KubeCtlLogsRoutes {
       const namespaceArg = req.body.namespace ? `-n ${req.body.namespace}` : "";
       const containerArg = req.body.container ? `-c ${req.body.container}` : "";
       const argumentArg = req.body.argument ? req.body.argument : "";
-      const kubectlCommand = `kubectl logs ${namespaceArg} ${podArg} ${containerArg} ${argumentArg} --timestamps`;
+      const timestampsArg = req.body.timestamps !== false ? "--timestamps" : "";
+      const kubectlCommand =
+        `kubectl logs ${namespaceArg} ${podArg} ${containerArg} ${argumentArg} ${timestampsArg}`.trim();
 
       const span = OTelTracer().startSpan("KubeCtlLogs");
       span.setAttribute("parameters", JSON.stringify(req.body));
