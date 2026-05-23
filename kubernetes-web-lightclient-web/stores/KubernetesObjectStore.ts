@@ -258,6 +258,15 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
 
       this._pendingCacheRequests[type] = true;
       this.loading = true;
+
+      // Clear previously filtered data for this type to prevent artifacts
+      // from previous list views (e.g., old namespace/keyword filter results)
+      this.data[type] = [];
+      const oldKeyType = TYPE_TO_OLD_KEY[type];
+      if (oldKeyType) {
+        this.data[oldKeyType] = [];
+      }
+
       try {
         const response = await axios.get(
           `${(await Config.get()).SERVER_URL}/resources/data/${type}`,

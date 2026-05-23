@@ -8,7 +8,8 @@ export class KubeCtlExecutor {
    * Returns base64-encoded gzip-compressed JSON.
    */
   public executeGetRequest(objectType: string, timeout?: number): Promise<string> {
-    const command = `kubectl get ${objectType} -o json | gzip | base64 -w 0`;
+    // Always fetch all namespaces - filtering is done on the client side
+    const command = `kubectl get ${objectType} -A -o json | gzip | base64 -w 0`;
     const queue = RequestQueueGetInstance();
     return queue.execute(
       `get:${objectType}`,

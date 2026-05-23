@@ -208,6 +208,10 @@ export default {
       const typeInfo = this.availableTypes.find((t) => t.id === newType);
       if (typeInfo && !typeInfo.namespaced) {
         this.selectedNamespace = "*";
+        this.kubernetesObjectStore.setFilterNamespace("");
+      } else if (typeInfo && typeInfo.namespaced && this.selectedNamespace !== "*") {
+        // Re-apply namespace filter for namespaced types
+        this.kubernetesObjectStore.setFilterNamespace(this.selectedNamespace);
       }
 
       const router = useRouter();
