@@ -127,12 +127,19 @@ export default {
           await AuthService.getAuthHeader(),
         );
         const pod = JSON.parse(await UtilsDecompressData(res.data.result));
-        this.containers = (pod.spec.containers || []).map((c) => c.name);
-        this.selectedContainer = this.containers[0] || "";
-        this.restartCount = (pod.status.containerStatuses || []).reduce(
-          (sum, cs) => sum + (cs.restartCount || 0),
-          0,
+        const containers = (pod.spec.containers || []).map((c) => c.name);
+        const initContainers = (pod.spec.initContainers || []).map(
+          (c) => c.name,
         );
+        this.containers = [...containers, ...initContainers];
+        this.selectedContainer = this.containers[0] || "";
+        const containerRestarts = (
+          pod.status.containerStatuses || []
+        ).reduce((sum, cs) => sum + (cs.restartCount || 0), 0);
+        const initRestarts = (
+          pod.status.initContainerStatuses || []
+        ).reduce((sum, cs) => sum + (cs.restartCount || 0), 0);
+        this.restartCount = containerRestarts + initRestarts;
       } catch (e) {
         handleError(e);
       }
