@@ -5,5 +5,6 @@ if [ "${APPLICATION_TITLE}" == "" ]; then
 fi
 
 sed -i "s/APPLICATION_TITLE/$APPLICATION_TITLE/g" /opt/app/kubernetes-web-lightclient/web/manifest.webmanifest
+sed -i "s/APPLICATION_TITLE/$APPLICATION_TITLE/g" /opt/app/kubernetes-web-lightclient/web/config.json
 
 node dist/App.js

@@ -4,6 +4,8 @@ import Fastify from "fastify";
 import { watchFile } from "fs-extra";
 import * as path from "path";
 import { Config } from "./Config";
+import { CrdRoutes } from "./crds/CrdRoutes";
+import { CrdScannerInit } from "./crds/CrdScanner";
 import { KubeCtlCommandRoutes } from "./kubectl/KubeCtlCommandRoutes";
 import { KubeCtlLogsRoutes } from "./kubectl/KubeCtlLogsRoutes";
 import {
@@ -40,6 +42,7 @@ Promise.resolve().then(async () => {
   await SqlDbUtilsInit(span, config);
   await AuthInit(span, config);
   await StatsDataInit(span, config);
+  await CrdScannerInit(config);
 
   span.end();
 
@@ -74,6 +77,10 @@ Promise.resolve().then(async () => {
   });
   fastify.register(new StatsRoutes().getRoutes, {
     prefix: "/api/stats",
+  });
+  const crdRoutes = new CrdRoutes(config);
+  fastify.register(crdRoutes.getRoutes.bind(crdRoutes), {
+    prefix: "/api/resources",
   });
   fastify.get("/api/status", async () => {
     return { started: true };

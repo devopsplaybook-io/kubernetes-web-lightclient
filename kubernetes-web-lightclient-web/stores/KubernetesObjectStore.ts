@@ -1,61 +1,209 @@
 import { AuthService } from "~~/services/AuthService";
 import Config from "~~/services/Config";
+import { ResourceService } from "~~/services/ResourceService";
 import axios from "axios";
 import { UtilsDecompressData } from "~/services/Utils";
 
+// Map from old-style data keys (e.g. 'pods') to new type IDs (e.g. 'pod')
+const OLD_KEY_TO_TYPE: { [key: string]: string } = {
+  pods: "pod",
+  deployments: "deployment",
+  statefulsets: "statefulset",
+  daemonSets: "daemonset",
+  jobs: "job",
+  cronjobs: "cronjob",
+  services: "service",
+  ingresses: "ingress",
+  configMaps: "configmap",
+  pvcs: "pvc",
+  secrets: "secret",
+  serviceAccounts: "serviceaccount",
+  roles: "role",
+  roleBindings: "rolebinding",
+  namespaces: "namespace",
+  nodes: "node",
+  pvs: "pv",
+  clusterRoles: "clusterrole",
+  clusterRoleBindings: "clusterrolebinding",
+  customResourceDefinitions: "customresourcedefinition",
+};
+
+// Reverse: new type ID -> old-style data key
+const TYPE_TO_OLD_KEY: { [key: string]: string } = {};
+for (const [oldKey, typeId] of Object.entries(OLD_KEY_TO_TYPE)) {
+  TYPE_TO_OLD_KEY[typeId] = oldKey;
+}
+
 export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
-  state: () => ({
-    data: {
-      deployments: [],
-      deploymentsFull: [],
-      statefulsets: [],
-      statefulsetsFull: [],
-      daemonsets: [],
-      daemonsetsFull: [],
-      pods: [],
-      podsFull: [],
-      jobs: [],
-      jobsFull: [],
-      cronjobs: [],
-      cronjobsFull: [],
-      services: [],
-      servicesFull: [],
-      configmaps: [],
-      configmapsFull: [],
-      secrets: [],
-      secretsFull: [],
-      pvcs: [],
-      pvcsFull: [],
-      pvs: [],
-      pvsFull: [],
-      nodes: [],
-      nodesFull: [],
-      namespaces: [],
-      namespacesFull: [],
-      serviceaccounts: [],
-      serviceaccountsFull: [],
-      roles: [],
-      rolesFull: [],
-      clusterroles: [],
-      clusterrolesFull: [],
-      rolebindings: [],
-      rolebindingsFull: [],
-      clusterrolebindings: [],
-      clusterrolebindingsFull: [],
-      ingresses: [],
-      ingressesFull: [],
-      customresourcedefinitions: [],
-      customresourcedefinitionsFull: [],
-    },
-    filter: { keyword: "", namespace: "" },
-    lastCall: { payload: {}, type: "" },
-    loading: false,
-    hasEverLoaded: false,
-  }),
+  state: () => {
+    // Pre-initialize all old-style data keys as empty arrays so per-type components
+    // can safely read .length before any data is fetched
+    const initialData: { [key: string]: any[] } = {};
+    for (const oldKey of Object.keys(OLD_KEY_TO_TYPE)) {
+      initialData[oldKey] = [];
+    }
+    return {
+      data: initialData,
+      dataFull: {} as { [key: string]: any[] },
+      selectedTypes: [] as string[],
+      filter: { keyword: "", namespace: "" },
+      lastCall: { payload: {} as any, type: "" },
+      loading: false,
+      hasEverLoaded: false,
+    };
+  },
 
   getters: {},
 
   actions: {
+    // Backward-compatible getter methods for original per-type components
+    async getPods() {
+      await this.getObject("pod", {
+        object: "pod",
+        command: "get",
+        argument: "-A",
+      });
+    },
+    async getDeployments() {
+      await this.getObject("deployment", {
+        object: "deployment",
+        command: "get",
+        argument: "-A",
+      });
+    },
+    async getStatefulSets() {
+      await this.getObject("statefulset", {
+        object: "statefulset",
+        command: "get",
+        argument: "-A",
+      });
+    },
+    async getDaemonSets() {
+      await this.getObject("daemonset", {
+        object: "daemonset",
+        command: "get",
+        argument: "-A",
+      });
+    },
+    async getJobs() {
+      await this.getObject("job", {
+        object: "job",
+        command: "get",
+        argument: "-A",
+      });
+    },
+    async getCronJobs() {
+      await this.getObject("cronjob", {
+        object: "cronjob",
+        command: "get",
+        argument: "-A",
+      });
+    },
+    async getServices() {
+      await this.getObject("service", {
+        object: "service",
+        command: "get",
+        argument: "-A",
+      });
+    },
+    async getIngresses() {
+      await this.getObject("ingress", {
+        object: "ingress",
+        command: "get",
+        argument: "-A",
+      });
+    },
+    async getConfigMaps() {
+      await this.getObject("configmap", {
+        object: "configmap",
+        command: "get",
+        argument: "-A",
+      });
+    },
+    async getPvcs() {
+      await this.getObject("pvc", {
+        object: "pvc",
+        command: "get",
+        argument: "-A",
+      });
+    },
+    async getSecrets() {
+      await this.getObject("secret", {
+        object: "secret",
+        command: "get",
+        argument: "-A",
+      });
+    },
+    async getServiceAccounts() {
+      await this.getObject("serviceaccount", {
+        object: "serviceaccount",
+        command: "get",
+        argument: "-A",
+      });
+    },
+    async getRoles() {
+      await this.getObject("role", {
+        object: "role",
+        command: "get",
+        argument: "-A",
+      });
+    },
+    async getRoleBindings() {
+      await this.getObject("rolebinding", {
+        object: "rolebinding",
+        command: "get",
+        argument: "-A",
+      });
+    },
+    async getNamespaces() {
+      await this.getObject("namespace", {
+        object: "namespace",
+        command: "get",
+        argument: "",
+      });
+    },
+    async getNodes() {
+      await this.getObject("node", {
+        object: "node",
+        command: "get",
+        argument: "",
+      });
+    },
+    async getPvs() {
+      await this.getObject("pv", {
+        object: "pv",
+        command: "get",
+        argument: "",
+      });
+    },
+    async getClusterRoles() {
+      await this.getObject("clusterrole", {
+        object: "clusterrole",
+        command: "get",
+        argument: "",
+      });
+    },
+    async getClusterRoleBindings() {
+      await this.getObject("clusterrolebinding", {
+        object: "clusterrolebinding",
+        command: "get",
+        argument: "",
+      });
+    },
+    async getCustomResourceDefinitions() {
+      await this.getObject("customresourcedefinition", {
+        object: "customresourcedefinition",
+        command: "get",
+        argument: "",
+      });
+    },
+
+    async loadSelectedTypes() {
+      this.selectedTypes = await ResourceService.getUserSelections();
+    },
+    isTypeSelected(type: string): boolean {
+      return this.selectedTypes.includes(type);
+    },
     setFilterNamespace(namespace: string) {
       this.filter.namespace = namespace;
       this.applyFilter(this.lastCall.type);
@@ -64,148 +212,10 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
       this.filter.keyword = keyword;
       this.applyFilter(this.lastCall.type);
     },
-    async getPods() {
-      await this.getObject("pods", {
-        object: "pods",
-        command: "get",
-        argument: "-A",
-      });
-    },
-    async getDeployments() {
-      await this.getObject("deployments", {
-        object: "deployments",
-        command: "get",
-        argument: "-A",
-      });
-    },
-    async getServices() {
-      await this.getObject("services", {
-        object: "services",
-        command: "get",
-        argument: "-A",
-      });
-    },
-    async getConfigMaps() {
-      await this.getObject("configmaps", {
-        object: "configmaps",
-        command: "get",
-        argument: "-A",
-      });
-    },
-    async getPVCs() {
-      await this.getObject("pvcs", {
-        object: "pvc",
-        command: "get",
-        argument: "-A",
-      });
-    },
-    async getPVs() {
-      await this.getObject("pvs", {
-        object: "pv",
-        command: "get",
-        argument: "",
-      });
-    },
-    async getSecrets() {
-      await this.getObject("secrets", {
-        object: "secrets",
-        command: "get",
-        argument: "-A",
-      });
-    },
-    async getNodes() {
-      await this.getObject("nodes", {
-        object: "nodes",
-        command: "get",
-        argument: "",
-      });
-    },
-    async getNamespaces() {
-      await this.getObject("namespaces", {
-        object: "namespaces",
-        command: "get",
-        argument: "",
-      });
-    },
-    async getStatefulSets() {
-      await this.getObject("statefulsets", {
-        object: "statefulset",
-        command: "get",
-        argument: "-A",
-      });
-    },
-    async getDaemonSets() {
-      await this.getObject("daemonsets", {
-        object: "daemonset",
-        command: "get",
-        argument: "-A",
-      });
-    },
-    async getJobs() {
-      await this.getObject("jobs", {
-        object: "job",
-        command: "get",
-        argument: "-A",
-      });
-    },
-    async getCronJobs() {
-      await this.getObject("cronjobs", {
-        object: "cronjob",
-        command: "get",
-        argument: "-A",
-      });
-    },
-    async getServiceAccounts() {
-      await this.getObject("serviceaccounts", {
-        object: "serviceaccount",
-        command: "get",
-        argument: "-A",
-      });
-    },
-    async getRoles() {
-      await this.getObject("roles", {
-        object: "role",
-        command: "get",
-        argument: "-A",
-      });
-    },
-    async getClusterRoles() {
-      await this.getObject("clusterroles", {
-        object: "clusterrole",
-        command: "get",
-        argument: "",
-      });
-    },
-    async getRoleBindings() {
-      await this.getObject("rolebindings", {
-        object: "rolebinding",
-        command: "get",
-        argument: "-A",
-      });
-    },
-    async getClusterRoleBindings() {
-      await this.getObject("clusterrolebindings", {
-        object: "clusterrolebinding",
-        command: "get",
-        argument: "",
-      });
-    },
-    async getIngresses() {
-      await this.getObject("ingresses", {
-        object: "ingress",
-        command: "get",
-        argument: "-A",
-      });
-    },
-    async getCustomResourceDefinitions() {
-      await this.getObject("customresourcedefinitions", {
-        object: "customresourcedefinition",
-        command: "get",
-        argument: "",
-      });
-    },
     async refreshLast() {
-      await this.getObject(this.lastCall.type, this.lastCall.payload);
+      if (this.lastCall.type) {
+        await this.getObject(this.lastCall.type, this.lastCall.payload);
+      }
     },
     setLoading(value: boolean) {
       this.loading = value;
@@ -234,16 +244,17 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
         )
         .then(async (response) => {
           const items: any[] = [];
-          for (const item of JSON.parse(
+          const parsed = JSON.parse(
             await UtilsDecompressData(response.data.result),
-          ).items) {
+          );
+          for (const item of parsed.items || []) {
             items.push(item);
           }
-          (this.data as any)[type + "Full"] = items;
+          this.dataFull[type] = items;
         });
     },
     async applyFilter(type: string) {
-      const itemsFull = (this.data as any)[type + "Full"];
+      const itemsFull = this.dataFull[type] || [];
       const items: any[] = [];
       for (const item of itemsFull) {
         if (
@@ -267,7 +278,12 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
           continue;
         }
       }
-      (this.data as any)[type] = items;
+      this.data[type] = items;
+      // Also set old-style data key for backward compatibility with original components
+      const oldKey = TYPE_TO_OLD_KEY[type];
+      if (oldKey) {
+        this.data[oldKey] = items;
+      }
     },
   },
 });

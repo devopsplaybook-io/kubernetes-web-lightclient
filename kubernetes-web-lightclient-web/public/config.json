@@ -1,3 +1,4 @@
 {
-  "SERVER_URL": "/api"
+  "SERVER_URL": "/api",
+  "appTitle": "APPLICATION_TITLE"
 }
