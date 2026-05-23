@@ -209,7 +209,11 @@ export default {
       if (typeInfo && !typeInfo.namespaced) {
         this.selectedNamespace = "*";
         this.kubernetesObjectStore.setFilterNamespace("");
-      } else if (typeInfo && typeInfo.namespaced && this.selectedNamespace !== "*") {
+      } else if (
+        typeInfo &&
+        typeInfo.namespaced &&
+        this.selectedNamespace !== "*"
+      ) {
         // Re-apply namespace filter for namespaced types
         this.kubernetesObjectStore.setFilterNamespace(this.selectedNamespace);
       }

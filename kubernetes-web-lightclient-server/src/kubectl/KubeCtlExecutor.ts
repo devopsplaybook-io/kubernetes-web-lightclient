@@ -7,7 +7,10 @@ export class KubeCtlExecutor {
    * Uses the request queue with deduplication by object type.
    * Returns base64-encoded gzip-compressed JSON.
    */
-  public executeGetRequest(objectType: string, timeout?: number): Promise<string> {
+  public executeGetRequest(
+    objectType: string,
+    timeout?: number,
+  ): Promise<string> {
     // Always fetch all namespaces - filtering is done on the client side
     const command = `kubectl get ${objectType} -A -o json | gzip | base64 -w 0`;
     const queue = RequestQueueGetInstance();
@@ -34,10 +37,7 @@ export class KubeCtlExecutor {
     );
   }
 
-  private runCommand(
-    command: string,
-    signal: AbortSignal,
-  ): Promise<string> {
+  private runCommand(command: string, signal: AbortSignal): Promise<string> {
     return new Promise<string>((resolve, reject) => {
       const child = childProcess.exec(
         command,
