@@ -1,7 +1,7 @@
 import { FastifyInstance, RequestGenericInterface } from "fastify";
 import { AuthGetUserSession } from "../users/Auth";
-import { SystemCommandExecute } from "../utils-std-ts/SystemCommand";
 import { OTelTracer } from "../OTelContext";
+import { KubeCtlExecutorGetInstance } from "./KubeCtlExecutor";
 
 export class KubeCtlLogsRoutes {
   //
@@ -46,12 +46,10 @@ export class KubeCtlLogsRoutes {
       const span = OTelTracer().startSpan("KubeCtlLogs");
       span.setAttribute("parameters", JSON.stringify(req.body));
 
-      const commandOutput = await SystemCommandExecute(
+      const executor = KubeCtlExecutorGetInstance();
+      const commandOutput = await executor.executeCommand(
         `${kubectlCommand} | gzip | base64 -w 0`,
-        {
-          timeout: 20000,
-          maxBuffer: 1024 * 1024 * 10,
-        },
+        20000,
       );
       span.end();
 

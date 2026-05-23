@@ -50,6 +50,7 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
       lastCall: { payload: {} as any, type: "" },
       loading: false,
       hasEverLoaded: false,
+      _pendingCacheRequests: {} as { [key: string]: boolean },
     };
   },
 
@@ -223,6 +224,19 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
     async getObject(type: string, payload: any) {
       this.lastCall.type = type;
       this.lastCall.payload = payload;
+
+      // Use cached endpoint for full-list get requests
+      if (
+        payload.command === "get" &&
+        (payload.argument === "-A" ||
+          payload.argument === "" ||
+          payload.argument === undefined ||
+          payload.argument === null)
+      ) {
+        return this.getObjectCached(type);
+      }
+
+      // For other commands (describe, delete, etc.), use existing POST endpoint
       this.loading = true;
       this.getObjectFull(type, payload)
         .then(async () => {
@@ -234,6 +248,49 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
           this.loading = false;
           console.error(error);
         });
+    },
+
+    async getObjectCached(type: string) {
+      // Prevent duplicate in-flight requests for the same type
+      if (this._pendingCacheRequests[type]) {
+        return;
+      }
+
+      this._pendingCacheRequests[type] = true;
+      this.loading = true;
+      try {
+        const response = await axios.get(
+          `${(await Config.get()).SERVER_URL}/resources/data/${type}`,
+          await AuthService.getAuthHeader(),
+        );
+        const { data, status } = response.data;
+        const items: any[] = [];
+        const parsed = JSON.parse(await UtilsDecompressData(data));
+        for (const item of parsed.items || []) {
+          items.push(item);
+        }
+        this.dataFull[type] = items;
+        this.applyFilter(type);
+        this.hasEverLoaded = true;
+
+        if (status === "fresh") {
+          this.loading = false;
+        } else if (status === "stale") {
+          // Background refresh is in progress; retry after a short delay
+          setTimeout(() => {
+            if (this.lastCall.type === type) {
+              this.getObjectCached(type);
+            }
+          }, 2000);
+        }
+        // If status is "loading" (no cache yet), keep loading=true
+        // The refresh interval or next user action will retry
+      } catch (error) {
+        this.loading = false;
+        console.error(error);
+      } finally {
+        this._pendingCacheRequests[type] = false;
+      }
     },
     async getObjectFull(type: string, payload: any) {
       await axios
