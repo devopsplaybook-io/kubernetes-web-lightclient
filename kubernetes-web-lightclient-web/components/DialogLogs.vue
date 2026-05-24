@@ -11,69 +11,73 @@
           ></a>
           Pod Log: {{ podname }} ({{ namespace }})
         </header>
-        <section class="log-controls-basic">
-          <select v-model="logTime" @change="fetchLogs">
-            <option value="all">All</option>
-            <option value="10m">Last 10min</option>
-            <option value="1h">Last 1h</option>
-            <option value="24h">Last 1 day</option>
-          </select>
-          <label>
-            <input type="checkbox" v-model="wrapText" />
-            Wrap
-          </label>
-          <label>
-            <input
-              type="checkbox"
-              v-model="showTimestamps"
+        <section class="log-controls-primary">
+          <div class="log-controls-row">
+            <select v-model="logTime" @change="fetchLogs">
+              <option value="all">All</option>
+              <option value="10m">Last 10min</option>
+              <option value="1h">Last 1h</option>
+              <option value="24h">Last 1 day</option>
+            </select>
+            <label>
+              <input type="checkbox" v-model="wrapText" />
+              Wrap
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                v-model="showTimestamps"
+                @change="fetchLogs"
+              />
+              Timestamps
+            </label>
+            <select
+              v-if="containers.length > 1"
+              v-model="selectedContainer"
               @change="fetchLogs"
-            />
-            Timestamps
-          </label>
-          <span class="actions"
-            ><i class="bi bi-arrow-clockwise" v-on:click="fetchLogs"></i
-          ></span>
-        </section>
-        <a
-          href="#"
-          class="advanced-toggle"
-          v-on:click.prevent="showAdvancedOptions = !showAdvancedOptions"
-        >
-          <i
-            :class="
-              showAdvancedOptions ? 'bi bi-chevron-down' : 'bi bi-chevron-right'
-            "
-          ></i>
-          Advanced
-        </a>
-        <section v-if="showAdvancedOptions" class="log-controls-advanced">
-          <input
-            type="text"
-            v-model="filterText"
-            placeholder="Filter logs"
-            @input="debouncedFilter"
-          />
-          <select
-            v-if="containers.length > 1"
-            v-model="selectedContainer"
-            @change="fetchLogs"
-          >
-            <option
-              v-for="container in containers"
-              :key="container"
-              :value="container"
             >
-              {{ container }}
-            </option>
-          </select>
-          <label v-if="restartCount > 0">
+              <option
+                v-for="container in containers"
+                :key="container"
+                :value="container"
+              >
+                {{ container }}
+              </option>
+            </select>
+            <span class="actions"
+              ><i class="bi bi-arrow-clockwise" v-on:click="fetchLogs"></i
+            ></span>
+          </div>
+          <a
+            href="#"
+            class="advanced-toggle"
+            v-on:click.prevent="showAdvancedOptions = !showAdvancedOptions"
+          >
+            <i
+              :class="
+                showAdvancedOptions
+                  ? 'bi bi-chevron-down'
+                  : 'bi bi-chevron-right'
+              "
+            ></i>
+            Advanced
+          </a>
+          <div v-if="showAdvancedOptions" class="log-controls-advanced">
             <input
-              type="checkbox"
-              v-model="showPreviousLog"
-              @change="fetchLogs"
+              type="text"
+              v-model="filterText"
+              placeholder="Filter logs"
+              @input="debouncedFilter"
             />
-            Previous ({{ restartCount }} restarts)
-          </label>
+            <label v-if="restartCount > 0">
+              <input
+                type="checkbox"
+                v-model="showPreviousLog"
+                @change="fetchLogs"
+              />
+              Previous ({{ restartCount }} restarts)
+            </label>
+          </div>
         </section>
         <pre
           id="dialog-details-logs-text"
@@ -204,20 +208,29 @@ export default {
   min-width: 90dvw;
   height: 90dvh;
   display: grid;
-  grid-template-rows: auto auto auto 1fr;
+  grid-template-rows: auto auto 1fr;
+  gap: 0;
 }
 #dialog-details-logs-text {
   overflow: auto;
 }
 
-/* Basic controls row: time select, toggles, refresh */
-#dialog-details-logs .log-controls-basic {
-  display: grid;
-  grid-template-columns: auto auto auto 1fr auto;
+/* Primary controls container — wraps everything except header and log text */
+#dialog-details-logs .log-controls-primary {
+  margin-bottom: 0.5rem;
+}
+
+/* Controls row: items flow naturally, wrapping on narrow screens */
+#dialog-details-logs .log-controls-row {
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.75rem;
-  margin: 0;
-  margin-bottom: 0.25rem;
   align-items: center;
+}
+
+#dialog-details-logs .log-controls-row select,
+#dialog-details-logs .log-controls-row input[type="text"] {
+  margin: 0;
 }
 
 /* Advanced toggle link */
@@ -228,7 +241,7 @@ export default {
   font-size: 0.85em;
   opacity: 0.6;
   cursor: pointer;
-  margin-bottom: 0.5rem;
+  margin-top: 0.25rem;
   text-decoration: none;
   color: inherit;
 }
@@ -236,22 +249,22 @@ export default {
   opacity: 1;
 }
 
-/* Advanced options grid: filter, container, previous */
+/* Advanced options grid: filter, previous log */
 #dialog-details-logs .log-controls-advanced {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr auto;
   gap: 0.75rem;
-  margin: 0;
-  margin-bottom: 0.75rem;
   align-items: center;
+  margin-top: 0.4rem;
 }
 
 #dialog-details-logs section select,
-#dialog-details-logs section input[type="text"] {
+#dialog-details-logs section input[type="text"],
+#dialog-details-logs .log-controls-row select {
   margin: 0;
 }
 
-#dialog-details-logs section input[type="text"] {
+#dialog-details-logs .log-controls-row input[type="text"] {
   height: 2.6rem;
 }
 
@@ -263,14 +276,8 @@ export default {
   display: block;
 }
 
-/* Responsive: stack controls on narrow screens */
+/* Responsive: stack on narrow screens */
 @media (max-width: 700px) {
-  #dialog-details-logs .log-controls-basic {
-    grid-template-columns: 1fr 1fr;
-  }
-  #dialog-details-logs .log-controls-basic .actions {
-    justify-self: end;
-  }
   #dialog-details-logs .log-controls-advanced {
     grid-template-columns: 1fr;
   }
