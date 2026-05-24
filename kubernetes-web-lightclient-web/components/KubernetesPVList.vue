@@ -70,7 +70,7 @@ export default {
     };
   },
   async created() {
-    KubernetesObjectStore().getPVs();
+    KubernetesObjectStore().getPvs();
   },
   methods: {
     pvStatusClass(phase) {

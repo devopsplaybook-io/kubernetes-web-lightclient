@@ -33,7 +33,7 @@ export async function StatsDataMetricsInit(
         }
       });
     },
-    { description: "CPU % Usage for each node" },
+    "CPU % Usage for each node",
   );
 
   OTelMeter().createObservableGauge(
@@ -45,7 +45,7 @@ export async function StatsDataMetricsInit(
         }
       });
     },
-    { description: "Memory % Usage for each node" },
+    "Memory % Usage for each node",
   );
 
   OTelMeter().createObservableGauge(
@@ -55,7 +55,7 @@ export async function StatsDataMetricsInit(
         observableResult.observe(stat.pods, { node: stat.node });
       });
     },
-    { description: "Number of pod running on each node" },
+    "Number of pod running on each node",
   );
 
   OTelMeter().createObservableGauge(
@@ -65,7 +65,7 @@ export async function StatsDataMetricsInit(
         observableResult.observe(stat.podRestarts ?? 0, { node: stat.node });
       });
     },
-    { description: "Number of pod restarts on each node" },
+    "Number of pod restarts on each node",
   );
 
   setInterval(executeStatsCapture, config.STATS_FETCH_FREQUENCY * 1000);

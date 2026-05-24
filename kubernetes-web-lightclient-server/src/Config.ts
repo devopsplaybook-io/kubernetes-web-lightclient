@@ -20,6 +20,9 @@ export class Config implements ConfigOTelInterface {
   public STATS_FETCH_FREQUENCY = 60;
   public STATS_RETENTION = 60 * 60 * 24;
   public POD_RESOURCES_FETCH_FREQUENCY = 30 * 60;
+  public CACHE_TTL = 30000;
+  public REQUEST_QUEUE_CONCURRENCY = 2;
+  public REQUEST_TIMEOUT = 20000;
   public OPENTELEMETRY_COLLECTOR_HTTP_TRACES = "";
   public OPENTELEMETRY_COLLECTOR_HTTP_METRICS = "";
   public OPENTELEMETRY_COLLECTOR_HTTP_LOGS = "";
@@ -73,6 +76,9 @@ export class Config implements ConfigOTelInterface {
     setIfSet("STATS_FETCH_FREQUENCY");
     setIfSet("STATS_RETENTION");
     setIfSet("POD_RESOURCES_FETCH_FREQUENCY");
+    setIfSet("CACHE_TTL");
+    setIfSet("REQUEST_QUEUE_CONCURRENCY");
+    setIfSet("REQUEST_TIMEOUT");
     setIfSet("OPENTELEMETRY_COLLECTOR_HTTP_TRACES");
     setIfSet("OPENTELEMETRY_COLLECTOR_HTTP_METRICS");
     setIfSet("OPENTELEMETRY_COLLECTOR_HTTP_LOGS");

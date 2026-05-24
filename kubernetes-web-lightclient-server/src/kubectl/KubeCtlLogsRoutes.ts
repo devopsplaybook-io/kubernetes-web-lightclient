@@ -1,7 +1,7 @@
 import { FastifyInstance, RequestGenericInterface } from "fastify";
 import { AuthGetUserSession } from "../users/Auth";
-import { SystemCommandExecute } from "../utils-std-ts/SystemCommand";
 import { OTelTracer } from "../OTelContext";
+import { KubeCtlExecutorGetInstance } from "./KubeCtlExecutor";
 
 export class KubeCtlLogsRoutes {
   //
@@ -13,6 +13,7 @@ export class KubeCtlLogsRoutes {
         pod: string;
         container?: string;
         argument?: string;
+        timestamps?: boolean;
       };
     }
     fastify.post<PostCommand>("/", async (req, res) => {
@@ -41,17 +42,17 @@ export class KubeCtlLogsRoutes {
       const namespaceArg = req.body.namespace ? `-n ${req.body.namespace}` : "";
       const containerArg = req.body.container ? `-c ${req.body.container}` : "";
       const argumentArg = req.body.argument ? req.body.argument : "";
-      const kubectlCommand = `kubectl logs ${namespaceArg} ${podArg} ${containerArg} ${argumentArg} --timestamps`;
+      const timestampsArg = req.body.timestamps !== false ? "--timestamps" : "";
+      const kubectlCommand =
+        `kubectl logs ${namespaceArg} ${podArg} ${containerArg} ${argumentArg} ${timestampsArg}`.trim();
 
       const span = OTelTracer().startSpan("KubeCtlLogs");
       span.setAttribute("parameters", JSON.stringify(req.body));
 
-      const commandOutput = await SystemCommandExecute(
+      const executor = KubeCtlExecutorGetInstance();
+      const commandOutput = await executor.executeCommand(
         `${kubectlCommand} | gzip | base64 -w 0`,
-        {
-          timeout: 20000,
-          maxBuffer: 1024 * 1024 * 10,
-        },
+        20000,
       );
       span.end();
 

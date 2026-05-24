@@ -66,7 +66,7 @@ export default {
     };
   },
   async created() {
-    KubernetesObjectStore().getPVCs();
+    KubernetesObjectStore().getPvcs();
   },
   methods: {
     onCloseDetails() {

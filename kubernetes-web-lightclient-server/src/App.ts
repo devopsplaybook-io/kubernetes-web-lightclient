@@ -4,6 +4,8 @@ import Fastify from "fastify";
 import { watchFile } from "fs-extra";
 import * as path from "path";
 import { Config } from "./Config";
+import { KubeCache } from "./cache/KubeCache";
+import { KubeResourceRoutes } from "./cache/KubeResourceRoutes";
 import { CrdRoutes } from "./crds/CrdRoutes";
 import { CrdScannerInit } from "./crds/CrdScanner";
 import { KubeCtlCommandRoutes } from "./kubectl/KubeCtlCommandRoutes";
@@ -14,6 +16,7 @@ import {
   OTelSetTracer,
   OTelTracer,
 } from "./OTelContext";
+import { RequestQueueInit } from "./queue/RequestQueue";
 import { StatsDataInit } from "./stats/StatsData";
 import { StatsRoutes } from "./stats/StatsRoutes";
 import { AuthInit } from "./users/Auth";
@@ -43,6 +46,12 @@ Promise.resolve().then(async () => {
   await AuthInit(span, config);
   await StatsDataInit(span, config);
   await CrdScannerInit(config);
+
+  // Initialize request queue with configurable concurrency and timeout
+  RequestQueueInit(config.REQUEST_QUEUE_CONCURRENCY, config.REQUEST_TIMEOUT);
+
+  // Initialize resource cache
+  const kubeCache = new KubeCache(config.DATA_DIR, config.CACHE_TTL);
 
   span.end();
 
@@ -80,6 +89,10 @@ Promise.resolve().then(async () => {
   });
   const crdRoutes = new CrdRoutes(config);
   fastify.register(crdRoutes.getRoutes.bind(crdRoutes), {
+    prefix: "/api/resources",
+  });
+  const kubeResourceRoutes = new KubeResourceRoutes(kubeCache);
+  fastify.register(kubeResourceRoutes.getRoutes.bind(kubeResourceRoutes), {
     prefix: "/api/resources",
   });
   fastify.get("/api/status", async () => {

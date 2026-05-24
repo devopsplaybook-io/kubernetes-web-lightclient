@@ -116,14 +116,15 @@ import KubernetesObjectList from "~~/components/KubernetesObjectList.vue";
 
 export default {
   data() {
+    const route = useRoute();
     const namespaceStore = NamespaceStore();
     return {
-      objectType: "pod",
-      searchFilter: "",
+      objectType: route.query.objectType || "pod",
+      searchFilter: route.query.search || "",
       refreshIntervalId: null,
       refreshIntervalValue: RefreshIntervalService.get(),
       namespaceStore,
-      selectedNamespace: "*",
+      selectedNamespace: route.query.namespace || "*",
       availableTypes: [],
       typesLoaded: false,
       kubernetesObjectStore: KubernetesObjectStore(),
@@ -144,6 +145,22 @@ export default {
     },
   },
   async created() {
+    // Apply URL query params SYNCHRONOUSLY before any async operation
+    // so the component never renders with incorrect default state
+    const route = useRoute();
+    if (route.query.namespace) {
+      this.selectedNamespace = route.query.namespace;
+      KubernetesObjectStore().setFilterNamespace(route.query.namespace);
+    } else {
+      KubernetesObjectStore().setFilterNamespace("");
+    }
+    if (route.query.search) {
+      this.searchFilter = route.query.search;
+      KubernetesObjectStore().setFilterKeyword(this.searchFilter);
+    } else {
+      KubernetesObjectStore().setFilterKeyword("");
+    }
+
     if (!(await AuthenticationStore().ensureAuthenticated())) {
       useRouter().push({ path: "/users" });
       return;
@@ -159,25 +176,6 @@ export default {
     }
 
     await this.namespaceStore.loadNamespaces();
-
-    const route = useRoute();
-    if (route.query.objectType) {
-      this.objectType = route.query.objectType;
-    }
-    if (route.query.namespace) {
-      this.selectedNamespace = route.query.namespace;
-      KubernetesObjectStore().setFilterNamespace(route.query.namespace);
-    } else {
-      this.selectedNamespace = "*";
-      KubernetesObjectStore().setFilterNamespace("");
-    }
-    if (route.query.search) {
-      this.searchFilter = route.query.search;
-      KubernetesObjectStore().setFilterKeyword(this.searchFilter);
-    } else {
-      this.searchFilter = "";
-      KubernetesObjectStore().setFilterKeyword("");
-    }
 
     KubernetesObjectStore().refreshLast();
 
@@ -208,6 +206,14 @@ export default {
       const typeInfo = this.availableTypes.find((t) => t.id === newType);
       if (typeInfo && !typeInfo.namespaced) {
         this.selectedNamespace = "*";
+        this.kubernetesObjectStore.setFilterNamespace("");
+      } else if (
+        typeInfo &&
+        typeInfo.namespaced &&
+        this.selectedNamespace !== "*"
+      ) {
+        // Re-apply namespace filter for namespaced types
+        this.kubernetesObjectStore.setFilterNamespace(this.selectedNamespace);
       }
 
       const router = useRouter();
