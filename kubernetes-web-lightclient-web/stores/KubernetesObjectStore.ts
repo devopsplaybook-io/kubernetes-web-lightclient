@@ -4,6 +4,9 @@ import { ResourceService } from "~~/services/ResourceService";
 import axios from "axios";
 import { UtilsDecompressData } from "~/services/Utils";
 
+// Set of type IDs that should bypass the server cache on next fetch
+const _forceRefreshTypes = new Set<string>();
+
 // Map from old-style data keys (e.g. 'pods') to new type IDs (e.g. 'pod')
 const OLD_KEY_TO_TYPE: { [key: string]: string } = {
   pods: "pod",
@@ -218,6 +221,20 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
         await this.getObject(this.lastCall.type, this.lastCall.payload);
       }
     },
+    /**
+     * Mark a type for forced server-cache invalidation and trigger a refresh.
+     * Call this after mutating operations (delete, scale, rollout restart, …).
+     */
+    async invalidateAndRefresh(type: string) {
+      _forceRefreshTypes.add(type);
+      this.loading = true;
+      // Build a standard get payload for the type
+      const typeInfo =
+        (this as any).lastCall?.type === type
+          ? (this as any).lastCall.payload
+          : { object: type, command: "get", argument: "-A" };
+      await this.getObject(type, typeInfo);
+    },
     setLoading(value: boolean) {
       this.loading = value;
     },
@@ -259,9 +276,15 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
       this._pendingCacheRequests[type] = true;
       this.loading = true;
 
+      const force = _forceRefreshTypes.has(type);
+      if (force) {
+        _forceRefreshTypes.delete(type);
+      }
+
       try {
+        const url = await ResourceService.getDataUrl(type, force);
         const response = await axios.get(
-          `${(await Config.get()).SERVER_URL}/resources/data/${type}`,
+          url,
           await AuthService.getAuthHeader(),
         );
         const { data, status } = response.data;

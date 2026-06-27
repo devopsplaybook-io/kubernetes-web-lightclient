@@ -40,7 +40,19 @@
         ></i
       ></span>
     </div>
-    <div id="object-list">
+    <div
+      id="object-list"
+      :class="{
+        'is-refreshing':
+          kubernetesObjectStore.loading && kubernetesObjectStore.hasEverLoaded,
+      }"
+    >
+      <div
+        v-if="
+          kubernetesObjectStore.loading && kubernetesObjectStore.hasEverLoaded
+        "
+        class="refresh-bar"
+      ></div>
       <Loading
         v-if="
           kubernetesObjectStore.loading && !kubernetesObjectStore.hasEverLoaded
@@ -92,6 +104,7 @@
 import { debounce } from "lodash";
 import { RefreshIntervalService } from "~~/services/RefreshIntervalService";
 import { ResourceService } from "~~/services/ResourceService";
+import { EventBus, EventTypes } from "~~/services/EventBus";
 import KubernetesPodList from "~~/components/KubernetesPodList.vue";
 import KubernetesDeploymentList from "~~/components/KubernetesDeploymentList.vue";
 import KubernetesStatefulSetList from "~~/components/KubernetesStatefulSetList.vue";
@@ -194,10 +207,18 @@ export default {
         this.refreshObject();
       }, interval);
     }
+    // Listen for mutation events from child components to trigger a forced refresh
+    this._onObjectChanged = (eventType) => {
+      KubernetesObjectStore().invalidateAndRefresh(eventType);
+    };
+    EventBus.on(EventTypes.OBJECT_CHANGED, this._onObjectChanged);
   },
   beforeUnmount() {
     if (this.refreshIntervalId) {
       clearInterval(this.refreshIntervalId);
+    }
+    if (this._onObjectChanged) {
+      EventBus.off(EventTypes.OBJECT_CHANGED, this._onObjectChanged);
     }
   },
   watch: {
@@ -232,6 +253,9 @@ export default {
         path: route.path,
         query,
       });
+
+      // Force a fresh fetch when switching object type
+      KubernetesObjectStore().invalidateAndRefresh(newType);
     },
     searchFilter(newFilter) {
       const router = useRouter();
@@ -315,6 +339,7 @@ select {
   overflow-y: auto;
   height: 100%;
   width: 100%;
+  position: relative;
 }
 #object-list td {
   white-space: nowrap;
@@ -326,6 +351,34 @@ select {
 #object-list span,
 #object-list p {
   font-size: 0.9em;
+}
+
+/* Refresh bar shown at top of list during background refresh */
+.refresh-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  height: 3px;
+  background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 50%, #3b82f6 100%);
+  background-size: 200% 100%;
+  animation: refreshBarSlide 1.2s linear infinite;
+  border-radius: 2px;
+}
+
+@keyframes refreshBarSlide {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Slightly dim the list while refreshing to give visual feedback */
+#object-list.is-refreshing > div:last-child {
+  opacity: 0.55;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
 }
 
 @keyframes spin {

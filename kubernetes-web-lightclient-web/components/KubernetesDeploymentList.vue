@@ -195,9 +195,7 @@ export default {
             type: "info",
             text: `Deployment ${deploymentName} scaled to ${replicas} replica(s)`,
           });
-          setTimeout(() => {
-            KubernetesObjectStore().getDeployments();
-          }, 1000);
+          EventBus.emit(EventTypes.OBJECT_CHANGED, "deployment");
         })
         .catch(handleError);
     },
@@ -229,9 +227,7 @@ export default {
             type: "info",
             text: "Rollout Restart Started",
           });
-          setTimeout(() => {
-            KubernetesObjectStore().getDeployments();
-          }, 1000);
+          EventBus.emit(EventTypes.OBJECT_CHANGED, "deployment");
         })
         .catch(handleError);
     },

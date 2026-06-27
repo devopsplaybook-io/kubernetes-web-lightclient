@@ -190,9 +190,7 @@ export default {
             type: "info",
             text: "Pod Deleted",
           });
-          setTimeout(() => {
-            KubernetesObjectStore().getPods();
-          }, 1000);
+          EventBus.emit(EventTypes.OBJECT_CHANGED, "pod");
         })
         .catch(handleError);
     },

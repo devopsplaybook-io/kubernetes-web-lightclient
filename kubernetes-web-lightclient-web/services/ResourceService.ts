@@ -43,4 +43,16 @@ export class ResourceService {
     );
     return response.data.types || [];
   }
+
+  static async invalidateCache(type: string): Promise<void> {
+    // No-op on client — the force param is passed directly to GET /resources/data/:type
+  }
+
+  static async getDataUrl(
+    type: string,
+    force: boolean = false,
+  ): Promise<string> {
+    const base = `${(await Config.get()).SERVER_URL}/resources/data/${type}`;
+    return force ? `${base}?force=true` : base;
+  }
 }
