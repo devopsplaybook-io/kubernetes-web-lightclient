@@ -20,6 +20,9 @@ export class KubeResourceRoutes {
       Params: {
         type: string;
       };
+      Querystring: {
+        force?: string;
+      };
     }
 
     fastify.get<GetResourceData>("/data/:type", async (req, res) => {
@@ -29,11 +32,19 @@ export class KubeResourceRoutes {
       }
 
       const { type } = req.params;
+      const force = req.query.force === "true";
       if (!type || type.indexOf(" ") >= 0) {
         return res.status(400).send({ error: "Invalid resource type" });
       }
 
-      logger.info(`Resource data requested: ${type}`);
+      logger.info(
+        `Resource data requested: ${type}${force ? " (forced)" : ""}`,
+      );
+
+      // If force=true, invalidate the cache before fetching
+      if (force) {
+        await this.cache.clear(type);
+      }
 
       // Check cache first
       const cachedEntry = await this.cache.get(type);
@@ -105,9 +116,7 @@ export class KubeResourceRoutes {
       await this.cache.set(type, result);
       logger.info(`Background refresh completed for ${type}`);
     } catch (error) {
-      logger.warn(
-        `Background refresh failed for ${type}: ${error.message}`,
-      );
+      logger.warn(`Background refresh failed for ${type}: ${error.message}`);
       // Don't throw - this is a background task, failure is non-critical
     }
   }

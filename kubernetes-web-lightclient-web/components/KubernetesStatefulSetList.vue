@@ -161,9 +161,7 @@ export default {
             type: "info",
             text: "Rollout Restart Started",
           });
-          setTimeout(() => {
-            KubernetesObjectStore().getStatefulSets();
-          }, 1000);
+          EventBus.emit(EventTypes.OBJECT_CHANGED, "statefulset");
         })
         .catch(handleError);
     },

@@ -161,9 +161,7 @@ export default {
             type: "info",
             text: "Rollout Restart Started",
           });
-          setTimeout(() => {
-            KubernetesObjectStore().getDaemonSets();
-          }, 1000);
+          EventBus.emit(EventTypes.OBJECT_CHANGED, "daemonset");
         })
         .catch(handleError);
     },

@@ -201,9 +201,7 @@ async function onConfirmDelete() {
       type: "info",
       text: `${props.objectType} ${kubeObject.metadata.name} deleted`,
     });
-    setTimeout(() => {
-      fetchData(props.objectType);
-    }, 1000);
+    EventBus.emit(EventTypes.OBJECT_CHANGED, props.objectType);
   } catch (error) {
     handleError(error);
   }
