@@ -78,7 +78,8 @@ Promise.resolve().then(async () => {
   fastify.register(new UsersRoutes().getRoutes, {
     prefix: "/api/users",
   });
-  fastify.register(new KubeCtlCommandRoutes().getRoutes, {
+  const kubeCtlCommandRoutes = new KubeCtlCommandRoutes(config);
+  fastify.register(kubeCtlCommandRoutes.getRoutes.bind(kubeCtlCommandRoutes), {
     prefix: "/api/kubectl/command",
   });
   fastify.register(new KubeCtlLogsRoutes().getRoutes, {

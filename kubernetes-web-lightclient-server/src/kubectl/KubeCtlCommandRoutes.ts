@@ -1,10 +1,18 @@
 import { FastifyInstance, RequestGenericInterface } from "fastify";
 import { AuthGetUserSession } from "../users/Auth";
 import { OTelTracer } from "../OTelContext";
+import { Config } from "../Config";
+import { DeletePolicy } from "./DeletePolicy";
 import { KubeCtlExecutorGetInstance } from "./KubeCtlExecutor";
 
 export class KubeCtlCommandRoutes {
   //
+  private config: Config;
+
+  constructor(config: Config) {
+    this.config = config;
+  }
+
   public async getRoutes(fastify: FastifyInstance): Promise<void> {
     //
     interface PostCommand extends RequestGenericInterface {
@@ -26,6 +34,16 @@ export class KubeCtlCommandRoutes {
       }
       if (!allowedCommands.includes(req.body.command)) {
         return res.status(400).send({ error: "Malformed Request" });
+      }
+      if (req.body.command === "delete") {
+        const deletePolicy = new DeletePolicy(
+          this.config.ALLOWED_DELETABLE_OBJECTS,
+        );
+        if (!deletePolicy.isDeletable(req.body.object)) {
+          return res.status(403).send({
+            error: `Deletion of ${req.body.object} objects is not allowed`,
+          });
+        }
       }
       if (req.body.namespace && req.body.namespace.indexOf(" ") >= 0) {
         return res.status(400).send({ error: "Malformed Request" });

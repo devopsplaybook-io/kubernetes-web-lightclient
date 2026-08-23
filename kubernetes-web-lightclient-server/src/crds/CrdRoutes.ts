@@ -8,6 +8,7 @@ import {
 } from "./CrdScanner";
 import { UserSelectionLoad, UserSelectionSave } from "./UserResourceSelections";
 import { Config } from "../Config";
+import { DeletePolicy } from "../kubectl/DeletePolicy";
 
 export class CrdRoutes {
   private config: Config;
@@ -23,7 +24,7 @@ export class CrdRoutes {
       if (!userSession.isAuthenticated) {
         return res.status(403).send({ error: "Access Denied" });
       }
-      const types = CrdScannerGetAvailableResources();
+      const types = this.withDeletableFlag(CrdScannerGetAvailableResources());
       return res.status(200).send({ types });
     });
 
@@ -68,8 +69,20 @@ export class CrdRoutes {
       if (!userSession.isAuthenticated) {
         return res.status(403).send({ error: "Access Denied" });
       }
-      const types = await CrdScannerRefresh();
+      const types = this.withDeletableFlag(await CrdScannerRefresh());
       return res.status(200).send({ types });
     });
+  }
+
+  private withDeletableFlag(
+    types: ResourceType[],
+  ): (ResourceType & { deletable: boolean })[] {
+    const deletePolicy = new DeletePolicy(
+      this.config.ALLOWED_DELETABLE_OBJECTS,
+    );
+    return types.map((type) => ({
+      ...type,
+      deletable: deletePolicy.isDeletable(type.id),
+    }));
   }
 }

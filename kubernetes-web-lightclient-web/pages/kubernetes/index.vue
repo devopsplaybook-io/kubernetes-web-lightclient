@@ -63,7 +63,10 @@
           kubernetesObjectStore.hasEverLoaded || !kubernetesObjectStore.loading
         "
       >
-        <KubernetesPodList v-if="objectType === 'pod'" />
+        <KubernetesPodList
+          v-if="objectType === 'pod'"
+          :deletable="isCurrentTypeDeletable"
+        />
         <KubernetesDeploymentList v-else-if="objectType === 'deployment'" />
         <KubernetesStatefulSetList v-else-if="objectType === 'statefulset'" />
         <KubernetesDaemonSetList v-else-if="objectType === 'daemonset'" />
@@ -94,6 +97,7 @@
           :objectType="objectType"
           :isNamespaced="isCurrentTypeNamespaced"
           :isCrd="true"
+          :deletable="isCurrentTypeDeletable"
         />
       </div>
     </div>
@@ -155,6 +159,10 @@ export default {
     isCurrentTypeCrd() {
       const type = this.availableTypes.find((t) => t.id === this.objectType);
       return type ? type.isCrd : false;
+    },
+    isCurrentTypeDeletable() {
+      const type = this.availableTypes.find((t) => t.id === this.objectType);
+      return type ? type.deletable === true : false;
     },
   },
   async created() {

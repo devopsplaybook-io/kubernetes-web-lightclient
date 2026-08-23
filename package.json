@@ -1,6 +1,6 @@
 {
   "name": "kubernetes-web-lightclient",
-  "version": "0.21.2",
+  "version": "0.22.0",
   "description": "",
   "main": "ecosystem.config.js",
   "scripts": {
