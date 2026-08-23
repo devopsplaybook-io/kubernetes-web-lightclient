@@ -42,15 +42,15 @@ Configuration can be provided via a JSON configuration file (using the ConfigMap
 
 See the [ConfigMap YAML](docs/deployments/kubernetes/kubernetes-web-lightclient/base/configmap.yaml) for an example configuration.
 
-| Parameter                                               | Description                                           | Default       | Availability                        |
-| ------------------------------------------------------- | ----------------------------------------------------- | ------------- | ----------------------------------- |
-| APPLICATION_TITLE                                       | Name of the application (for PWA)                     | Kubernetes    | Environment variable                |
+| Parameter                                               | Description                                                                                                           | Default       | Availability                        |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------- | ----------------------------------- |
+| APPLICATION_TITLE                                       | Name of the application (for PWA)                                                                                     | Kubernetes    | Environment variable                |
 | ALLOWED_DELETABLE_OBJECTS                               | Object types that can be deleted: `NONE`, `ALL`, or a comma-separated list of object types (e.g. `pod`, `deployment`) | pod           | Config file or environment variable |
-| STATS_FETCH_FREQUENCY                                   | Frequency (in seconds) to fetch stats from Kubernetes | 60            | Config file or environment variable |
-| STATS_RETENTION                                         | Retention period (in seconds) for stats               | 86400 (1 day) | Config file or environment variable |
-| OPENTELEMETRY_COLLECTOR_HTTP_TRACES                     | Hours before minute-level metrics are compressed      | (empty)       | Config file or environment variable |
-| OPENTELEMETRY_COLLECTOR_HTTP_METRICS                    | Days before hour-level metrics are compressed         | (empty)       | Config file or environment variable |
-| OPENTELEMETRY_COLLECTOR_HTTP_LOGS                       | OTEL collector endpoint for logs                      | (empty)       | Config file or environment variable |
-| OPENTELEMETRY_COLLECTOR_EXPORT_LOGS_INTERVAL_SECONDS    | Interval (in seconds) to export logs                  | 60            | Config file or environment variable |
-| OPENTELEMETRY_COLLECTOR_EXPORT_METRICS_INTERVAL_SECONDS | Interval (in seconds) to export metrics               | 60            | Config file or environment variable |
-| OPENTELEMETRY_COLLECT_AUTHORIZATION_HEADER              | Authorization header for OTEL collection              | (empty)       | Config file or environment variable |
+| STATS_FETCH_FREQUENCY                                   | Frequency (in seconds) to fetch stats from Kubernetes                                                                 | 60            | Config file or environment variable |
+| STATS_RETENTION                                         | Retention period (in seconds) for stats                                                                               | 86400 (1 day) | Config file or environment variable |
+| OPENTELEMETRY_COLLECTOR_HTTP_TRACES                     | Hours before minute-level metrics are compressed                                                                      | (empty)       | Config file or environment variable |
+| OPENTELEMETRY_COLLECTOR_HTTP_METRICS                    | Days before hour-level metrics are compressed                                                                         | (empty)       | Config file or environment variable |
+| OPENTELEMETRY_COLLECTOR_HTTP_LOGS                       | OTEL collector endpoint for logs                                                                                      | (empty)       | Config file or environment variable |
+| OPENTELEMETRY_COLLECTOR_EXPORT_LOGS_INTERVAL_SECONDS    | Interval (in seconds) to export logs                                                                                  | 60            | Config file or environment variable |
+| OPENTELEMETRY_COLLECTOR_EXPORT_METRICS_INTERVAL_SECONDS | Interval (in seconds) to export metrics                                                                               | 60            | Config file or environment variable |
+| OPENTELEMETRY_COLLECT_AUTHORIZATION_HEADER              | Authorization header for OTEL collection                                                                              | (empty)       | Config file or environment variable |
