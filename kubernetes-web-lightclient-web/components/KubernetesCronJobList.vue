@@ -14,6 +14,7 @@
           <th>Age</th>
           <th>Details</th>
           <th>Trigger</th>
+          <th v-if="deletable">Delete</th>
         </tr>
       </thead>
       <tbody>
@@ -52,6 +53,12 @@
               title="Trigger CronJob"
             ></i>
           </td>
+          <td v-if="deletable">
+            <i
+              class="bi bi-x-circle-fill"
+              v-on:click="confirmDelete(kubeObject)"
+            ></i>
+          </td>
         </tr>
       </tbody>
     </table>
@@ -74,6 +81,13 @@
       :message="dialogAlert.message"
       @onClose="onCloseAlert()"
     />
+    <DialogConfirm
+      v-if="dialogConfirmDelete.enable"
+      :title="dialogConfirmDelete.title"
+      :message="dialogConfirmDelete.message"
+      @onConfirm="onConfirmDelete()"
+      @onCancel="onCancelDelete()"
+    />
   </div>
 </template>
 
@@ -91,8 +105,20 @@ import axios from "axios";
 import Config from "~~/services/Config.ts";
 
 export default {
+  props: {
+    deletable: {
+      type: Boolean,
+      default: false,
+    },
+  },
   data() {
     return {
+      dialogConfirmDelete: {
+        enable: false,
+        title: "",
+        message: "",
+        pendingDelete: null,
+      },
       dialogDetails: {
         enable: false,
         title: "",
@@ -115,6 +141,44 @@ export default {
     KubernetesObjectStore().getCronJobs();
   },
   methods: {
+    confirmDelete(kubeObject) {
+      this.dialogConfirmDelete = {
+        enable: true,
+        title: "Confirm Delete",
+        message: `Delete cronjob ${kubeObject.metadata.name}${kubeObject.metadata.namespace ? ` (${kubeObject.metadata.namespace})` : ""}?`,
+        pendingDelete: kubeObject,
+      };
+    },
+    async onConfirmDelete() {
+      const kubeObject = this.dialogConfirmDelete.pendingDelete;
+      this.dialogConfirmDelete.enable = false;
+      const payload = {
+        object: "cronjob",
+        command: "delete",
+        argument: kubeObject.metadata.name,
+        noJson: true,
+      };
+      if (kubeObject.metadata.namespace) {
+        payload.namespace = kubeObject.metadata.namespace;
+      }
+      await axios
+        .post(
+          `${(await Config.get()).SERVER_URL}/kubectl/command`,
+          payload,
+          await AuthService.getAuthHeader(),
+        )
+        .then(() => {
+          EventBus.emit(EventTypes.ALERT_MESSAGE, {
+            type: "info",
+            text: `${kubeObject.metadata.name} deleted`,
+          });
+          EventBus.emit(EventTypes.OBJECT_CHANGED, "cronjob");
+        })
+        .catch(handleError);
+    },
+    onCancelDelete() {
+      this.dialogConfirmDelete.enable = false;
+    },
     onCloseDetails() {
       this.dialogDetails = {
         enable: false,

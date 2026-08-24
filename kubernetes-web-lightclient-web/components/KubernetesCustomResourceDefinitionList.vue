@@ -9,6 +9,7 @@
           <th>Scope</th>
           <th>Age</th>
           <th>Details</th>
+          <th v-if="deletable">Delete</th>
         </tr>
       </thead>
       <tbody>
@@ -30,6 +31,12 @@
               v-on:click="showDetails(kubeObject.metadata.name)"
             ></i>
           </td>
+          <td v-if="deletable">
+            <i
+              class="bi bi-x-circle-fill"
+              v-on:click="confirmDelete(kubeObject)"
+            ></i>
+          </td>
         </tr>
       </tbody>
     </table>
@@ -38,6 +45,13 @@
       :text="dialogDetails.text"
       :title="dialogDetails.title"
       @onClose="onCloseDetails()"
+    />
+    <DialogConfirm
+      v-if="dialogConfirmDelete.enable"
+      :title="dialogConfirmDelete.title"
+      :message="dialogConfirmDelete.message"
+      @onConfirm="onConfirmDelete()"
+      @onCancel="onCancelDelete()"
     />
   </div>
 </template>
@@ -55,8 +69,20 @@ import axios from "axios";
 import Config from "~~/services/Config.ts";
 
 export default {
+  props: {
+    deletable: {
+      type: Boolean,
+      default: false,
+    },
+  },
   data() {
     return {
+      dialogConfirmDelete: {
+        enable: false,
+        title: "",
+        message: "",
+        pendingDelete: null,
+      },
       dialogDetails: {
         enable: false,
         title: "",
@@ -68,6 +94,44 @@ export default {
     KubernetesObjectStore().getCustomResourceDefinitions();
   },
   methods: {
+    confirmDelete(kubeObject) {
+      this.dialogConfirmDelete = {
+        enable: true,
+        title: "Confirm Delete",
+        message: `Delete customresourcedefinition ${kubeObject.metadata.name}${kubeObject.metadata.namespace ? ` (${kubeObject.metadata.namespace})` : ""}?`,
+        pendingDelete: kubeObject,
+      };
+    },
+    async onConfirmDelete() {
+      const kubeObject = this.dialogConfirmDelete.pendingDelete;
+      this.dialogConfirmDelete.enable = false;
+      const payload = {
+        object: "customresourcedefinition",
+        command: "delete",
+        argument: kubeObject.metadata.name,
+        noJson: true,
+      };
+      if (kubeObject.metadata.namespace) {
+        payload.namespace = kubeObject.metadata.namespace;
+      }
+      await axios
+        .post(
+          `${(await Config.get()).SERVER_URL}/kubectl/command`,
+          payload,
+          await AuthService.getAuthHeader(),
+        )
+        .then(() => {
+          EventBus.emit(EventTypes.ALERT_MESSAGE, {
+            type: "info",
+            text: `${kubeObject.metadata.name} deleted`,
+          });
+          EventBus.emit(EventTypes.OBJECT_CHANGED, "customresourcedefinition");
+        })
+        .catch(handleError);
+    },
+    onCancelDelete() {
+      this.dialogConfirmDelete.enable = false;
+    },
     formatVersions(versions) {
       if (!versions || !Array.isArray(versions)) return "N/A";
       const versionNames = versions.filter((v) => v.served).map((v) => v.name);

@@ -63,37 +63,92 @@
           kubernetesObjectStore.hasEverLoaded || !kubernetesObjectStore.loading
         "
       >
-        <KubernetesPodList v-if="objectType === 'pod'" />
-        <KubernetesDeploymentList v-else-if="objectType === 'deployment'" />
-        <KubernetesStatefulSetList v-else-if="objectType === 'statefulset'" />
-        <KubernetesDaemonSetList v-else-if="objectType === 'daemonset'" />
-        <KubernetesJobList v-else-if="objectType === 'job'" />
-        <KubernetesCronJobList v-else-if="objectType === 'cronjob'" />
-        <KubernetesServiceList v-else-if="objectType === 'service'" />
-        <KubernetesIngressList v-else-if="objectType === 'ingress'" />
-        <KubernetesConfigMapList v-else-if="objectType === 'configmap'" />
-        <KubernetesPVCList v-else-if="objectType === 'pvc'" />
-        <KubernetesSecretList v-else-if="objectType === 'secret'" />
+        <KubernetesPodList
+          v-if="objectType === 'pod'"
+          :deletable="isCurrentTypeDeletable"
+        />
+        <KubernetesDeploymentList
+          v-else-if="objectType === 'deployment'"
+          :deletable="isCurrentTypeDeletable"
+        />
+        <KubernetesStatefulSetList
+          v-else-if="objectType === 'statefulset'"
+          :deletable="isCurrentTypeDeletable"
+        />
+        <KubernetesDaemonSetList
+          v-else-if="objectType === 'daemonset'"
+          :deletable="isCurrentTypeDeletable"
+        />
+        <KubernetesJobList
+          v-else-if="objectType === 'job'"
+          :deletable="isCurrentTypeDeletable"
+        />
+        <KubernetesCronJobList
+          v-else-if="objectType === 'cronjob'"
+          :deletable="isCurrentTypeDeletable"
+        />
+        <KubernetesServiceList
+          v-else-if="objectType === 'service'"
+          :deletable="isCurrentTypeDeletable"
+        />
+        <KubernetesIngressList
+          v-else-if="objectType === 'ingress'"
+          :deletable="isCurrentTypeDeletable"
+        />
+        <KubernetesConfigMapList
+          v-else-if="objectType === 'configmap'"
+          :deletable="isCurrentTypeDeletable"
+        />
+        <KubernetesPVCList
+          v-else-if="objectType === 'pvc'"
+          :deletable="isCurrentTypeDeletable"
+        />
+        <KubernetesSecretList
+          v-else-if="objectType === 'secret'"
+          :deletable="isCurrentTypeDeletable"
+        />
         <KubernetesServiceAccountList
           v-else-if="objectType === 'serviceaccount'"
+          :deletable="isCurrentTypeDeletable"
         />
-        <KubernetesRoleList v-else-if="objectType === 'role'" />
-        <KubernetesRoleBindingList v-else-if="objectType === 'rolebinding'" />
-        <KubernetesNamespaceList v-else-if="objectType === 'namespace'" />
-        <KubernetesNodeList v-else-if="objectType === 'node'" />
-        <KubernetesPVList v-else-if="objectType === 'pv'" />
-        <KubernetesClusterRoleList v-else-if="objectType === 'clusterrole'" />
+        <KubernetesRoleList
+          v-else-if="objectType === 'role'"
+          :deletable="isCurrentTypeDeletable"
+        />
+        <KubernetesRoleBindingList
+          v-else-if="objectType === 'rolebinding'"
+          :deletable="isCurrentTypeDeletable"
+        />
+        <KubernetesNamespaceList
+          v-else-if="objectType === 'namespace'"
+          :deletable="isCurrentTypeDeletable"
+        />
+        <KubernetesNodeList
+          v-else-if="objectType === 'node'"
+          :deletable="isCurrentTypeDeletable"
+        />
+        <KubernetesPVList
+          v-else-if="objectType === 'pv'"
+          :deletable="isCurrentTypeDeletable"
+        />
+        <KubernetesClusterRoleList
+          v-else-if="objectType === 'clusterrole'"
+          :deletable="isCurrentTypeDeletable"
+        />
         <KubernetesClusterRoleBindingList
           v-else-if="objectType === 'clusterrolebinding'"
+          :deletable="isCurrentTypeDeletable"
         />
         <KubernetesCustomResourceDefinitionList
           v-else-if="objectType === 'customresourcedefinition'"
+          :deletable="isCurrentTypeDeletable"
         />
         <KubernetesObjectList
           v-else-if="objectType"
           :objectType="objectType"
           :isNamespaced="isCurrentTypeNamespaced"
           :isCrd="true"
+          :deletable="isCurrentTypeDeletable"
         />
       </div>
     </div>
@@ -155,6 +210,10 @@ export default {
     isCurrentTypeCrd() {
       const type = this.availableTypes.find((t) => t.id === this.objectType);
       return type ? type.isCrd : false;
+    },
+    isCurrentTypeDeletable() {
+      const type = this.availableTypes.find((t) => t.id === this.objectType);
+      return type ? type.deletable === true : false;
     },
   },
   async created() {

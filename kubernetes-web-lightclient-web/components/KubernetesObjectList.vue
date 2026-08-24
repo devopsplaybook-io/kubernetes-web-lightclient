@@ -9,7 +9,7 @@
           <th v-if="objectType === 'pod'">Status</th>
           <th>Details</th>
           <th v-if="objectType === 'pod'">Logs</th>
-          <th v-if="!isCrd">Delete</th>
+          <th v-if="deletable">Delete</th>
         </tr>
       </thead>
       <tbody>
@@ -37,7 +37,7 @@
               v-on:click="showLogs(kubeObject)"
             ></i>
           </td>
-          <td v-if="!isCrd">
+          <td v-if="deletable">
             <i
               class="bi bi-x-circle-fill"
               v-on:click="confirmDelete(kubeObject)"
@@ -93,6 +93,7 @@ const props = defineProps({
   objectType: { type: String, required: true },
   isNamespaced: { type: Boolean, default: true },
   isCrd: { type: Boolean, default: false },
+  deletable: { type: Boolean, default: false },
 });
 
 const dialogDetails = ref({ enable: false, title: "", text: "" });

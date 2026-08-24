@@ -23,6 +23,7 @@ export class Config implements ConfigOTelInterface {
   public CACHE_TTL = 30000;
   public REQUEST_QUEUE_CONCURRENCY = 2;
   public REQUEST_TIMEOUT = 20000;
+  public ALLOWED_DELETABLE_OBJECTS = "pod";
   public OPENTELEMETRY_COLLECTOR_HTTP_TRACES = "";
   public OPENTELEMETRY_COLLECTOR_HTTP_METRICS = "";
   public OPENTELEMETRY_COLLECTOR_HTTP_LOGS = "";
@@ -79,6 +80,7 @@ export class Config implements ConfigOTelInterface {
     setIfSet("CACHE_TTL");
     setIfSet("REQUEST_QUEUE_CONCURRENCY");
     setIfSet("REQUEST_TIMEOUT");
+    setIfSet("ALLOWED_DELETABLE_OBJECTS");
     setIfSet("OPENTELEMETRY_COLLECTOR_HTTP_TRACES");
     setIfSet("OPENTELEMETRY_COLLECTOR_HTTP_METRICS");
     setIfSet("OPENTELEMETRY_COLLECTOR_HTTP_LOGS");

@@ -8,6 +8,7 @@ export interface ResourceType {
   namespaced: boolean;
   isCrd: boolean;
   group: string;
+  deletable: boolean;
 }
 
 export class ResourceService {

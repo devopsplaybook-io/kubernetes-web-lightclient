@@ -11,7 +11,7 @@
           <th>Restarts</th>
           <th>Details</th>
           <th>Logs</th>
-          <th>Delete</th>
+          <th v-if="deletable">Delete</th>
         </tr>
       </thead>
       <tbody>
@@ -86,7 +86,7 @@
               "
             ></i>
           </td>
-          <td>
+          <td v-if="deletable">
             <i
               class="bi bi-x-circle-fill"
               v-on:click="
@@ -138,6 +138,12 @@ import axios from "axios";
 import Config from "~~/services/Config.ts";
 
 export default {
+  props: {
+    deletable: {
+      type: Boolean,
+      default: false,
+    },
+  },
   data() {
     return {
       dialogDetails: {
@@ -178,7 +184,7 @@ export default {
           `${(await Config.get()).SERVER_URL}/kubectl/command`,
           {
             namespace,
-            object: "pods",
+            object: "pod",
             command: "delete",
             argument: podname,
             noJson: true,
