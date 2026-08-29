@@ -1,5 +1,5 @@
 import { FastifyInstance } from "fastify";
-import { AuthGetUserSession } from "../users/Auth";
+import { AuthGetUserSession } from "@devopsplaybook.io/common-utils";
 import { StatsDataGet, PodResourcesGet, PodUsageStatsGet } from "./StatsData";
 
 export class StatsRoutes {

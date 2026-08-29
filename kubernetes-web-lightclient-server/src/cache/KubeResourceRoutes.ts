@@ -1,5 +1,5 @@
 import { FastifyInstance, RequestGenericInterface } from "fastify";
-import { AuthGetUserSession } from "../users/Auth";
+import { AuthGetUserSession } from "@devopsplaybook.io/common-utils";
 import { OTelLogger } from "../OTelContext";
 import { KubeCache } from "./KubeCache";
 import { KubeCtlExecutorGetInstance } from "../kubectl/KubeCtlExecutor";

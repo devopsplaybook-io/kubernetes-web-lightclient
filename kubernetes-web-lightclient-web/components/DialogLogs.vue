@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <Teleport to="body">
     <dialog id="dialog-details-logs" open>
       <article>
         <header>
@@ -86,7 +86,7 @@
         >
       </article>
     </dialog>
-  </div>
+  </Teleport>
 </template>
 
 <script>
@@ -179,7 +179,6 @@ export default {
         container: this.selectedContainer,
         argument: "",
       };
-      console.log(this.logTime);
       if (this.logTime !== "all") {
         payload.argument += ` --since=${this.logTime} `;
       }
@@ -220,17 +219,40 @@ export default {
   margin-bottom: 0.5rem;
 }
 
-/* Controls row: items flow naturally, wrapping on narrow screens */
+/*
+ * Controls row: responsive grid.
+ * Each control gets an equal-width column on wide screens; columns are
+ * automatically dropped and controls wrap onto multiple rows as the dialog
+ * gets narrower (down to a single stacked column on small screens).
+ */
 #dialog-details-logs .log-controls-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.5rem 0.75rem;
   align-items: center;
 }
 
 #dialog-details-logs .log-controls-row select,
 #dialog-details-logs .log-controls-row input[type="text"] {
+  width: 100%;
   margin: 0;
+}
+
+#dialog-details-logs .log-controls-row label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  white-space: nowrap;
+}
+
+#dialog-details-logs .log-controls-row label input[type="checkbox"] {
+  margin: 0;
+}
+
+/* Refresh action stays aligned to the end of its column */
+#dialog-details-logs .log-controls-row .actions {
+  justify-self: end;
 }
 
 /* Advanced toggle link */
@@ -249,34 +271,29 @@ export default {
   opacity: 1;
 }
 
-/* Advanced options grid: filter, previous log */
+/* Advanced options grid: filter grows, previous-log toggle hugs its content */
 #dialog-details-logs .log-controls-advanced {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 0.75rem;
+  gap: 0.5rem 0.75rem;
   align-items: center;
   margin-top: 0.4rem;
 }
 
-#dialog-details-logs section select,
-#dialog-details-logs section input[type="text"],
-#dialog-details-logs .log-controls-row select {
+#dialog-details-logs .log-controls-advanced input[type="text"] {
   margin: 0;
-}
-
-#dialog-details-logs .log-controls-row input[type="text"] {
-  height: 2.6rem;
+  min-width: 0;
 }
 
 #dialog-details-logs .log-controls-advanced label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-  display: block;
 }
 
-/* Responsive: stack on narrow screens */
+/* Responsive: stack advanced options on narrow screens */
 @media (max-width: 700px) {
   #dialog-details-logs .log-controls-advanced {
     grid-template-columns: 1fr;

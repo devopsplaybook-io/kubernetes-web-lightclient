@@ -1,6 +1,5 @@
 import { FastifyInstance, RequestGenericInterface } from "fastify";
-import { AuthGetUserSession } from "../users/Auth";
-import { OTelRequestSpan } from "../OTelContext";
+import { AuthGetUserSession } from "@devopsplaybook.io/common-utils";
 import {
   CrdScannerGetAvailableResources,
   CrdScannerRefresh,
