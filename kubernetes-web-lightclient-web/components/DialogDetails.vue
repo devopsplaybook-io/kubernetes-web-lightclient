@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <Teleport to="body">
     <dialog id="dialog-details" open>
       <article>
         <header>
@@ -14,7 +14,7 @@
         <pre id="dialog-details-text">{{ text }}</pre>
       </article>
     </dialog>
-  </div>
+  </Teleport>
 </template>
 
 <script>

@@ -412,11 +412,13 @@ select {
   font-size: 0.9em;
 }
 
-/* Refresh bar shown at top of list during background refresh */
+/* Refresh bar shown at top of list during background refresh.
+ * Keep the z-index low: it only needs to sit above the list rows, never
+ * above navigation elements or dialogs (dialogs are teleported to <body>). */
 .refresh-bar {
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 2;
   height: 3px;
   background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 50%, #3b82f6 100%);
   background-size: 200% 100%;

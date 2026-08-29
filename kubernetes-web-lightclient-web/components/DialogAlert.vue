@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <Teleport to="body">
     <dialog id="dialog-alert" open>
       <article>
         <header>
@@ -17,7 +17,7 @@
         </footer>
       </article>
     </dialog>
-  </div>
+  </Teleport>
 </template>
 
 <script>

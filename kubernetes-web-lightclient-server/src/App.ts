@@ -19,9 +19,14 @@ import {
 import { RequestQueueInit } from "./queue/RequestQueue";
 import { StatsDataInit } from "./stats/StatsData";
 import { StatsRoutes } from "./stats/StatsRoutes";
-import { AuthInit } from "./users/Auth";
-import { UsersRoutes } from "./users/UsersRoutes";
-import { SqlDbUtilsInit } from "./utils-std-ts/SqlDbUtils";
+import {
+  AuthInit,
+  AuthSetOTel,
+  DbUtilsInit,
+  DbUtilsSetOTel,
+  UsersDataSetOTel,
+  UsersRoutes,
+} from "@devopsplaybook.io/common-utils";
 
 const logger = OTelLogger().createModuleLogger("app");
 
@@ -39,11 +44,14 @@ Promise.resolve().then(async () => {
   OTelSetTracer(new StandardTracer(config));
   OTelSetMeter(new StandardMeter(config));
   OTelLogger().initOTel(config);
+  DbUtilsSetOTel(OTelTracer(), OTelLogger());
 
   const span = OTelTracer().startSpan("init");
 
-  await SqlDbUtilsInit(span, config);
-  await AuthInit(span, config);
+  await DbUtilsInit(span, config, path.resolve(__dirname, "../sql"));
+  AuthSetOTel(OTelTracer());
+  UsersDataSetOTel(OTelTracer());
+  await AuthInit(span, config, []);
   await StatsDataInit(span, config);
   await CrdScannerInit(config);
 

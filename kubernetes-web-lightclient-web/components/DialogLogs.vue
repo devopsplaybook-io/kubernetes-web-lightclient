@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <Teleport to="body">
     <dialog id="dialog-details-logs" open>
       <article>
         <header>
@@ -18,31 +18,6 @@
               <option value="10m">Last 10min</option>
               <option value="1h">Last 1h</option>
               <option value="24h">Last 1 day</option>
-            </select>
-            <label>
-              <input type="checkbox" v-model="wrapText" />
-              Wrap
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                v-model="showTimestamps"
-                @change="fetchLogs"
-              />
-              Timestamps
-            </label>
-            <select
-              v-if="containers.length > 1"
-              v-model="selectedContainer"
-              @change="fetchLogs"
-            >
-              <option
-                v-for="container in containers"
-                :key="container"
-                :value="container"
-              >
-                {{ container }}
-              </option>
             </select>
             <span class="actions"
               ><i class="bi bi-arrow-clockwise" v-on:click="fetchLogs"></i
@@ -63,12 +38,39 @@
             Advanced
           </a>
           <div v-if="showAdvancedOptions" class="log-controls-advanced">
-            <input
-              type="text"
-              v-model="filterText"
-              placeholder="Filter logs"
-              @input="debouncedFilter"
-            />
+            <select
+              v-if="containers.length > 1"
+              v-model="selectedContainer"
+              @change="fetchLogs"
+            >
+              <option
+                v-for="container in containers"
+                :key="container"
+                :value="container"
+              >
+                {{ container }}
+              </option>
+            </select>
+            <label>
+              <input type="checkbox" v-model="wrapText" />
+              Wrap
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                v-model="showTimestamps"
+                @change="fetchLogs"
+              />
+              Timestamps
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                v-model="autoRefresh"
+                @change="onAutoRefreshChange"
+              />
+              Auto-refresh
+            </label>
             <label v-if="restartCount > 0">
               <input
                 type="checkbox"
@@ -77,6 +79,13 @@
               />
               Previous ({{ restartCount }} restarts)
             </label>
+            <input
+              type="text"
+              class="filter-input"
+              v-model="filterText"
+              placeholder="Filter logs"
+              @input="debouncedFilter"
+            />
           </div>
         </section>
         <pre
@@ -86,7 +95,7 @@
         >
       </article>
     </dialog>
-  </div>
+  </Teleport>
 </template>
 
 <script>
@@ -116,6 +125,8 @@ export default {
       selectedContainer: "",
       restartCount: 0,
       showPreviousLog: false,
+      autoRefresh: false,
+      autoRefreshTimer: null,
     };
   },
   computed: {
@@ -134,6 +145,9 @@ export default {
     }, 300);
     await this.fetchPodDetails();
     await this.fetchLogs();
+  },
+  beforeUnmount() {
+    this.stopAutoRefresh();
   },
   methods: {
     async clickClose(namespace, podname) {
@@ -172,6 +186,20 @@ export default {
         handleError(e);
       }
     },
+    onAutoRefreshChange() {
+      if (this.autoRefresh) {
+        this.fetchLogs();
+        this.autoRefreshTimer = setInterval(() => this.fetchLogs(), 10000);
+      } else {
+        this.stopAutoRefresh();
+      }
+    },
+    stopAutoRefresh() {
+      if (this.autoRefreshTimer) {
+        clearInterval(this.autoRefreshTimer);
+        this.autoRefreshTimer = null;
+      }
+    },
     async fetchLogs() {
       const payload = {
         namespace: this.namespace,
@@ -179,7 +207,6 @@ export default {
         container: this.selectedContainer,
         argument: "",
       };
-      console.log(this.logTime);
       if (this.logTime !== "all") {
         payload.argument += ` --since=${this.logTime} `;
       }
@@ -220,17 +247,24 @@ export default {
   margin-bottom: 0.5rem;
 }
 
-/* Controls row: items flow naturally, wrapping on narrow screens */
+/*
+ * Primary controls row: time range takes the available width, refresh
+ * action stays on the same line aligned to the end.
+ */
 #dialog-details-logs .log-controls-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem 0.75rem;
   align-items: center;
 }
 
-#dialog-details-logs .log-controls-row select,
-#dialog-details-logs .log-controls-row input[type="text"] {
+#dialog-details-logs .log-controls-row select {
+  width: 100%;
   margin: 0;
+}
+
+#dialog-details-logs .log-controls-row .actions {
+  justify-self: end;
 }
 
 /* Advanced toggle link */
@@ -249,37 +283,40 @@ export default {
   opacity: 1;
 }
 
-/* Advanced options grid: filter, previous log */
+/*
+ * Advanced options: responsive grid. Each control gets an equal-width
+ * column on wide screens; columns are automatically dropped and controls
+ * wrap onto multiple rows as the dialog gets narrower. The filter input
+ * always spans the full width.
+ */
 #dialog-details-logs .log-controls-advanced {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.5rem 0.75rem;
   align-items: center;
   margin-top: 0.4rem;
 }
 
-#dialog-details-logs section select,
-#dialog-details-logs section input[type="text"],
-#dialog-details-logs .log-controls-row select {
+#dialog-details-logs .log-controls-advanced select,
+#dialog-details-logs .log-controls-advanced input[type="text"] {
+  width: 100%;
   margin: 0;
+  min-width: 0;
 }
 
-#dialog-details-logs .log-controls-row input[type="text"] {
-  height: 2.6rem;
+#dialog-details-logs .log-controls-advanced .filter-input {
+  grid-column: 1 / -1;
 }
 
 #dialog-details-logs .log-controls-advanced label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-  display: block;
 }
 
-/* Responsive: stack on narrow screens */
-@media (max-width: 700px) {
-  #dialog-details-logs .log-controls-advanced {
-    grid-template-columns: 1fr;
-  }
+#dialog-details-logs .log-controls-advanced label input[type="checkbox"] {
+  margin: 0;
 }
 </style>
