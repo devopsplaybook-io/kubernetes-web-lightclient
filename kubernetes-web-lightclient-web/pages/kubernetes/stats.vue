@@ -21,6 +21,44 @@
         :series="podsChartSeries"
       />
     </div>
+    <div v-if="recommendationEnabled" id="stats-recommendation">
+      <div class="recommendation-header">
+        <h3>
+          <i class="bi bi-robot"></i> LLM Recommendation
+        </h3>
+        <button
+          class="outline rec-regenerate"
+          type="button"
+          :disabled="regenerating"
+          @click="regenerateRecommendation"
+        >
+          <i class="bi bi-arrow-repeat"></i>
+          {{ regenerating ? "Generating..." : "Re-generate" }}
+        </button>
+      </div>
+      <div v-if="recommendation">
+        <div v-if="recommendation.analysis" class="rec-section">
+          <h6>Analysis</h6>
+          <div
+            class="rec-content"
+            v-html="renderMarkdown(recommendation.analysis)"
+          ></div>
+        </div>
+        <div v-if="recommendation.recommendations" class="rec-section">
+          <h6>Recommendations</h6>
+          <div
+            class="rec-content"
+            v-html="renderMarkdown(recommendation.recommendations)"
+          ></div>
+        </div>
+        <small v-if="recommendation.generatedAt" class="rec-generated-at">
+          Generated on {{ formatTimestamp(recommendation.generatedAt) }}
+        </small>
+      </div>
+      <div v-else>
+        <em>No recommendation yet. Click Re-generate to create one.</em>
+      </div>
+    </div>
     <h3>Requests/Limits/Usage</h3>
     <div class="table-scroll">
       <h6>By Pods</h6>
@@ -133,6 +171,7 @@ import { RefreshIntervalService } from "~~/services/RefreshIntervalService";
 import { AuthService } from "~~/services/AuthService";
 import { handleError } from "~~/services/EventBus";
 import axios from "axios";
+import { marked } from "marked";
 import Config from "~~/services/Config.ts";
 import VueApexCharts from "vue3-apexcharts";
 
@@ -146,6 +185,9 @@ export default {
       podResources: [],
       podUsageStats: [],
       podResourcesTimestamp: null,
+      recommendationEnabled: false,
+      recommendation: null,
+      regenerating: false,
       refreshIntervalId: null,
       refreshIntervalValue: RefreshIntervalService.get(),
       cpuChartOptions: {
@@ -253,6 +295,7 @@ export default {
     this.refreshStats();
     this.refreshPodResources();
     this.refreshPodUsageStats();
+    this.refreshRecommendation();
     this.refreshIntervalValue = RefreshIntervalService.get();
   },
   mounted() {
@@ -262,6 +305,7 @@ export default {
         this.refreshStats();
         this.refreshPodResources();
         this.refreshPodUsageStats();
+        this.refreshRecommendation();
       }, interval);
     }
   },
@@ -307,6 +351,38 @@ export default {
           this.podUsageStats = res.data.podUsageStats;
         })
         .catch(handleError);
+    },
+    async refreshRecommendation() {
+      await axios
+        .get(
+          `${(await Config.get()).SERVER_URL}/stats/recommendation`,
+          await AuthService.getAuthHeader(),
+        )
+        .then((res) => {
+          this.recommendationEnabled = res.data.enabled === true;
+          this.recommendation = res.data.recommendation || null;
+        })
+        .catch(handleError);
+    },
+    async regenerateRecommendation() {
+      this.regenerating = true;
+      await axios
+        .post(
+          `${(await Config.get()).SERVER_URL}/stats/recommendation/regenerate`,
+          {},
+          await AuthService.getAuthHeader(),
+        )
+        .then((res) => {
+          this.recommendation = res.data.recommendation || null;
+        })
+        .catch(handleError)
+        .finally(() => {
+          this.regenerating = false;
+        });
+    },
+    renderMarkdown(text) {
+      if (!text) return "";
+      return marked.parse(text, { breaks: true, async: false });
     },
     // Format raw millicores number to human-readable CPU string
     formatCpuRaw(millicores) {
@@ -520,6 +596,76 @@ export default {
 .range-sep {
   font-size: 0.75em;
   opacity: 0.4;
+}
+
+#stats-recommendation {
+  border: 1px solid var(--pico-muted-border-color);
+  border-radius: 0.5em;
+  padding: 1.5em;
+}
+
+.recommendation-header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 1em;
+}
+
+.recommendation-header h3 {
+  margin-bottom: 0;
+}
+
+.recommendation-header h3 i {
+  margin-right: 0.3em;
+}
+
+.rec-regenerate {
+  margin-bottom: 0;
+  width: auto;
+  font-size: 0.8em;
+  padding: 0.3em 0.8em;
+}
+
+.rec-section {
+  margin-top: 1em;
+}
+
+.rec-section h6 {
+  margin-bottom: 0.5em;
+}
+
+.rec-content {
+  line-height: 1.5;
+  font-size: 0.9em;
+}
+
+.rec-content h2 {
+  font-size: 1.1em;
+  margin: 0.8em 0 0.3em 0;
+}
+
+.rec-content h3 {
+  font-size: 1em;
+  margin: 0.6em 0 0.2em 0;
+}
+
+.rec-content p {
+  margin: 0.3em 0;
+}
+
+.rec-content ul,
+.rec-content ol {
+  margin: 0.2em 0;
+  padding-left: 1.5em;
+}
+
+.rec-content li {
+  margin: 0.15em 0;
+}
+
+.rec-generated-at {
+  opacity: 0.6;
+  font-size: 0.8em;
 }
 </style>
 

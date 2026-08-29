@@ -18,6 +18,7 @@ import {
 } from "./OTelContext";
 import { RequestQueueInit } from "./queue/RequestQueue";
 import { StatsDataInit } from "./stats/StatsData";
+import { StatsDataRecommendationInit } from "./stats/StatsDataRecommendation";
 import { StatsRoutes } from "./stats/StatsRoutes";
 import {
   AuthInit,
@@ -53,6 +54,7 @@ Promise.resolve().then(async () => {
   UsersDataSetOTel(OTelTracer());
   await AuthInit(span, config, []);
   await StatsDataInit(span, config);
+  await StatsDataRecommendationInit(span, config);
   await CrdScannerInit(config);
 
   // Initialize request queue with configurable concurrency and timeout
