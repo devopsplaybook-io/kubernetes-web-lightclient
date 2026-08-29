@@ -19,31 +19,6 @@
               <option value="1h">Last 1h</option>
               <option value="24h">Last 1 day</option>
             </select>
-            <label>
-              <input type="checkbox" v-model="wrapText" />
-              Wrap
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                v-model="showTimestamps"
-                @change="fetchLogs"
-              />
-              Timestamps
-            </label>
-            <select
-              v-if="containers.length > 1"
-              v-model="selectedContainer"
-              @change="fetchLogs"
-            >
-              <option
-                v-for="container in containers"
-                :key="container"
-                :value="container"
-              >
-                {{ container }}
-              </option>
-            </select>
             <span class="actions"
               ><i class="bi bi-arrow-clockwise" v-on:click="fetchLogs"></i
             ></span>
@@ -63,12 +38,39 @@
             Advanced
           </a>
           <div v-if="showAdvancedOptions" class="log-controls-advanced">
-            <input
-              type="text"
-              v-model="filterText"
-              placeholder="Filter logs"
-              @input="debouncedFilter"
-            />
+            <select
+              v-if="containers.length > 1"
+              v-model="selectedContainer"
+              @change="fetchLogs"
+            >
+              <option
+                v-for="container in containers"
+                :key="container"
+                :value="container"
+              >
+                {{ container }}
+              </option>
+            </select>
+            <label>
+              <input type="checkbox" v-model="wrapText" />
+              Wrap
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                v-model="showTimestamps"
+                @change="fetchLogs"
+              />
+              Timestamps
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                v-model="autoRefresh"
+                @change="onAutoRefreshChange"
+              />
+              Auto-refresh
+            </label>
             <label v-if="restartCount > 0">
               <input
                 type="checkbox"
@@ -77,6 +79,13 @@
               />
               Previous ({{ restartCount }} restarts)
             </label>
+            <input
+              type="text"
+              class="filter-input"
+              v-model="filterText"
+              placeholder="Filter logs"
+              @input="debouncedFilter"
+            />
           </div>
         </section>
         <pre
@@ -116,6 +125,8 @@ export default {
       selectedContainer: "",
       restartCount: 0,
       showPreviousLog: false,
+      autoRefresh: false,
+      autoRefreshTimer: null,
     };
   },
   computed: {
@@ -134,6 +145,9 @@ export default {
     }, 300);
     await this.fetchPodDetails();
     await this.fetchLogs();
+  },
+  beforeUnmount() {
+    this.stopAutoRefresh();
   },
   methods: {
     async clickClose(namespace, podname) {
@@ -170,6 +184,20 @@ export default {
         this.restartCount = containerRestarts + initRestarts;
       } catch (e) {
         handleError(e);
+      }
+    },
+    onAutoRefreshChange() {
+      if (this.autoRefresh) {
+        this.fetchLogs();
+        this.autoRefreshTimer = setInterval(() => this.fetchLogs(), 10000);
+      } else {
+        this.stopAutoRefresh();
+      }
+    },
+    stopAutoRefresh() {
+      if (this.autoRefreshTimer) {
+        clearInterval(this.autoRefreshTimer);
+        this.autoRefreshTimer = null;
       }
     },
     async fetchLogs() {
@@ -220,37 +248,21 @@ export default {
 }
 
 /*
- * Controls row: responsive grid.
- * Each control gets an equal-width column on wide screens; columns are
- * automatically dropped and controls wrap onto multiple rows as the dialog
- * gets narrower (down to a single stacked column on small screens).
+ * Primary controls row: time range takes the available width, refresh
+ * action stays on the same line aligned to the end.
  */
 #dialog-details-logs .log-controls-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  grid-template-columns: 1fr auto;
   gap: 0.5rem 0.75rem;
   align-items: center;
 }
 
-#dialog-details-logs .log-controls-row select,
-#dialog-details-logs .log-controls-row input[type="text"] {
+#dialog-details-logs .log-controls-row select {
   width: 100%;
   margin: 0;
 }
 
-#dialog-details-logs .log-controls-row label {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin: 0;
-  white-space: nowrap;
-}
-
-#dialog-details-logs .log-controls-row label input[type="checkbox"] {
-  margin: 0;
-}
-
-/* Refresh action stays aligned to the end of its column */
 #dialog-details-logs .log-controls-row .actions {
   justify-self: end;
 }
@@ -271,18 +283,29 @@ export default {
   opacity: 1;
 }
 
-/* Advanced options grid: filter grows, previous-log toggle hugs its content */
+/*
+ * Advanced options: responsive grid. Each control gets an equal-width
+ * column on wide screens; columns are automatically dropped and controls
+ * wrap onto multiple rows as the dialog gets narrower. The filter input
+ * always spans the full width.
+ */
 #dialog-details-logs .log-controls-advanced {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
   gap: 0.5rem 0.75rem;
   align-items: center;
   margin-top: 0.4rem;
 }
 
+#dialog-details-logs .log-controls-advanced select,
 #dialog-details-logs .log-controls-advanced input[type="text"] {
+  width: 100%;
   margin: 0;
   min-width: 0;
+}
+
+#dialog-details-logs .log-controls-advanced .filter-input {
+  grid-column: 1 / -1;
 }
 
 #dialog-details-logs .log-controls-advanced label {
@@ -293,10 +316,7 @@ export default {
   white-space: nowrap;
 }
 
-/* Responsive: stack advanced options on narrow screens */
-@media (max-width: 700px) {
-  #dialog-details-logs .log-controls-advanced {
-    grid-template-columns: 1fr;
-  }
+#dialog-details-logs .log-controls-advanced label input[type="checkbox"] {
+  margin: 0;
 }
 </style>
