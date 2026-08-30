@@ -13,14 +13,14 @@
         </header>
         <section class="log-controls-primary">
           <div class="log-controls-row">
-            <select v-model="logTime" @change="fetchLogs">
+            <select v-model="logTime" @change="fetchLogs()">
               <option value="all">All</option>
               <option value="10m">Last 10min</option>
               <option value="1h">Last 1h</option>
               <option value="24h">Last 1 day</option>
             </select>
             <span class="actions"
-              ><i class="bi bi-arrow-clockwise" v-on:click="fetchLogs"></i
+              ><i class="bi bi-arrow-clockwise" v-on:click="fetchLogs()"></i
             ></span>
           </div>
           <a
@@ -59,7 +59,7 @@
               <input
                 type="checkbox"
                 v-model="showTimestamps"
-                @change="fetchLogs"
+                @change="fetchLogs()"
               />
               Timestamps
             </label>
@@ -75,7 +75,7 @@
               <input
                 type="checkbox"
                 v-model="showPreviousLog"
-                @change="fetchLogs"
+                @change="fetchLogs()"
               />
               Previous ({{ restartCount }} restarts)
             </label>
@@ -90,6 +90,7 @@
         </section>
         <pre
           id="dialog-details-logs-text"
+          ref="logsText"
           :style="{ whiteSpace: wrapText ? 'pre-wrap' : 'pre' }"
           >{{ filteredText }}</pre
         >
@@ -101,6 +102,7 @@
 <script>
 import { AuthService } from "~~/services/AuthService";
 import { handleError, EventBus, EventTypes } from "~~/services/EventBus";
+import { PreferencesService } from "~~/services/PreferencesService";
 import { UtilsDecompressData } from "~/services/Utils";
 import axios from "axios";
 import Config from "~~/services/Config.ts";
@@ -115,9 +117,15 @@ export default {
   data() {
     return {
       text: "",
-      wrapText: false,
+      wrapText: PreferencesService.getStoredBoolean(
+        PreferencesService.LOG_WRAP_KEY,
+        false,
+      ),
       logTime: "10m",
-      showTimestamps: true,
+      showTimestamps: PreferencesService.getStoredBoolean(
+        PreferencesService.LOG_TIMESTAMPS_KEY,
+        true,
+      ),
       showAdvancedOptions: false,
       filterText: "",
       debouncedFilter: null,
@@ -137,6 +145,20 @@ export default {
         .split("\n")
         .filter((line) => line.toLowerCase().includes(filterLower))
         .join("\n");
+    },
+  },
+  watch: {
+    wrapText(value) {
+      PreferencesService.storeBoolean(
+        PreferencesService.LOG_WRAP_KEY,
+        value,
+      );
+    },
+    showTimestamps(value) {
+      PreferencesService.storeBoolean(
+        PreferencesService.LOG_TIMESTAMPS_KEY,
+        value,
+      );
     },
   },
   async created() {
@@ -188,8 +210,11 @@ export default {
     },
     onAutoRefreshChange() {
       if (this.autoRefresh) {
-        this.fetchLogs();
-        this.autoRefreshTimer = setInterval(() => this.fetchLogs(), 10000);
+        this.fetchLogs(true);
+        this.autoRefreshTimer = setInterval(
+          () => this.fetchLogs(true),
+          10000,
+        );
       } else {
         this.stopAutoRefresh();
       }
@@ -200,7 +225,7 @@ export default {
         this.autoRefreshTimer = null;
       }
     },
-    async fetchLogs() {
+    async fetchLogs(silent = false) {
       const payload = {
         namespace: this.namespace,
         pod: this.podname,
@@ -214,7 +239,17 @@ export default {
         payload.argument += ` --previous `;
       }
       payload.timestamps = this.showTimestamps;
-      this.text = "Loading logs...";
+      const logsElement = this.$refs.logsText;
+      const previousScrollTop = logsElement ? logsElement.scrollTop : 0;
+      const wasAtBottom = logsElement
+        ? logsElement.scrollHeight -
+            logsElement.scrollTop -
+            logsElement.clientHeight <
+          40
+        : true;
+      if (!silent) {
+        this.text = "Loading logs...";
+      }
       await axios
         .post(
           `${(await Config.get()).SERVER_URL}/kubectl/logs`,
@@ -222,7 +257,23 @@ export default {
           await AuthService.getAuthHeader(),
         )
         .then(async (res) => {
-          this.text = await UtilsDecompressData(res.data.result);
+          const newText = await UtilsDecompressData(res.data.result);
+          if (silent && newText === this.text) {
+            return;
+          }
+          this.text = newText;
+          if (silent) {
+            // Keep the reading position: new lines are appended at the
+            // bottom without resetting the view. When already following
+            // the latest lines, keep following them.
+            await this.$nextTick();
+            const updatedElement = this.$refs.logsText;
+            if (updatedElement) {
+              updatedElement.scrollTop = wasAtBottom
+                ? updatedElement.scrollHeight
+                : previousScrollTop;
+            }
+          }
         })
         .catch(handleError);
     },
