@@ -1,4 +1,17 @@
 export const PreferencesService = {
+  LOG_WRAP_KEY: "LOGS_WRAP",
+  LOG_TIMESTAMPS_KEY: "LOGS_TIMESTAMPS",
+  //
+  getStoredBoolean(key: string, defaultValue: boolean): boolean {
+    const stored = localStorage.getItem(key);
+    if (stored === "true") return true;
+    if (stored === "false") return false;
+    return defaultValue;
+  },
+  //
+  storeBoolean(key: string, value: boolean) {
+    localStorage.setItem(key, value ? "true" : "false");
+  },
   //
   toggleTheme(vm: any) {
     vm.isDark = !vm.isDark;
