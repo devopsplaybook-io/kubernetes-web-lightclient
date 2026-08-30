@@ -7,6 +7,7 @@ Kubernetes Web LightClient is a web-based user interface for Kubernetes. In its 
 - For Pod: Display Log
 - For Deployment, DaemonSet, StatefulSet: Rollout restart
 - For Node: CPU and Memory information
+- Optional LLM Recommendations: an analysis and advice on the current cluster, generated on a schedule (default: every Monday) or on demand, displayed in the Stats section and sent to the [notifications service](https://github.com/devopsplaybook-io/notifications) when enabled
 
 ![Pods Screenshot](docs/images/pods.png?raw=true)
 ![Stats Screenshot](docs/images/stats.png?raw=true)
@@ -55,3 +56,10 @@ See the [ConfigMap YAML](docs/deployments/kubernetes/kubernetes-web-lightclient/
 | OPENTELEMETRY_COLLECTOR_EXPORT_LOGS_INTERVAL_SECONDS    | Interval (in seconds) to export logs                                                                                  | 60            | Config file or environment variable |
 | OPENTELEMETRY_COLLECTOR_EXPORT_METRICS_INTERVAL_SECONDS | Interval (in seconds) to export metrics                                                                               | 60            | Config file or environment variable |
 | OPENTELEMETRY_COLLECT_AUTHORIZATION_HEADER              | Authorization header for OTEL collection                                                                              | (empty)       | Config file or environment variable |
+| LLM_RECOMMENDATIONS_ENABLED                             | Enable LLM recommendations on the Stats page                                                                          | false         | Config file or environment variable |
+| LLM_API_KEY                                             | API key of the OpenAI-compatible LLM provider                                                                         | (empty)       | Config file or environment variable |
+| LLM_API_URL                                             | Chat completions endpoint of the LLM provider                                                                         | https://api.deepseek.com/chat/completions | Config file or environment variable |
+| LLM_MODEL                                               | LLM model to use for recommendations                                                                                  | deepseek-chat | Config file or environment variable |
+| LLM_RECOMMENDATIONS_CRON                                | Cron schedule for generating recommendations                                                                          | 0 8 * * 1 (every Monday at 08:00) | Config file or environment variable |
+| NOTIFICATIONS_API                                       | Notifications service API endpoint (e.g. `https://notifications.example.com/api/notifications`)                       | (empty)       | Config file or environment variable |
+| NOTIFICATIONS_TOKEN                                     | Notifications service API token                                                                                       | (empty)       | Config file or environment variable |

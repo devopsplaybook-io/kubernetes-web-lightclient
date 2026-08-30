@@ -15,6 +15,17 @@ export class Config extends ConfigBase {
   public REQUEST_TIMEOUT = 20000;
   public ALLOWED_DELETABLE_OBJECTS = "pod";
 
+  // LLM Recommendations
+  public LLM_RECOMMENDATIONS_ENABLED = false;
+  public LLM_API_KEY = "";
+  public LLM_API_URL = "https://api.deepseek.com/chat/completions";
+  public LLM_MODEL = "deepseek-chat";
+  public LLM_RECOMMENDATIONS_CRON = "0 8 * * 1";
+
+  // Notifications
+  public NOTIFICATIONS_API = "";
+  public NOTIFICATIONS_TOKEN = "";
+
   constructor() {
     super("kubernetes-web-lightclient-server");
 
@@ -37,6 +48,13 @@ export class Config extends ConfigBase {
     this.addConfigField({ field: "REQUEST_QUEUE_CONCURRENCY" });
     this.addConfigField({ field: "REQUEST_TIMEOUT" });
     this.addConfigField({ field: "ALLOWED_DELETABLE_OBJECTS" });
+    this.addConfigField({ field: "LLM_RECOMMENDATIONS_ENABLED" });
+    this.addConfigField({ field: "LLM_API_KEY", sensitive: true });
+    this.addConfigField({ field: "LLM_API_URL" });
+    this.addConfigField({ field: "LLM_MODEL" });
+    this.addConfigField({ field: "LLM_RECOMMENDATIONS_CRON" });
+    this.addConfigField({ field: "NOTIFICATIONS_API" });
+    this.addConfigField({ field: "NOTIFICATIONS_TOKEN", sensitive: true });
   }
 
   public async reload(): Promise<void> {
