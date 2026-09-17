@@ -1,6 +1,7 @@
 import { PodResourceMeasurement } from "../model/PodResourceMeasurement";
 import { StatsNodeMesurement } from "../model/StatsNodeMesurement";
 import {
+  BuildNotificationSource,
   BuildRecommendationSummary,
   GetLatestNodeStats,
   ParseRecommendationResponse,
@@ -111,6 +112,34 @@ describe("StatsDataRecommendation", () => {
       expect(summary).toContain("ns=default pod=app-pod");
       expect(summary).not.toContain("status=");
       expect(summary).not.toContain("restarts=");
+    });
+  });
+
+  describe("BuildNotificationSource", () => {
+    test("appends a normalized application name as suffix", () => {
+      expect(BuildNotificationSource("Kubernetes")).toBe(
+        "kubernetes-web-lightclient-kubernetes",
+      );
+      expect(BuildNotificationSource("Kubernetes Web")).toBe(
+        "kubernetes-web-lightclient-kubernetes-web",
+      );
+    });
+
+    test("returns the plain service name when the application name is not set", () => {
+      expect(BuildNotificationSource(undefined)).toBe(
+        "kubernetes-web-lightclient",
+      );
+      expect(BuildNotificationSource("")).toBe("kubernetes-web-lightclient");
+      expect(BuildNotificationSource("   ")).toBe("kubernetes-web-lightclient");
+    });
+
+    test("trims surrounding whitespace and normalizes separators", () => {
+      expect(BuildNotificationSource("  Kubernetes Web  ")).toBe(
+        "kubernetes-web-lightclient-kubernetes-web",
+      );
+      expect(BuildNotificationSource("Kubernetes_Web")).toBe(
+        "kubernetes-web-lightclient-kubernetes-web",
+      );
     });
   });
 

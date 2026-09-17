@@ -7,7 +7,7 @@ Kubernetes Web LightClient is a web-based user interface for Kubernetes. In its 
 - For Pod: Display Log
 - For Deployment, DaemonSet, StatefulSet: Rollout restart
 - For Node: CPU and Memory information
-- Optional LLM Recommendations: an analysis and advice on the current cluster, generated on a schedule (default: every Monday) or on demand, displayed in the Stats section and sent to the [notifications service](https://github.com/devopsplaybook-io/notifications) when enabled
+- Optional LLM Recommendations: an analysis and advice on the current cluster, generated on a schedule (default: every Monday) or on demand, displayed in the Stats section and sent to the [notifications service](https://github.com/devopsplaybook-io/notifications) when enabled; notifications are sent with source `kubernetes-web-lightclient` suffixed with the normalized application name (e.g. `kubernetes-web-lightclient-kubernetes`) when `APPLICATION_TITLE` is set
 
 ![Pods Screenshot](docs/images/pods.png?raw=true)
 ![Stats Screenshot](docs/images/stats.png?raw=true)
@@ -46,7 +46,7 @@ See the [ConfigMap YAML](docs/deployments/kubernetes/kubernetes-web-lightclient/
 
 | Parameter                                               | Description                                                                                                           | Default       | Availability                        |
 | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------- | ----------------------------------- |
-| APPLICATION_TITLE                                       | Name of the application (for PWA)                                                                                     | Kubernetes    | Environment variable                |
+| APPLICATION_TITLE                                       | Name of the application (for PWA and as suffix of the notification source)                                            | Kubernetes    | Environment variable                |
 | ALLOWED_DELETABLE_OBJECTS                               | Object types that can be deleted: `NONE`, `ALL`, or a comma-separated list of object types (e.g. `pod`, `deployment`) | pod           | Config file or environment variable |
 | STATS_FETCH_FREQUENCY                                   | Frequency (in seconds) to fetch stats from Kubernetes                                                                 | 60            | Config file or environment variable |
 | STATS_RETENTION                                         | Retention period (in seconds) for stats                                                                               | 86400 (1 day) | Config file or environment variable |
