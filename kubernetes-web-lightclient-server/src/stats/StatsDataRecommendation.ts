@@ -246,6 +246,23 @@ export function ParseRecommendationResponse(content: string): {
 }
 
 /**
+ * Build the notification source (service name) for this instance.
+ * The application title is normalized (lowercased, non-alphanumeric
+ * characters collapsed to dashes) and appended as suffix so multiple
+ * instances can be told apart. When no title is set, the plain
+ * service name is used.
+ */
+export function BuildNotificationSource(applicationTitle?: string): string {
+  const serviceName = "kubernetes-web-lightclient";
+  const normalized = (applicationTitle ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return normalized ? `${serviceName}-${normalized}` : serviceName;
+}
+
+/**
  * Keep only the most recent measurement of each node.
  */
 export function GetLatestNodeStats(
@@ -300,7 +317,7 @@ async function NotificationSendRecommendation(
   const response = await notificationsClient.info(
     title,
     body,
-    "kubernetes-web-lightclient",
+    BuildNotificationSource(config?.APPLICATION_TITLE),
   );
   if (response) {
     logger.info("LLM recommendation notification sent successfully");

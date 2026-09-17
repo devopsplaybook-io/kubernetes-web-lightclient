@@ -7,6 +7,7 @@ const logger = OTelLogger().createModuleLogger("config");
 
 export class Config extends ConfigBase {
   // Project-specific fields
+  public APPLICATION_TITLE = "";
   public STATS_FETCH_FREQUENCY = 60;
   public STATS_RETENTION = 60 * 60 * 24;
   public POD_RESOURCES_FETCH_FREQUENCY = 30 * 60;
@@ -41,6 +42,7 @@ export class Config extends ConfigBase {
     }
 
     // Register project-specific fields so reload() processes them
+    this.addConfigField({ field: "APPLICATION_TITLE" });
     this.addConfigField({ field: "STATS_FETCH_FREQUENCY" });
     this.addConfigField({ field: "STATS_RETENTION" });
     this.addConfigField({ field: "POD_RESOURCES_FETCH_FREQUENCY" });
