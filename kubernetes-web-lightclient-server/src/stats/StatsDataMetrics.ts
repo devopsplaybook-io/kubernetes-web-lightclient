@@ -109,7 +109,7 @@ async function StatsDataCapture(): Promise<void> {
         measurement.cpuUsage = parseFloat(topNodeParts[2].replace("%", ""));
         measurement.memoryUsage = parseFloat(topNodeParts[4].replace("%", ""));
       }
-    } catch (error) {
+    } catch {
       logger.warn(
         `kubectl top node failed for ${nodeName} - metrics server may not be installed. CPU/memory usage will be reported as unknown.`,
       );

@@ -81,6 +81,9 @@ describe("KubeCache", () => {
 
   test("should use custom TTL for staleness check", async () => {
     await cache.set("pods", "dGVzdGRhdGE=");
+    // Ensure set and isStale land in different milliseconds: with a fast
+    // transform both can happen in the same ms, making age(0) > ttl(0) false.
+    await new Promise((resolve) => setTimeout(resolve, 10));
     // With a very small TTL, the entry should be stale immediately
     expect(await cache.isStale("pods", 0)).toBe(true);
     // With a very large TTL, the entry should be fresh
