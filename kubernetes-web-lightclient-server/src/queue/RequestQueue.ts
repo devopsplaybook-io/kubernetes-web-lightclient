@@ -103,7 +103,6 @@ export class RequestQueue {
     const controller = new AbortController();
     this.activeCount++;
 
-    const activeKey = item.key || `__nonkey_${Date.now()}_${Math.random()}`;
     const activeReq: ActiveRequest = {
       key: item.key,
       promise: item.promise,

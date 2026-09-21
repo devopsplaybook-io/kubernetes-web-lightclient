@@ -11,7 +11,7 @@ export const NIL = "00000000-0000-0000-0000-000000000000";
 export const MAX = "ffffffff-ffff-ffff-ffff-ffffffffffff";
 export const validate = (uuid: string): boolean =>
   typeof uuid === "string" && uuid.length === 36;
-export const version = (uuid: string): number => 4;
+export const version = (_uuid: string): number => 4;
 export const stringify = (buf: Uint8Array, offset?: number): string => {
   const bytes = Array.from(buf.slice(offset || 0, (offset || 0) + 16));
   const hex = bytes.map((b) => b.toString(16).padStart(2, "0")).join("");
