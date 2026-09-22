@@ -192,6 +192,7 @@ export default {
       refreshIntervalValue: RefreshIntervalService.get(),
       cpuChartOptions: {
         chart: { id: "cpu-line" },
+        stroke: { width: 2 },
         xaxis: { type: "datetime", title: { text: "Timestamp" } },
         yaxis: { min: 0, max: 100 },
         title: { text: "CPU Usage (%)" },
@@ -199,6 +200,7 @@ export default {
       cpuChartSeries: [],
       memoryChartOptions: {
         chart: { id: "memory-line" },
+        stroke: { width: 2 },
         xaxis: { type: "datetime", title: { text: "Timestamp" } },
         yaxis: { min: 0, max: 100 },
         title: { text: "Memory Usage (%)" },
@@ -206,6 +208,7 @@ export default {
       memoryChartSeries: [],
       podsChartOptions: {
         chart: { id: "pods-line" },
+        stroke: { width: 2 },
         xaxis: { type: "datetime", title: { text: "Timestamp" } },
         yaxis: { min: 0 },
         title: { text: "Pods per Node" },
