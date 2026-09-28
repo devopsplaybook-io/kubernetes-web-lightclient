@@ -34,7 +34,8 @@ provide(CommonWebThemeKey, useTheme());
 /* Layout */
 
 header {
-  height: 3em;
+  height: auto;
+  min-height: var(--header-height, 4rem);
 }
 
 header,

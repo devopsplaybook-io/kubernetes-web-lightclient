@@ -6,7 +6,7 @@
         <strong>{{ appTitle }}</strong></NuxtLink
       >
     </template>
-    <ul class="menu-links">
+    <ul class="navigation-links">
       <li v-if="authenticationStore.isAuthenticated">
         <NuxtLink
           to="/kubernetes"
@@ -87,31 +87,52 @@ export default {
 </script>
 
 <style scoped>
-.menu-links li {
-  padding-block: 0.25em;
+.brand-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm, 0.5rem);
 }
-.menu-links li {
-  padding-right: 1em;
+
+.navigation-links {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm, 0.5rem);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-weight: bold;
+}
+
+.navigation-links li {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 0;
   font-size: 1.1em;
 }
-.menu-links .inactive {
+
+.navigation-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs, 0.25rem);
+  margin: 0;
+  padding: var(--space-sm, 0.5rem);
+  line-height: 1;
+}
+
+.navigation-links .inactive {
   opacity: 0.3;
 }
-.menu-links .active {
+.navigation-links .active {
   color: #3cabff;
-}
-.menu-links {
-  font-weight: bold;
 }
 
 .nav-logo {
   height: 1.4em;
-  vertical-align: middle;
-  margin-right: 0.5rem;
 }
 
-.menu-links i {
-  margin-right: 0.5rem;
+.navigation-links i {
+  line-height: 1;
 }
 
 /* Hide nav labels on narrow screens */
@@ -121,10 +142,10 @@ export default {
   }
 }
 
-:root[data-theme="light"] .menu-links .inactive {
+:root[data-theme="light"] .navigation-links .inactive {
   opacity: 0.8;
 }
-:root[data-theme="light"] .menu-links .active {
+:root[data-theme="light"] .navigation-links .active {
   color: #033452;
 }
 </style>
