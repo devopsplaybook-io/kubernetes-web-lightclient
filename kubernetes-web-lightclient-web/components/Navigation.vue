@@ -88,8 +88,7 @@ export default {
 
 <style scoped>
 .menu-links li {
-  padding-top: 0.1em;
-  padding-bottom: 0.4em;
+  padding-block: 0.25em;
 }
 .menu-links li {
   padding-right: 1em;
