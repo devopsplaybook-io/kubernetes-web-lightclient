@@ -38,9 +38,12 @@ header {
   min-height: var(--header-height, 4rem);
 }
 
-header,
 main {
   padding: 0.5em;
+}
+
+header {
+  padding: 0;
 }
 
 main {

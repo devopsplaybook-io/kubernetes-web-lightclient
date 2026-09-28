@@ -96,7 +96,11 @@ export default {
 .navigation-links {
   display: flex;
   align-items: center;
-  gap: var(--space-sm, 0.5rem);
+  /* Keep Pico's nav-wide spacing from stretching this compact link group. */
+  justify-content: flex-start;
+  gap: var(--space-xs, 0.25rem);
+  flex: 0 0 auto;
+  width: max-content;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -116,7 +120,7 @@ export default {
   align-items: center;
   gap: var(--space-xs, 0.25rem);
   margin: 0;
-  padding: var(--space-sm, 0.5rem);
+  padding: var(--space-xs, 0.25rem);
   line-height: 1;
 }
 
