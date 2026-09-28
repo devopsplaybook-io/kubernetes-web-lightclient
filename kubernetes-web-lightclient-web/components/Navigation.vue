@@ -1,13 +1,11 @@
 <template>
-  <nav>
-    <ul class="menu-links">
-      <li>
-        <NuxtLink to="/" class="brand-link"
-          ><img src="/icon.png" alt="Kubernetes Web" class="nav-logo" />
-          <strong>{{ appTitle }}</strong></NuxtLink
-        >
-      </li>
-    </ul>
+  <AppNavigation :links="[]">
+    <template #brand>
+      <NuxtLink to="/" class="brand-link"
+        ><img src="/icon.png" alt="Kubernetes Web" class="nav-logo" />
+        <strong>{{ appTitle }}</strong></NuxtLink
+      >
+    </template>
     <ul class="menu-links">
       <li v-if="authenticationStore.isAuthenticated">
         <NuxtLink
@@ -42,18 +40,15 @@
         >
       </li>
     </ul>
-  </nav>
+  </AppNavigation>
 </template>
 
 <script setup>
-import { AuthService } from "~~/services/AuthService";
-import { PreferencesService } from "~/services/PreferencesService";
 const authenticationStore = AuthenticationStore();
 </script>
 
 <script>
 import axios from "axios";
-import Config from "~~/services/Config.ts";
 
 export default {
   watch: {
@@ -70,21 +65,6 @@ export default {
   async created() {
     this.routeUpdated(this.$route);
     this.loadAppTitle();
-    if (await AuthenticationStore().ensureAuthenticated()) {
-      setTimeout(async () => {
-        // Renew session tocken
-        axios
-          .post(
-            `${(await Config.get()).SERVER_URL}/users/session`,
-            {},
-            await AuthService.getAuthHeader(),
-          )
-          .then((res) => {
-            AuthService.saveToken(res.data.token);
-          });
-      }, 10000);
-    }
-    PreferencesService.applyTheme();
   },
   methods: {
     routeUpdated(newRoute) {

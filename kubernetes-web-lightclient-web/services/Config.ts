@@ -1,7 +1,1 @@
-export default class Config {
-  public static async get(): Promise<any> {
-    return {
-      SERVER_URL: "/api",
-    };
-  }
-}
+export { default } from "@devopsplaybook.io/common-web/services/Config";

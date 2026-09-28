@@ -63,7 +63,23 @@
 </template>
 
 <script setup>
+import { inject, onMounted, ref } from "vue";
+import { CommonWebThemeKey } from "~/services/Theme";
+
 const authenticationStore = AuthenticationStore();
+const theme = inject(CommonWebThemeKey);
+if (!theme) throw new Error("Common-Web theme provider is missing");
+const { setTheme } = theme;
+const isDark = ref(false);
+
+onMounted(() => {
+  isDark.value = document.documentElement.getAttribute("data-theme") === "dark";
+});
+
+function toggleTheme() {
+  isDark.value = !isDark.value;
+  setTheme(isDark.value ? "dark" : "light");
+}
 </script>
 
 <script>
@@ -73,24 +89,13 @@ import { AuthService } from "~~/services/AuthService";
 import { handleError, EventBus, EventTypes } from "~~/services/EventBus";
 import { UserService } from "~~/services/UserService";
 import { RefreshIntervalService } from "~~/services/RefreshIntervalService";
-import { PreferencesService } from "~/services/PreferencesService";
 
 export default {
   data() {
-    let isDark = false;
-    const storedTheme = localStorage.getItem("UI_THEME");
-    if (storedTheme === "dark" || storedTheme === "light") {
-      isDark = storedTheme === "dark";
-    } else {
-      isDark =
-        window.matchMedia &&
-        window.matchMedia("(prefers-color-scheme: dark)").matches;
-    }
     return {
       user: {},
       isInitialized: true,
       isChangePasswordStarted: false,
-      isDark,
       refreshInterval: RefreshIntervalService.get(),
     };
   },
@@ -205,9 +210,6 @@ export default {
         default:
           return `${val} ms`;
       }
-    },
-    toggleTheme() {
-      PreferencesService.toggleTheme(this);
     },
   },
 };

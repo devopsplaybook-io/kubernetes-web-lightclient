@@ -1,22 +1,13 @@
-import mitt from "mitt";
-export const EventBus = mitt();
+import {
+  EventBus,
+  EventTypes as CommonEventTypes,
+  handleError,
+} from "@devopsplaybook.io/common-web/composables/EventBus";
 
-export enum EventTypes {
-  ITEMS_UPDATED = "ITEMS_UPDATED",
-  SOURCES_UPDATED = "SOURCES_UPDATED",
-  AUTH_UPDATED = "AUTH_UPDATED",
-  ALERT_MESSAGE = "ALERT_MESSAGE",
-  OBJECT_CHANGED = "OBJECT_CHANGED",
-}
-
-export function handleError(error: any): void {
-  console.error(error);
-  let text = error.response;
-  if (error.response && error.response.data && error.response.data.error) {
-    text = error.response.data.error;
-  }
-  EventBus.emit(EventTypes.ALERT_MESSAGE, {
-    type: "error",
-    text,
-  });
-}
+export { EventBus, handleError };
+export const EventTypes = {
+  ...CommonEventTypes,
+  ITEMS_UPDATED: "ITEMS_UPDATED",
+  SOURCES_UPDATED: "SOURCES_UPDATED",
+  OBJECT_CHANGED: "OBJECT_CHANGED",
+} as const;
