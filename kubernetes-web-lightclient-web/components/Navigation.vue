@@ -98,7 +98,7 @@ export default {
   align-items: center;
   /* Keep Pico's nav-wide spacing from stretching this compact link group. */
   justify-content: flex-start;
-  gap: var(--space-xs, 0.25rem);
+  gap: var(--space-sm, 0.5rem);
   flex: 0 0 auto;
   width: max-content;
   margin: 0;
