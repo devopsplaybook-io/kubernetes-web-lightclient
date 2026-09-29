@@ -8,6 +8,7 @@ Kubernetes Web LightClient is a web-based user interface for Kubernetes. In its 
 - For Deployment, DaemonSet, StatefulSet: Rollout restart
 - For Node: CPU and Memory information
 - Optional LLM Recommendations: an analysis and advice on the current cluster, generated on a schedule (default: every Monday) or on demand, displayed in the Stats section and sent to the [notifications service](https://github.com/devopsplaybook-io/notifications) when enabled; notifications are sent with source `kubernetes-web-lightclient` suffixed with the normalized application name (e.g. `kubernetes-web-lightclient-kubernetes`) when `APPLICATION_TITLE` is set
+- Shared web UI with persisted theme preferences, accessible alerts and loading indicators, and offline status
 
 ![Pods Screenshot](docs/images/pods.png?raw=true)
 ![Stats Screenshot](docs/images/stats.png?raw=true)

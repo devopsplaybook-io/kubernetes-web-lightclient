@@ -5,14 +5,19 @@
       <Navigation />
     </header>
     <main>
+      <OfflineBanner />
       <NuxtPage />
       <AlertMessages id="page-alert-messages" />
     </main>
   </div>
 </template>
 
-<script>
-export default {};
+<script setup>
+import { provide } from "vue";
+import { CommonWebThemeKey } from "./services/Theme";
+
+useAppHeight();
+provide(CommonWebThemeKey, useTheme());
 </script>
 
 <style>
@@ -29,12 +34,16 @@ export default {};
 /* Layout */
 
 header {
-  height: 3em;
+  height: auto;
+  min-height: var(--header-height, 4rem);
 }
 
-header,
 main {
   padding: 0.5em;
+}
+
+header {
+  padding: 0;
 }
 
 main {
@@ -92,65 +101,6 @@ main {
   }
   100% {
     color: inherit;
-  }
-}
-
-/* Loading */
-
-@media (prefers-color-scheme: dark) {
-  .loading-indicator {
-    --c: no-repeat linear-gradient(#bcc6ce 0 0);
-  }
-}
-@media (prefers-color-scheme: light) {
-  .loading-indicator {
-    --c: no-repeat linear-gradient(#1d2832 0 0);
-  }
-}
-.loading-indicator {
-  width: 5%;
-  margin-left: auto;
-  margin-right: auto;
-  margin-top: 5%;
-  margin-bottom: 5%;
-  aspect-ratio: 1;
-  background:
-    var(--c) 0% 50%,
-    var(--c) 50% 50%,
-    var(--c) 100% 50%;
-  background-size: 20% 100%;
-  animation: l1 2s infinite linear;
-}
-@keyframes l1 {
-  0% {
-    background-size:
-      20% 100%,
-      20% 100%,
-      20% 100%;
-  }
-  33% {
-    background-size:
-      20% 10%,
-      20% 100%,
-      20% 100%;
-  }
-  50% {
-    background-size:
-      20% 100%,
-      20% 10%,
-      20% 100%;
-  }
-  66% {
-    background-size:
-      20% 100%,
-      20% 100%,
-      20% 10%;
-  }
-  100% {
-    background-size:
-      20% 100%,
-      20% 100%,
-      20% 100%;
   }
 }
 
