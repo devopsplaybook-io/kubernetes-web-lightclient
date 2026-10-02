@@ -3,6 +3,7 @@ import {
   StandardMeter,
   StandardTracer,
 } from "@devopsplaybook.io/otel-utils";
+import { OTelRequestSpan as OTelRequestSpanFromLibrary } from "@devopsplaybook.io/otel-utils-fastify";
 import { Span } from "@opentelemetry/sdk-trace-base";
 
 let tracer: StandardTracer;
@@ -33,5 +34,5 @@ export function OTelLogger(): StandardLogger {
 }
 
 export function OTelRequestSpan(req: any): Span {
-  return req.tracerSpanApi;
+  return OTelRequestSpanFromLibrary(req) as Span;
 }
