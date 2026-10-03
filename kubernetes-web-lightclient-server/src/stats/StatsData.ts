@@ -1,8 +1,13 @@
 import { Span } from "@opentelemetry/api";
 import { Config } from "../Config";
-import { StatsDataMetricsInit, StatsDataGet } from "./StatsDataMetrics";
+import {
+  StatsDataMetricsInit,
+  StatsDataMetricsReconfigure,
+  StatsDataGet,
+} from "./StatsDataMetrics";
 import {
   StatsDataPodUsageInit,
+  StatsDataPodUsageReconfigure,
   PodResourcesGet,
   PodUsageStatsGet,
 } from "./StatsDataPodUsage";
@@ -16,4 +21,12 @@ export async function StatsDataInit(
 ): Promise<void> {
   await StatsDataMetricsInit(context, config);
   await StatsDataPodUsageInit(context, config);
+}
+
+/**
+ * Re-arm the scheduled capture loops, e.g. after a configuration reload.
+ */
+export function StatsDataReconfigure(config: Config): void {
+  StatsDataMetricsReconfigure(config);
+  StatsDataPodUsageReconfigure(config);
 }

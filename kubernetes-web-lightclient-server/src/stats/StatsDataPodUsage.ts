@@ -9,6 +9,8 @@ import { kubernetesCommand } from "./StatsDataUtils";
 
 let podResources: PodResourceMeasurement[] = [];
 let podUsageStats: Map<string, PodUsageStats> = new Map();
+let running = false;
+let intervalHandle: NodeJS.Timeout | null = null;
 const logger = OTelLogger().createModuleLogger("StatsDataPodUsage");
 const POD_USAGE_STATS_FILE = "pod-usage-stats.json";
 
@@ -20,20 +22,40 @@ export async function StatsDataPodUsageInit(
   const filePath = path.join(config.DATA_DIR, POD_USAGE_STATS_FILE);
   podUsageStats = await loadPodUsageStats(filePath);
 
-  const executePodResourcesCapture = async () => {
-    const span = OTelTracer().startSpan("StatsDataPodUsage-Loop");
-    try {
-      await PodResourcesCapture(config);
-    } catch (error) {
-      logger.error(`Error capturing pod resources`, error, span);
-    }
-    span.end();
-  };
-  await executePodResourcesCapture();
-  setInterval(
-    executePodResourcesCapture,
+  await executePodResourcesCapture(config);
+  StatsDataPodUsageReconfigure(config);
+}
+
+/**
+ * (Re-)arm the capture interval, e.g. after a configuration reload.
+ */
+export function StatsDataPodUsageReconfigure(config: Config): void {
+  if (intervalHandle) {
+    clearInterval(intervalHandle);
+  }
+  intervalHandle = setInterval(
+    () => executePodResourcesCapture(config),
     config.POD_RESOURCES_FETCH_FREQUENCY * 1000,
   );
+}
+
+async function executePodResourcesCapture(config: Config): Promise<void> {
+  if (running) {
+    logger.warn(
+      "Pod resources capture skipped: previous capture still in progress",
+    );
+    return;
+  }
+  running = true;
+  const span = OTelTracer().startSpan("StatsDataPodUsage-Loop");
+  try {
+    await PodResourcesCapture(config);
+  } catch (error) {
+    logger.error(`Error capturing pod resources`, error, span);
+  } finally {
+    running = false;
+    span.end();
+  }
 }
 
 export async function PodResourcesGet(): Promise<PodResourceMeasurement[]> {
@@ -48,7 +70,7 @@ export async function PodUsageStatsGet(): Promise<PodUsageStats[]> {
 
 async function PodResourcesCapture(config: Config): Promise<void> {
   const podsObj = JSON.parse(
-    await kubernetesCommand(`kubectl get pods --all-namespaces -o json`),
+    await kubernetesCommand(["get", "pods", "--all-namespaces", "-o", "json"]),
   );
 
   if (!podsObj.items) return;
@@ -56,9 +78,12 @@ async function PodResourcesCapture(config: Config): Promise<void> {
   // Get current usage via kubectl top pods
   const podUsageMap: Map<string, { cpu: string; memory: string }> = new Map();
   try {
-    const topPodsStr = await kubernetesCommand(
-      `kubectl top pods --all-namespaces --no-headers`,
-    );
+    const topPodsStr = await kubernetesCommand([
+      "top",
+      "pods",
+      "--all-namespaces",
+      "--no-headers",
+    ]);
     const lines = topPodsStr.trim().split("\n");
     for (const line of lines) {
       const parts = line.trim().split(/\s+/);

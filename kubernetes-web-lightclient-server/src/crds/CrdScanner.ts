@@ -173,31 +173,15 @@ async function scanCrds(): Promise<void> {
   logger.info("Scanning cluster for CRDs...");
   try {
     const commandOutput = await SystemCommandExecute(
-      "kubectl get customresourcedefinition -o json | gzip | base64 -w 0",
+      "kubectl",
+      ["get", "customresourcedefinition", "-o", "json"],
       {
         timeout: 30000,
         maxBuffer: 1024 * 1024 * 10,
       },
     );
 
-    const binaryString = atob(commandOutput);
-    const byteArray = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      byteArray[i] = binaryString.charCodeAt(i);
-    }
-    const decompressionStream = new DecompressionStream("gzip");
-    const readableStream = new ReadableStream({
-      start(controller) {
-        controller.enqueue(byteArray);
-        controller.close();
-      },
-    });
-    const response = new Response(
-      readableStream.pipeThrough(decompressionStream),
-    );
-    const arrayBuffer = await response.arrayBuffer();
-    const jsonStr = new TextDecoder().decode(arrayBuffer);
-    const crdList = JSON.parse(jsonStr);
+    const crdList = JSON.parse(commandOutput);
 
     const crdResources: ResourceType[] = [];
     if (crdList.items) {

@@ -3,6 +3,7 @@ import { AuthGetUserSession } from "@devopsplaybook.io/common-utils";
 import { OTelLogger } from "../OTelContext";
 import { KubeCache } from "./KubeCache";
 import { KubeCtlExecutorGetInstance } from "../kubectl/KubeCtlExecutor";
+import { IsAllowedResourceType } from "../kubectl/KubeCtlValidation";
 
 const logger = OTelLogger().createModuleLogger("KubeResourceRoutes");
 
@@ -28,12 +29,12 @@ export class KubeResourceRoutes {
     fastify.get<GetResourceData>("/data/:type", async (req, res) => {
       const userSession = await AuthGetUserSession(req);
       if (!userSession.isAuthenticated) {
-        return res.status(403).send({ error: "Access Denied" });
+        return res.status(401).send({ error: "Unauthorized" });
       }
 
       const { type } = req.params;
       const force = req.query.force === "true";
-      if (!type || type.indexOf(" ") >= 0) {
+      if (!IsAllowedResourceType(type)) {
         return res.status(400).send({ error: "Invalid resource type" });
       }
 
@@ -46,12 +47,11 @@ export class KubeResourceRoutes {
         await this.cache.clear(type);
       }
 
-      // Check cache first
+      // Read the cache a single time and compute staleness from the entry
       const cachedEntry = await this.cache.get(type);
 
       if (cachedEntry) {
-        // Cache exists - check if stale
-        const stale = await this.cache.isStale(type);
+        const stale = this.cache.isStaleEntry(cachedEntry);
 
         if (stale) {
           // Return stale data immediately, trigger background refresh

@@ -5,9 +5,14 @@ import {
   CrdScannerRefresh,
   ResourceType,
 } from "./CrdScanner";
-import { UserSelectionLoad, UserSelectionSave } from "./UserResourceSelections";
+import {
+  IsValidUserId,
+  UserSelectionLoad,
+  UserSelectionSave,
+} from "./UserResourceSelections";
 import { Config } from "../Config";
 import { DeletePolicy } from "../kubectl/DeletePolicy";
+import { IsAllowedResourceType } from "../kubectl/KubeCtlValidation";
 
 export class CrdRoutes {
   private config: Config;
@@ -21,7 +26,7 @@ export class CrdRoutes {
     fastify.get("/types", async (req, res) => {
       const userSession = await AuthGetUserSession(req);
       if (!userSession.isAuthenticated) {
-        return res.status(403).send({ error: "Access Denied" });
+        return res.status(401).send({ error: "Unauthorized" });
       }
       const types = this.withDeletableFlag(CrdScannerGetAvailableResources());
       return res.status(200).send({ types });
@@ -31,7 +36,10 @@ export class CrdRoutes {
     fastify.get("/selections", async (req, res) => {
       const userSession = await AuthGetUserSession(req);
       if (!userSession.isAuthenticated) {
-        return res.status(403).send({ error: "Access Denied" });
+        return res.status(401).send({ error: "Unauthorized" });
+      }
+      if (!IsValidUserId(userSession.userId)) {
+        return res.status(400).send({ error: "Invalid user id" });
       }
       const selections = await UserSelectionLoad(
         this.config,
@@ -49,10 +57,21 @@ export class CrdRoutes {
     fastify.put<PutSelections>("/selections", async (req, res) => {
       const userSession = await AuthGetUserSession(req);
       if (!userSession.isAuthenticated) {
-        return res.status(403).send({ error: "Access Denied" });
+        return res.status(401).send({ error: "Unauthorized" });
+      }
+      if (!IsValidUserId(userSession.userId)) {
+        return res.status(400).send({ error: "Invalid user id" });
       }
       if (!Array.isArray(req.body.selectedIds)) {
         return res.status(400).send({ error: "selectedIds must be an array" });
+      }
+      const invalid = req.body.selectedIds.find(
+        (id) => typeof id !== "string" || !IsAllowedResourceType(id),
+      );
+      if (invalid !== undefined) {
+        return res
+          .status(400)
+          .send({ error: `Unknown resource type: ${String(invalid)}` });
       }
       await UserSelectionSave(
         this.config,
@@ -66,7 +85,7 @@ export class CrdRoutes {
     fastify.post("/refresh", async (req, res) => {
       const userSession = await AuthGetUserSession(req);
       if (!userSession.isAuthenticated) {
-        return res.status(403).send({ error: "Access Denied" });
+        return res.status(401).send({ error: "Unauthorized" });
       }
       const types = this.withDeletableFlag(await CrdScannerRefresh());
       return res.status(200).send({ types });
