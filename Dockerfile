@@ -9,7 +9,8 @@ COPY kubernetes-web-lightclient-server kubernetes-web-lightclient-server
 
 RUN cd kubernetes-web-lightclient-server && \
     npm ci && \
-    npm run build
+    npm run build && \
+    npm prune --omit=dev
 
 COPY kubernetes-web-lightclient-web kubernetes-web-lightclient-web
 
@@ -20,17 +21,19 @@ RUN cd kubernetes-web-lightclient-web && \
 # RUN
 FROM node:26-alpine
 
-RUN apk add --no-cache kubectl gzip
+RUN apk add --no-cache kubectl
 
 COPY entrypoint.sh /entrypoint.sh
 
 COPY --from=builder /opt/src/kubernetes-web-lightclient-server/node_modules /opt/app/kubernetes-web-lightclient/node_modules
 COPY --from=builder /opt/src/kubernetes-web-lightclient-server/dist /opt/app/kubernetes-web-lightclient/dist
-COPY --from=builder /opt/src/kubernetes-web-lightclient-web/.output/public /opt/app/kubernetes-web-lightclient/web
-COPY kubernetes-web-lightclient-server/config.json /opt/app/kubernetes-web-lightclient/config.json
-COPY kubernetes-web-lightclient-server/sql /opt/app/kubernetes-web-lightclient/sql
-COPY package.json /opt/app/kubernetes-web-lightclient/package.json
+COPY --from=builder --chown=1000:1000 /opt/src/kubernetes-web-lightclient-web/.output/public /opt/app/kubernetes-web-lightclient/web
+COPY --from=builder /opt/src/kubernetes-web-lightclient-server/config.json /opt/app/kubernetes-web-lightclient/config.json
+COPY --from=builder /opt/src/kubernetes-web-lightclient-server/sql /opt/app/kubernetes-web-lightclient/sql
+COPY --from=builder /opt/src/kubernetes-web-lightclient-server/package.json /opt/app/kubernetes-web-lightclient/package.json
 
 WORKDIR /opt/app/kubernetes-web-lightclient
+
+USER 1000:1000
 
 ENTRYPOINT [ "/entrypoint.sh" ]

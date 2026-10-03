@@ -1,17 +1,18 @@
-#/bin/bash
+#!/bin/bash
 
 SERVICE_DIR="$( cd "$( dirname "$0" )" && pwd )"
-cd ${SERVICE_DIR}
+cd "${SERVICE_DIR}"
 
 if [ ! -d bin ]; then
     mkdir -p bin
     cd bin
     wget https://github.com/traefik/traefik/releases/download/v2.9.6/traefik_v2.9.6_linux_amd64.tar.gz
-    tar -xzf *.tar.gz
+    echo "9aabb29a10ac051161fe286cdaa5c336073f08f2298fb994dc4f0a5328e21f2f  traefik_v2.9.6_linux_amd64.tar.gz" | sha256sum -c - || exit 1
+    tar -xzf traefik_v2.9.6_linux_amd64.tar.gz
     cd ..
 fi
 
-cd ${SERVICE_DIR}
+cd "${SERVICE_DIR}"
 ./bin/traefik \
     --entryPoints.web.address=:9999 \
     --entryPoints.websecure.address=:9998 \
