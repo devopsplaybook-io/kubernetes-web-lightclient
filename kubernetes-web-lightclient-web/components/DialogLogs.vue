@@ -128,6 +128,7 @@ export default {
       ),
       showAdvancedOptions: false,
       filterText: "",
+      appliedFilterText: "",
       debouncedFilter: null,
       containers: [],
       selectedContainer: "",
@@ -139,8 +140,8 @@ export default {
   },
   computed: {
     filteredText() {
-      if (!this.filterText) return this.text;
-      const filterLower = this.filterText.toLowerCase();
+      if (!this.appliedFilterText) return this.text;
+      const filterLower = this.appliedFilterText.toLowerCase();
       return this.text
         .split("\n")
         .filter((line) => line.toLowerCase().includes(filterLower))
@@ -163,7 +164,7 @@ export default {
   },
   async created() {
     this.debouncedFilter = debounce(() => {
-      this.filterText = this.filterText;
+      this.appliedFilterText = this.filterText;
     }, 300);
     await this.fetchPodDetails();
     await this.fetchLogs();

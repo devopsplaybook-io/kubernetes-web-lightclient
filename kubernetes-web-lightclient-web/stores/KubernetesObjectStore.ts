@@ -37,6 +37,12 @@ for (const [oldKey, typeId] of Object.entries(OLD_KEY_TO_TYPE)) {
   TYPE_TO_OLD_KEY[typeId] = oldKey;
 }
 
+// Bounded background-refresh retries for stale cache entries: a per-type
+// counter caps the 2s retry loop so it cannot spin forever when the backend
+// keeps answering "stale".
+const STALE_RETRY_MAX_ATTEMPTS = 3;
+const STALE_RETRY_DELAY_MS = 2000;
+
 export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
   state: () => {
     // Pre-initialize all old-style data keys as empty arrays so per-type components
@@ -54,6 +60,7 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
       loading: false,
       hasEverLoaded: false,
       _pendingCacheRequests: {} as { [key: string]: boolean },
+      _staleRetryCounts: {} as { [key: string]: number },
     };
   },
 
@@ -227,6 +234,8 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
      */
     async invalidateAndRefresh(type: string) {
       _forceRefreshTypes.add(type);
+      // A user-triggered load restarts the background-refresh budget
+      this._staleRetryCounts[type] = 0;
       this.loading = true;
       // Build a standard get payload for the type
       const typeInfo =
@@ -298,14 +307,22 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
         this.hasEverLoaded = true;
 
         if (status === "fresh") {
+          this._staleRetryCounts[type] = 0;
           this.loading = false;
         } else if (status === "stale") {
-          // Background refresh is in progress; retry after a short delay
-          setTimeout(() => {
-            if (this.lastCall.type === type) {
-              this.getObjectCached(type);
-            }
-          }, 2000);
+          // Background refresh is in progress; retry after a short delay,
+          // bounded so a persistently failing backend cannot spin forever
+          const attempts = this._staleRetryCounts[type] ?? 0;
+          if (attempts < STALE_RETRY_MAX_ATTEMPTS) {
+            this._staleRetryCounts[type] = attempts + 1;
+            setTimeout(() => {
+              if (this.lastCall.type === type) {
+                this.getObjectCached(type);
+              }
+            }, STALE_RETRY_DELAY_MS);
+          } else {
+            this.loading = false;
+          }
         }
         // If status is "loading" (no cache yet), keep loading=true
         // The refresh interval or next user action will retry
