@@ -11,6 +11,28 @@ module.exports = {
     ],
   },
   coverageProvider: "v8",
+  coverageThreshold: {
+    global: {
+      statements: 80,
+      branches: 80,
+      functions: 75,
+      lines: 80,
+    },
+    // Security-relevant modules: everything that builds input for kubectl
+    // or interprets kubectl output must stay well covered.
+    "./src/kubectl/**": {
+      statements: 90,
+      branches: 85,
+      functions: 85,
+      lines: 90,
+    },
+    "./src/cache/KubeResourceRoutes.ts": {
+      statements: 90,
+      branches: 85,
+      functions: 90,
+      lines: 90,
+    },
+  },
   testMatch: ["/**/src/**/*.spec.(ts|js)"],
   testEnvironment: "node",
   moduleNameMapper: {
