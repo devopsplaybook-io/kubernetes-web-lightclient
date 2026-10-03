@@ -177,7 +177,10 @@ async function scanCrds(): Promise<void> {
       ["get", "customresourcedefinition", "-o", "json"],
       {
         timeout: 30000,
-        maxBuffer: 1024 * 1024 * 10,
+        // CRD definitions carry full OpenAPI schemas: raw JSON can reach
+        // tens of MB on clusters with many CRDs (unlike the old gzip pipe,
+        // output is buffered uncompressed).
+        maxBuffer: 1024 * 1024 * 64,
       },
     );
 
