@@ -1,9 +1,14 @@
 import * as childProcess from "child_process";
+import * as zlib from "zlib";
 import { RequestQueueGetInstance } from "../queue/RequestQueue";
+
+export function CompressOutput(stdout: string): string {
+  return zlib.gzipSync(Buffer.from(stdout, "utf8")).toString("base64");
+}
 
 export class KubeCtlExecutor {
   /**
-   * Execute a kubectl command that fetches a full list of objects for a type.
+   * Execute a kubectl get for a full list of objects of a type.
    * Uses the request queue with deduplication by object type.
    * Returns base64-encoded gzip-compressed JSON.
    */
@@ -12,35 +17,34 @@ export class KubeCtlExecutor {
     timeout?: number,
   ): Promise<string> {
     // Always fetch all namespaces - filtering is done on the client side
-    const command = `kubectl get ${objectType} -A -o json | gzip | base64 -w 0`;
+    const args = ["get", objectType, "-A", "-o", "json"];
     const queue = RequestQueueGetInstance();
     return queue.execute(
       `get:${objectType}`,
-      (signal) => this.runCommand(command, signal),
+      (signal) => this.runCommand(args, signal).then(CompressOutput),
       timeout,
     );
   }
 
   /**
-   * Execute an arbitrary kubectl command without deduplication.
-   * The command should already include the full kubectl invocation and piped compression.
+   * Execute a kubectl command from an argument vector without deduplication.
+   * The caller is responsible for building a validated argument vector.
+   * Returns base64-encoded gzip-compressed output.
    */
-  public executeCommand(
-    fullCommand: string,
-    timeout?: number,
-  ): Promise<string> {
+  public executeCommand(args: string[], timeout?: number): Promise<string> {
     const queue = RequestQueueGetInstance();
     return queue.execute(
       null,
-      (signal) => this.runCommand(fullCommand, signal),
+      (signal) => this.runCommand(args, signal).then(CompressOutput),
       timeout,
     );
   }
 
-  private runCommand(command: string, signal: AbortSignal): Promise<string> {
+  private runCommand(args: string[], signal: AbortSignal): Promise<string> {
     return new Promise<string>((resolve, reject) => {
-      const child = childProcess.exec(
-        command,
+      const child = childProcess.execFile(
+        "kubectl",
+        args,
         {
           timeout: 0, // We handle timeout via AbortSignal
           maxBuffer: 1024 * 1024 * 10,

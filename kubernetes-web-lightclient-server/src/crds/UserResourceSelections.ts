@@ -8,6 +8,13 @@ const logger = OTelLogger().createModuleLogger("UserResourceSelections");
 
 const BASE_SELECTIONS_FILE = "user-selections";
 
+const USER_ID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function IsValidUserId(userId: string): boolean {
+  return typeof userId === "string" && USER_ID_REGEX.test(userId);
+}
+
 export interface UserSelections {
   selectedIds: string[];
   updatedAt: string;
@@ -17,6 +24,9 @@ export function UserSelectionGetFilePath(
   config: Config,
   userId: string,
 ): string {
+  if (!IsValidUserId(userId)) {
+    throw new Error("Invalid user id");
+  }
   return path.join(config.DATA_DIR, `${BASE_SELECTIONS_FILE}-${userId}.json`);
 }
 

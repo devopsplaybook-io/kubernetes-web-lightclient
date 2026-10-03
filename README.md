@@ -19,7 +19,7 @@ This client is meant to be deployed with Kubernetes. Here is an example YAML fil
 
 **Notes:**
 
-- Adjust the service account permissions as needed.
+- The service account is bound to the scoped ClusterRole `kubernetes-web-lightclient-role` shipped in [rbac.yaml](docs/deployments/kubernetes/kubernetes-web-lightclient/base/rbac.yaml); adjust its rules as needed.
 - `APPLICATION_TITLE` is an optional name that can be given to the instance.
 - For the Stats page to be fully functional (CPU/memory usage metrics), the [Kubernetes Metrics Server](https://github.com/kubernetes-sigs/metrics-server) must be installed in the cluster.
 
@@ -51,8 +51,12 @@ See the [ConfigMap YAML](docs/deployments/kubernetes/kubernetes-web-lightclient/
 | ALLOWED_DELETABLE_OBJECTS                               | Object types that can be deleted: `NONE`, `ALL`, or a comma-separated list of object types (e.g. `pod`, `deployment`) | pod           | Config file or environment variable |
 | STATS_FETCH_FREQUENCY                                   | Frequency (in seconds) to fetch stats from Kubernetes                                                                 | 60            | Config file or environment variable |
 | STATS_RETENTION                                         | Retention period (in seconds) for stats                                                                               | 86400 (1 day) | Config file or environment variable |
-| OPENTELEMETRY_COLLECTOR_HTTP_TRACES                     | Hours before minute-level metrics are compressed                                                                      | (empty)       | Config file or environment variable |
-| OPENTELEMETRY_COLLECTOR_HTTP_METRICS                    | Days before hour-level metrics are compressed                                                                         | (empty)       | Config file or environment variable |
+| POD_RESOURCES_FETCH_FREQUENCY                           | Frequency (in seconds) to refresh pod requests/limits                                                                 | 1800          | Config file or environment variable |
+| CACHE_TTL                                               | Time (in milliseconds) a cached resource listing stays fresh                                                          | 30000         | Config file or environment variable |
+| REQUEST_QUEUE_CONCURRENCY                               | Maximum number of concurrent Kubernetes requests                                                                      | 2             | Config file or environment variable |
+| REQUEST_TIMEOUT                                         | Timeout (in milliseconds) for a Kubernetes request                                                                    | 20000         | Config file or environment variable |
+| OPENTELEMETRY_COLLECTOR_HTTP_TRACES                     | OTEL collector endpoint for traces                                                                                    | (empty)       | Config file or environment variable |
+| OPENTELEMETRY_COLLECTOR_HTTP_METRICS                    | OTEL collector endpoint for metrics                                                                                   | (empty)       | Config file or environment variable |
 | OPENTELEMETRY_COLLECTOR_HTTP_LOGS                       | OTEL collector endpoint for logs                                                                                      | (empty)       | Config file or environment variable |
 | OPENTELEMETRY_COLLECTOR_EXPORT_LOGS_INTERVAL_SECONDS    | Interval (in seconds) to export logs                                                                                  | 60            | Config file or environment variable |
 | OPENTELEMETRY_COLLECTOR_EXPORT_METRICS_INTERVAL_SECONDS | Interval (in seconds) to export metrics                                                                               | 60            | Config file or environment variable |

@@ -17,7 +17,7 @@ import {
   OTelTracer,
 } from "./OTelContext";
 import { RequestQueueInit } from "./queue/RequestQueue";
-import { StatsDataInit } from "./stats/StatsData";
+import { StatsDataInit, StatsDataReconfigure } from "./stats/StatsData";
 import { StatsDataRecommendationInit } from "./stats/StatsDataRecommendation";
 import { StatsRoutes } from "./stats/StatsRoutes";
 import {
@@ -39,7 +39,12 @@ Promise.resolve().then(async () => {
   await config.reload();
   watchFile(config.CONFIG_FILE, () => {
     logger.info(`Config updated: ${config.CONFIG_FILE}`);
-    config.reload();
+    config
+      .reload()
+      .then(() => StatsDataReconfigure(config))
+      .catch((error) => {
+        logger.error(`Config reload failed: ${error.message}`, error);
+      });
   });
 
   OTelSetTracer(new StandardTracer(config));
@@ -68,7 +73,9 @@ Promise.resolve().then(async () => {
   // API
 
   const fastify = Fastify({
-    logger: config.LOG_LEVEL === process.env.FASTIFY_LOG_LEVEL,
+    // Fastify request logging is disabled: application logs and telemetry are
+    // carried by the OTel pipeline configured above.
+    logger: false,
   });
 
   if (config.CORS_POLICY_ORIGIN) {

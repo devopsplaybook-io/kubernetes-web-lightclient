@@ -16,6 +16,27 @@ spec:
         app: kubernetes-web-lightclient
     spec:
       serviceAccountName: kubernetes-web-lightclient-role
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - image: kubernetes-web-lightclient
+          name: data-permissions
+          command: ["sh", "-c", "chown -R 1000:1000 /data"]
+          securityContext:
+            runAsNonRoot: false
+            runAsUser: 0
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+              add: ["CHOWN"]
+          volumeMounts:
+            - mountPath: /data
+              name: pod-volume
       containers:
         - image: kubernetes-web-lightclient
           name: kubernetes-web-lightclient
@@ -36,6 +57,13 @@ spec:
               mountPath: /opt/app/kubernetes-web-lightclient/config.json
               subPath: config.json
           imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            # The entrypoint rewrites the web manifest/config at container
+            # start, so the root filesystem cannot be read-only.
+            readOnlyRootFilesystem: false
           readinessProbe:
             httpGet:
               path: /api/status

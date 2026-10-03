@@ -21,6 +21,7 @@ let llmClient: LLMClient | null = null;
 let notificationsClient: NotificationsClient | null = null;
 let recommendationFilePath = "";
 let cachedRecommendation: RecommendationResult | null = null;
+let generationPromise: Promise<void> | null = null;
 
 export interface RecommendationResult {
   generatedAt: string;
@@ -104,7 +105,27 @@ export async function RecommendationGetCached(): Promise<RecommendationResult | 
   return cachedRecommendation;
 }
 
+/**
+ * Whether a recommendation generation is currently in flight. The route uses
+ * this to reject overlapping regenerate requests; startup, cron and route
+ * triggers all share the same single-flight generation.
+ */
+export function RecommendationIsGenerating(): boolean {
+  return generationPromise !== null;
+}
+
 export async function RecommendationGenerate(): Promise<void> {
+  if (generationPromise) {
+    logger.info("Recommendation generation already in progress - joining it");
+    return generationPromise;
+  }
+  generationPromise = ExecuteRecommendationGeneration().finally(() => {
+    generationPromise = null;
+  });
+  return generationPromise;
+}
+
+async function ExecuteRecommendationGeneration(): Promise<void> {
   const span = OTelTracer().startSpan("RecommendationGenerate");
   try {
     if (!RecommendationIsEnabled() || !llmClient) {
@@ -141,20 +162,28 @@ export async function RecommendationGenerate(): Promise<void> {
 
     let analysis = "";
     let recommendations = "";
+    let generationSucceeded = false;
     try {
       const llmResponse = await llmClient.request(messages);
       if (!llmResponse.content || llmResponse.content.trim().length < 20) {
         logger.warn("LLM returned empty or very short response");
-        analysis =
-          "LLM returned an empty response. Please check the LLM configuration.";
       } else {
         const parsed = ParseRecommendationResponse(llmResponse.content);
         analysis = parsed.analysis;
         recommendations = parsed.recommendations;
+        generationSucceeded = true;
       }
     } catch (error) {
       logger.error(`LLM API call failed: ${error.message}`, error, span);
-      analysis = `LLM recommendation generation failed: ${error.message}`;
+    }
+
+    // Only a successful, non-empty generation replaces the cached
+    // recommendation; failures keep the previous (valid) one in place.
+    if (!generationSucceeded) {
+      logger.warn(
+        "Recommendation generation failed - keeping the previous cached recommendation",
+      );
+      return;
     }
 
     cachedRecommendation = {
@@ -168,11 +197,20 @@ export async function RecommendationGenerate(): Promise<void> {
     });
     logger.info("LLM recommendation generated and cached successfully", span);
 
-    await NotificationSendRecommendation(cachedRecommendation);
+    try {
+      await NotificationSendRecommendation(cachedRecommendation);
+    } catch (error) {
+      logger.error(
+        `Failed to send recommendation notification: ${error.message}`,
+        error,
+        span,
+      );
+    }
   } catch (error) {
     logger.error(`Failed to generate recommendation: ${error.message}`, error, span);
+  } finally {
+    span.end();
   }
-  span.end();
 }
 
 // ── Pure helpers (exported for testing) ───────────────────────────────────────
@@ -225,20 +263,33 @@ export function BuildRecommendationSummary(
 
 /**
  * Split an LLM response into its analysis and recommendations sections.
+ * Sections are sliced between their headers so multi-line content is kept.
  * Falls back to the full content as analysis when sections are not found.
  */
 export function ParseRecommendationResponse(content: string): {
   analysis: string;
   recommendations: string;
 } {
-  const analysisMatch = content.match(
-    /^## Analysis\s*\n([\s\S]*?)(?=\n^## Recommendations|\n?$)/im,
-  );
-  const recommendationsMatch = content.match(
-    /^## Recommendations\s*\n([\s\S]*)/im,
-  );
-  let analysis = (analysisMatch?.[1] || "").trim();
-  const recommendations = (recommendationsMatch?.[1] || "").trim();
+  const analysisHeader = /^## Analysis[ \t]*$/m.exec(content);
+  const recommendationsHeader = /^## Recommendations[ \t]*$/m.exec(content);
+
+  let analysis = "";
+  if (analysisHeader) {
+    const start = analysisHeader.index + analysisHeader[0].length;
+    const end =
+      recommendationsHeader && recommendationsHeader.index > start
+        ? recommendationsHeader.index
+        : content.length;
+    analysis = content.slice(start, end).trim();
+  }
+
+  let recommendations = "";
+  if (recommendationsHeader) {
+    recommendations = content
+      .slice(recommendationsHeader.index + recommendationsHeader[0].length)
+      .trim();
+  }
+
   if (!analysis && !recommendations) {
     analysis = content.trim();
   }
@@ -284,7 +335,7 @@ async function GetPodStatuses(): Promise<Map<string, PodStatusInfo>> {
   const podStatuses = new Map<string, PodStatusInfo>();
   try {
     const podsObj = JSON.parse(
-      await kubernetesCommand(`kubectl get pods --all-namespaces -o json`),
+      await kubernetesCommand(["get", "pods", "--all-namespaces", "-o", "json"]),
     );
     for (const pod of podsObj.items || []) {
       const namespace = pod.metadata?.namespace;

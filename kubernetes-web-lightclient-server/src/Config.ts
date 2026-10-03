@@ -30,10 +30,17 @@ export class Config extends ConfigBase {
   constructor() {
     super("kubernetes-web-lightclient-server");
 
-    // Override VERSION with this server's own package.json
+    // Override VERSION with this server's own package.json. The override is
+    // applied only when the resolved file is actually the server package, so
+    // a container where the path resolves to another package.json (e.g. the
+    // repository root) cannot report a foreign version.
     try {
       const pkg = fse.readJsonSync(path.resolve(__dirname, "../package.json"));
-      if (pkg && pkg.version) {
+      if (
+        pkg &&
+        pkg.name === "kubernetes-web-lightclient-server" &&
+        pkg.version
+      ) {
         this.VERSION = pkg.version;
       }
       // eslint-disable-next-line @typescript-eslint/no-unused-vars

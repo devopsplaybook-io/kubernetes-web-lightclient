@@ -1,4 +1,31 @@
 ---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kubernetes-web-lightclient-role
+rules:
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods", "persistentvolumeclaims", "persistentvolumes"]
+    verbs: ["delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["delete", "patch", "update"]
+  - apiGroups: ["apps"]
+    resources: ["deployments/scale"]
+    verbs: ["patch", "update"]
+  - apiGroups: ["apps"]
+    resources: ["daemonsets", "statefulsets"]
+    verbs: ["patch", "update"]
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["nodes", "pods"]
+    verbs: ["get", "list"]
+---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
@@ -9,7 +36,7 @@ subjects:
     namespace: kubernetes-web-lightclient
 roleRef:
   kind: ClusterRole
-  name: cluster-admin
+  name: kubernetes-web-lightclient-role
   apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: v1

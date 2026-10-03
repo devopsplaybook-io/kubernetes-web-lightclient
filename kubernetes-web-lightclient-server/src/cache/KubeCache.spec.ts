@@ -98,4 +98,29 @@ describe("KubeCache", () => {
     const exists = await fse.pathExists(cache.getCacheDir());
     expect(exists).toBe(true);
   });
+
+  test("should write cache entries atomically without leaving temp files", async () => {
+    await cache.set("pods", "dGVzdGRhdGE=");
+
+    const files = await fse.readdir(cache.getCacheDir());
+    expect(files).toEqual(["pods.json"]);
+    expect(await fse.pathExists(path.join(cache.getCacheDir(), "pods.json.tmp"))).toBe(
+      false,
+    );
+  });
+
+  test("should evaluate staleness on an in-memory entry without re-reading the file", async () => {
+    expect(cache.isStaleEntry(null)).toBe(true);
+
+    await cache.set("pods", "dGVzdGRhdGE=");
+    const entry = await cache.get("pods");
+    expect(cache.isStaleEntry(entry)).toBe(false);
+    expect(cache.isStaleEntry(entry, 60000)).toBe(false);
+
+    // Past the default 100ms TTL
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect(cache.isStaleEntry(entry)).toBe(true);
+    // ...but still fresh with an explicit longer TTL
+    expect(cache.isStaleEntry(entry, 60000)).toBe(false);
+  });
 });

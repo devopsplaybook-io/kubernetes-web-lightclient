@@ -7,13 +7,14 @@ export const NamespaceStore = defineStore("NamespaceStore", {
 
   actions: {
     async loadNamespaces() {
-      await KubernetesObjectStore().getObjectFull("namespaces", {
-        object: "namespaces",
+      // "namespace" (singular) is the server-side resource type id
+      await KubernetesObjectStore().getObjectFull("namespace", {
+        object: "namespace",
         command: "get",
         argument: "",
       });
       const namespaces = JSON.parse(
-        JSON.stringify(KubernetesObjectStore().dataFull["namespaces"]),
+        JSON.stringify(KubernetesObjectStore().dataFull["namespace"]),
       )
         .map((ns: any) => ns.metadata.name)
         .sort();

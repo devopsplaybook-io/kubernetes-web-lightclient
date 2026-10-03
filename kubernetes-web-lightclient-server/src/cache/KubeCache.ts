@@ -59,24 +59,36 @@ export class KubeCache {
       type,
     };
     const filePath = this.getCacheFilePath(type);
+    const tmpFilePath = `${filePath}.tmp`;
     try {
       await fse.ensureDir(this.cacheDir);
-      await fse.writeJson(filePath, entry, { spaces: 2 });
+      // Write to a temporary file first, then rename so a crash mid-write
+      // can never leave a truncated entry in place
+      await fse.writeJson(tmpFilePath, entry, { spaces: 2 });
+      await fse.rename(tmpFilePath, filePath);
       logger.info(`Cache saved for ${type} (${data.length} bytes)`);
     } catch (error) {
       logger.error(`Failed to save cache for ${type}: ${error.message}`, error);
+      try {
+        await fse.remove(tmpFilePath);
+      } catch {
+        // Best effort cleanup
+      }
     }
   }
 
-  public async isStale(type: string, ttl?: number): Promise<boolean> {
-    const effectiveTtl = ttl ?? this.defaultTtl;
-    const entry = await this.get(type);
+  public isStaleEntry(entry: CacheEntry | null, ttl?: number): boolean {
     if (!entry) {
       return true; // No cache means stale
     }
+    const effectiveTtl = ttl ?? this.defaultTtl;
     const cachedTime = new Date(entry.cachedAt).getTime();
     const age = Date.now() - cachedTime;
     return age > effectiveTtl;
+  }
+
+  public async isStale(type: string, ttl?: number): Promise<boolean> {
+    return this.isStaleEntry(await this.get(type), ttl);
   }
 
   public async clear(type: string): Promise<void> {

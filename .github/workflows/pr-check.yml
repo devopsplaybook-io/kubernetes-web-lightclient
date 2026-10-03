@@ -20,3 +20,27 @@ jobs:
       DOCKER_HUB_ACCESS_TOKEN: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
       QUALITY_DASHBOARD_URL: ${{ secrets.QUALITY_DASHBOARD_URL }}
       QUALITY_DASHBOARD_TOKEN: ${{ secrets.QUALITY_DASHBOARD_TOKEN }}
+
+  # Render the Kustomize overlays and schema-validate them so a broken mount
+  # or an invalid manifest can never ship again.
+  manifest-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Render kustomize overlays
+        run: |
+          kubectl kustomize docs/deployments/kubernetes/kubernetes-web-lightclient > /tmp/app.yaml
+          kubectl kustomize docs/deployments/kubernetes/kubernetes-web-lightclient-nodeports > /tmp/app-nodeports.yaml
+          echo "Rendered $(grep -c '^kind:' /tmp/app.yaml) + $(grep -c '^kind:' /tmp/app-nodeports.yaml) resources"
+
+      - name: Install kubeconform
+        run: |
+          KUBECONFORM_VERSION=v0.6.7
+          curl -fsSL -o /tmp/kubeconform.tar.gz \
+            "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
+          echo "95f14e87aa28c09d5941f11bd024c1d02fdc0303ccaa23f61cef67bc92619d73  /tmp/kubeconform.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/kubeconform.tar.gz -C /tmp kubeconform
+
+      - name: Validate manifests
+        run: /tmp/kubeconform -strict -summary /tmp/app.yaml /tmp/app-nodeports.yaml

@@ -24,7 +24,6 @@ export class RequestQueue {
   private queue: QueueItem[];
   private active: Map<string, ActiveRequest>;
   private activeCount: number;
-  private keyedPromises: Map<string, Promise<string>>;
 
   constructor(maxConcurrency: number = 2, defaultTimeout: number = 20000) {
     this.maxConcurrency = maxConcurrency;
@@ -32,7 +31,6 @@ export class RequestQueue {
     this.queue = [];
     this.active = new Map();
     this.activeCount = 0;
-    this.keyedPromises = new Map();
   }
 
   public execute(
@@ -76,15 +74,6 @@ export class RequestQueue {
       item.reject = reject;
     });
     item.promise = promise;
-
-    // If keyed, store promise for dedup
-    if (key !== null && key !== undefined) {
-      const finalize = () => {
-        this.keyedPromises.delete(key);
-      };
-      promise.then(finalize, finalize);
-      this.keyedPromises.set(key, promise);
-    }
 
     this.queue.push(item);
     this.processQueue();

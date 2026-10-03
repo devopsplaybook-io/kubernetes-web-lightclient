@@ -171,7 +171,7 @@ import { RefreshIntervalService } from "~~/services/RefreshIntervalService";
 import { AuthService } from "~~/services/AuthService";
 import { handleError } from "~~/services/EventBus";
 import axios from "axios";
-import { marked } from "marked";
+import { renderSafeMarkdown } from "~~/services/MarkdownService";
 import Config from "~~/services/Config.ts";
 import VueApexCharts from "vue3-apexcharts";
 
@@ -384,8 +384,7 @@ export default {
         });
     },
     renderMarkdown(text) {
-      if (!text) return "";
-      return marked.parse(text, { breaks: true, async: false });
+      return renderSafeMarkdown(text);
     },
     // Format raw millicores number to human-readable CPU string
     formatCpuRaw(millicores) {
@@ -411,18 +410,24 @@ export default {
         arr.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)),
       );
 
+      // Missing usage (metrics-server unavailable) is plotted as null so the
+      // chart shows a gap instead of a misleading zero
       this.cpuChartSeries = Object.keys(statsByNode).map((node) => ({
         name: node,
         data: statsByNode[node].map((s) => [
           new Date(s.timestamp).getTime(),
-          Number(s.cpuUsage?.toFixed(2) || 0),
+          s.cpuUsage === null || s.cpuUsage === undefined
+            ? null
+            : Number(s.cpuUsage.toFixed(2)),
         ]),
       }));
       this.memoryChartSeries = Object.keys(statsByNode).map((node) => ({
         name: node,
         data: statsByNode[node].map((s) => [
           new Date(s.timestamp).getTime(),
-          Number(s.memoryUsage?.toFixed(2) || 0),
+          s.memoryUsage === null || s.memoryUsage === undefined
+            ? null
+            : Number(s.memoryUsage.toFixed(2)),
         ]),
       }));
       this.podsChartSeries = Object.keys(statsByNode).map((node) => ({
