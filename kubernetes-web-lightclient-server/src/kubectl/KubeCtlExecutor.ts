@@ -47,7 +47,9 @@ export class KubeCtlExecutor {
         args,
         {
           timeout: 0, // We handle timeout via AbortSignal
-          maxBuffer: 1024 * 1024 * 10,
+          // Raw `kubectl get -o json` output is buffered uncompressed before
+          // in-process compression; large clusters can exceed the default.
+          maxBuffer: 1024 * 1024 * 64,
         },
         (error, stdout) => {
           if (error) {

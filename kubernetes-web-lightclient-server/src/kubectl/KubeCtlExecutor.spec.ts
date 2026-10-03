@@ -65,12 +65,20 @@ describe("KubeCtlExecutor", () => {
     expect(execFileMock).toHaveBeenCalledWith(
       "kubectl",
       ["get", "pods", "-A", "-o", "json"],
-      { timeout: 0, maxBuffer: 1024 * 1024 * 10 },
+      { timeout: 0, maxBuffer: 1024 * 1024 * 64 },
       expect.any(Function),
     );
 
     callbacks[0](null, '{"items":[]}');
     expect(decode(await pending)).toBe('{"items":[]}');
+  });
+
+  test("buffers raw kubectl output well beyond the 1MB exec default (CRD lists exceed 10MB)", async () => {
+    const pending = executor.executeGetRequest("customresourcedefinition");
+    const options = execFileMock.mock.calls[0][2];
+    expect(options.maxBuffer).toBeGreaterThan(17 * 1024 * 1024);
+    callbacks[0](null, "x");
+    await pending;
   });
 
   test("executeGetRequest deduplicates concurrent requests of the same type", async () => {
@@ -107,7 +115,7 @@ describe("KubeCtlExecutor", () => {
     expect(execFileMock).toHaveBeenCalledWith(
       "kubectl",
       argv,
-      { timeout: 0, maxBuffer: 1024 * 1024 * 10 },
+      { timeout: 0, maxBuffer: 1024 * 1024 * 64 },
       expect.any(Function),
     );
 
