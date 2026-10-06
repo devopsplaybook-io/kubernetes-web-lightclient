@@ -10,5 +10,5 @@ resources:
   - base/configmap.yaml
 images:
   - name: kubernetes-web-lightclient
-    newTag: 0.33.0
+    newTag: 0.34.0
     newName: devopsplaybookio/kubernetes-web-lightclient
