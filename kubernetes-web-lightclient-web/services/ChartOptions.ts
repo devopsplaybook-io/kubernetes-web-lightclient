@@ -17,8 +17,8 @@ export function buildLineChartOptions({
     chart: {
       id,
       background: "transparent",
-      theme: { mode: themeMode },
     },
+    theme: { mode: themeMode },
     stroke: { width: 2 },
     grid: {
       borderColor: themeMode === "dark" ? "rgba(255,255,255,0.14)" : "#e0e0e0",

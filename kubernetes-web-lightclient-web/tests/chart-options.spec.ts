@@ -14,8 +14,8 @@ describe("buildLineChartOptions", () => {
     expect(options.chart).toEqual({
       id: "cpu-line",
       background: "transparent",
-      theme: { mode: "dark" },
     });
+    expect(options.theme).toEqual({ mode: "dark" });
     expect(options.tooltip).toEqual({ theme: "dark" });
     expect(options.grid).toEqual({ borderColor: "rgba(255,255,255,0.14)" });
     expect(options.stroke).toEqual({ width: 2 });
@@ -39,8 +39,8 @@ describe("buildLineChartOptions", () => {
     expect(options.chart).toEqual({
       id: "memory-line",
       background: "transparent",
-      theme: { mode: "light" },
     });
+    expect(options.theme).toEqual({ mode: "light" });
     expect(options.tooltip).toEqual({ theme: "light" });
     expect(options.grid).toEqual({ borderColor: "#e0e0e0" });
     expect(options.xaxis).toEqual({
