@@ -302,6 +302,10 @@ export default {
     },
   },
   async created() {
+    this.themeMode =
+      document.documentElement.getAttribute("data-theme") === "dark"
+        ? "dark"
+        : "light";
     if (!(await AuthenticationStore().ensureAuthenticated())) {
       useRouter().push({ path: "/users" });
     }
@@ -312,10 +316,6 @@ export default {
     this.refreshIntervalValue = RefreshIntervalService.get();
   },
   mounted() {
-    this.themeMode =
-      document.documentElement.getAttribute("data-theme") === "dark"
-        ? "dark"
-        : "light";
     this.themeObserver = new MutationObserver(() => {
       this.themeMode =
         document.documentElement.getAttribute("data-theme") === "dark"
