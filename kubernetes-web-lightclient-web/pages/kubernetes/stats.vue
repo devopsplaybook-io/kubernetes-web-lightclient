@@ -3,18 +3,21 @@
     <h3>Metrics</h3>
     <div id="stats-layout">
       <apexchart
+        :key="themeMode"
         width="100%"
         type="line"
         :options="cpuChartOptions"
         :series="cpuChartSeries"
       />
       <apexchart
+        :key="themeMode"
         width="100%"
         type="line"
         :options="memoryChartOptions"
         :series="memoryChartSeries"
       />
       <apexchart
+        :key="themeMode"
         width="100%"
         type="line"
         :options="podsChartOptions"
@@ -174,6 +177,7 @@ import axios from "axios";
 import { renderSafeMarkdown } from "~~/services/MarkdownService";
 import Config from "~~/services/Config.ts";
 import VueApexCharts from "vue3-apexcharts";
+import { buildLineChartOptions } from "~~/services/ChartOptions";
 
 export default {
   components: {
@@ -190,33 +194,39 @@ export default {
       regenerating: false,
       refreshIntervalId: null,
       refreshIntervalValue: RefreshIntervalService.get(),
-      cpuChartOptions: {
-        chart: { id: "cpu-line" },
-        stroke: { width: 2 },
-        xaxis: { type: "datetime", title: { text: "Timestamp" } },
-        yaxis: { min: 0, max: 100 },
-        title: { text: "CPU Usage (%)" },
-      },
+      themeMode: "light",
       cpuChartSeries: [],
-      memoryChartOptions: {
-        chart: { id: "memory-line" },
-        stroke: { width: 2 },
-        xaxis: { type: "datetime", title: { text: "Timestamp" } },
-        yaxis: { min: 0, max: 100 },
-        title: { text: "Memory Usage (%)" },
-      },
       memoryChartSeries: [],
-      podsChartOptions: {
-        chart: { id: "pods-line" },
-        stroke: { width: 2 },
-        xaxis: { type: "datetime", title: { text: "Timestamp" } },
-        yaxis: { min: 0 },
-        title: { text: "Pods per Node" },
-      },
       podsChartSeries: [],
     };
   },
   computed: {
+    cpuChartOptions() {
+      return buildLineChartOptions({
+        id: "cpu-line",
+        title: "CPU Usage (%)",
+        themeMode: this.themeMode,
+        yMin: 0,
+        yMax: 100,
+      });
+    },
+    memoryChartOptions() {
+      return buildLineChartOptions({
+        id: "memory-line",
+        title: "Memory Usage (%)",
+        themeMode: this.themeMode,
+        yMin: 0,
+        yMax: 100,
+      });
+    },
+    podsChartOptions() {
+      return buildLineChartOptions({
+        id: "pods-line",
+        title: "Pods per Node",
+        themeMode: this.themeMode,
+        yMin: 0,
+      });
+    },
     sortedPodResources() {
       return [...this.podResources].sort((a, b) => {
         if (a.namespace !== b.namespace) {
@@ -302,6 +312,20 @@ export default {
     this.refreshIntervalValue = RefreshIntervalService.get();
   },
   mounted() {
+    this.themeMode =
+      document.documentElement.getAttribute("data-theme") === "dark"
+        ? "dark"
+        : "light";
+    this.themeObserver = new MutationObserver(() => {
+      this.themeMode =
+        document.documentElement.getAttribute("data-theme") === "dark"
+          ? "dark"
+          : "light";
+    });
+    this.themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
     const interval = parseInt(this.refreshIntervalValue, 10);
     if (interval > 0) {
       this.refreshIntervalId = setInterval(() => {
@@ -313,6 +337,9 @@ export default {
     }
   },
   beforeUnmount() {
+    if (this.themeObserver) {
+      this.themeObserver.disconnect();
+    }
     if (this.refreshIntervalId) {
       clearInterval(this.refreshIntervalId);
     }
@@ -674,22 +701,5 @@ export default {
 .rec-generated-at {
   opacity: 0.6;
   font-size: 0.8em;
-}
-</style>
-
-<style>
-.apexcharts-tooltip {
-  color: #333;
-}
-:root[data-theme="dark"] .apexcharts-xaxis text,
-:root[data-theme="dark"] .apexcharts-yaxis text {
-  fill: #eee !important;
-}
-:root[data-theme="dark"] .apexcharts-legend-text {
-  color: #eee !important;
-}
-:root[data-theme="dark"] .apexcharts-title-text {
-  fill: #eee !important;
-  color: #eee !important;
 }
 </style>
