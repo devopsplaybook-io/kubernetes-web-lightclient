@@ -118,8 +118,10 @@ main {
 
 /* apexcharts >= 7.6.1 prepends its stylesheet to <head>, so Pico's global
    [type=button] rule (equal specificity, later in the head) restyles the
-   toolbar icons into large themed buttons. Higher specificity wins regardless
-   of order. */
+   toolbar icons into large themed buttons and paints them white
+   (--pico-primary-inverse) — invisible on the light-theme toolbar. Higher
+   specificity wins regardless of order; color: inherit restores the app's
+   theme-aware body text color (dark slate in light theme, light gray in dark). */
 .vue-apexcharts .apexcharts-toolbar > button {
   width: 26px;
   height: 24px;
@@ -133,5 +135,6 @@ main {
   box-shadow: none;
   transform: none;
   filter: none;
+  color: inherit;
 }
 </style>
