@@ -55,14 +55,20 @@
         Last CRD scan: {{ lastRefresh }}
       </div>
     </div>
+
+    <ApiTokensSettings />
   </div>
 </template>
 
 <script>
+import ApiTokensSettings from "~~/components/ApiTokensSettings.vue";
 import { ResourceService } from "~~/services/ResourceService";
 import { handleError, EventBus, EventTypes } from "~~/services/EventBus";
 
 export default {
+  components: {
+    ApiTokensSettings,
+  },
   data() {
     return {
       allResources: [],
