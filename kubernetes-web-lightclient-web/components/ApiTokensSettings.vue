@@ -47,7 +47,7 @@
             v-model="newTokenName"
             type="text"
             maxlength="255"
-            placeholder="e.g. planner-llm-agent"
+            placeholder="e.g. ci-pipeline"
           />
           <label for="api-token-expiry">Expiry (optional)</label>
           <input
