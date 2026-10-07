@@ -97,7 +97,10 @@ describe("ApiTokensSettings", () => {
     const wrapper = await mountComponent();
 
     expect(wrapper.text()).toContain("machine-client");
-    expect(wrapper.text()).toContain("Revoke");
+    expect(
+      wrapper.find('i[aria-label="Revoke API token machine-client"]').exists(),
+    ).toBe(true);
+    expect(wrapper.text()).not.toContain("Bearer");
     wrapper.unmount();
   });
 
@@ -121,6 +124,7 @@ describe("ApiTokensSettings", () => {
       "plaintext-one-time-token-value",
     );
     expect(document.body.textContent).toContain("only once");
+    expect(document.body.textContent).not.toContain("Bearer");
     expect(JSON.stringify(localStorage)).not.toContain(
       "plaintext-one-time-token-value",
     );
