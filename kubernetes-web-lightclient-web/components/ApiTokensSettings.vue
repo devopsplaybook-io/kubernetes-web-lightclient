@@ -1,23 +1,18 @@
 <template>
-  <div>
+  <section class="settings-section">
     <h2>API Tokens</h2>
-    <p>
-      Tokens allow machine clients to call the API with
-      <code>Authorization: Bearer</code>. A token grants the permissions of
-      your account and its value is displayed only once, at creation.
-    </p>
 
     <div v-if="loading" class="loading-indicator"></div>
 
     <div v-else>
-      <div class="table-container" v-if="apiTokens.length > 0">
-        <table>
+      <div class="table-scroll" v-if="apiTokens.length > 0">
+        <table class="striped">
           <thead>
             <tr>
               <th>Name</th>
               <th>Created</th>
               <th>Expires</th>
-              <th>Last used</th>
+              <th>Used</th>
               <th></th>
             </tr>
           </thead>
@@ -28,39 +23,38 @@
               <td>{{ formatDateTime(apiToken.expiresAt) }}</td>
               <td>{{ formatDateTime(apiToken.lastUsedAt) }}</td>
               <td>
-                <button class="secondary" v-on:click="revokeStart(apiToken)">
-                  Revoke
-                </button>
+                <i
+                  class="bi bi-x-circle-fill"
+                  role="button"
+                  :aria-label="`Revoke API token ${apiToken.name}`"
+                  v-on:click="revokeStart(apiToken)"
+                ></i>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
-      <p v-else>No API tokens defined.</p>
+      <div v-else class="empty-state">No API tokens defined.</div>
 
-      <div class="api-token-create">
-        <h3>Create a token</h3>
-        <div class="api-token-create-fields">
-          <label for="api-token-name">Name</label>
-          <input
-            id="api-token-name"
-            v-model="newTokenName"
-            type="text"
-            maxlength="255"
-            placeholder="e.g. ci-pipeline"
-          />
-          <label for="api-token-expiry">Expiry (optional)</label>
-          <input
-            id="api-token-expiry"
-            v-model="newTokenExpiryDate"
-            type="date"
-            :min="minExpiryDate"
-          />
-        </div>
-        <button v-on:click="createToken()" :disabled="creating || !newTokenName">
-          {{ creating ? "Creating..." : "Create Token" }}
-        </button>
-      </div>
+      <h3>Create a token</h3>
+      <label for="api-token-name">Name</label>
+      <input
+        id="api-token-name"
+        v-model="newTokenName"
+        type="text"
+        maxlength="255"
+        placeholder="e.g. ci-pipeline"
+      />
+      <label for="api-token-expiry">Expiry (optional)</label>
+      <input
+        id="api-token-expiry"
+        v-model="newTokenExpiryDate"
+        type="date"
+        :min="minExpiryDate"
+      />
+      <button v-on:click="createToken()" :disabled="creating || !newTokenName">
+        {{ creating ? "Creating..." : "Create Token" }}
+      </button>
     </div>
 
     <DialogConfirm
@@ -71,44 +65,24 @@
       v-on:onCancel="revokeCancel()"
     />
 
-    <Teleport to="body">
-      <dialog id="dialog-api-token-created" open v-if="createdToken">
-        <article>
-          <header>
-            <a
-              href="#close"
-              aria-label="Close"
-              class="close"
-              v-on:click="createdTokenClose()"
-            ></a>
-            API Token Created
-          </header>
-          <p>
-            Copy your token now: for security it is shown
-            <strong>only once</strong> and cannot be retrieved afterwards. Use
-            it with the <code>Authorization: Bearer</code> header.
-          </p>
-          <pre class="api-token-value">{{ createdToken.token }}</pre>
-          <footer>
-            <button class="secondary" v-on:click="createdTokenCopy()">
-              Copy Token
-            </button>
-            <button v-on:click="createdTokenClose()">Done</button>
-          </footer>
-        </article>
-      </dialog>
-    </Teleport>
-  </div>
+    <DialogApiTokenCreated
+      v-if="createdToken"
+      :token="createdToken.token"
+      v-on:onClose="createdTokenClose()"
+    />
+  </section>
 </template>
 
 <script>
 import DialogConfirm from "~~/components/DialogConfirm.vue";
+import DialogApiTokenCreated from "~~/components/DialogApiTokenCreated.vue";
 import { ApiTokensService } from "~~/services/ApiTokensService";
 import { handleError, EventBus, EventTypes } from "~~/services/EventBus";
 
 export default {
   components: {
     DialogConfirm,
+    DialogApiTokenCreated,
   },
   data() {
     return {
@@ -185,49 +159,34 @@ export default {
     createdTokenClose() {
       this.createdToken = null;
     },
-    async createdTokenCopy() {
-      try {
-        await navigator.clipboard.writeText(this.createdToken.token);
-        EventBus.emit(EventTypes.ALERT_MESSAGE, {
-          type: "info",
-          text: "Token copied to clipboard",
-        });
-      } catch (error) {
-        handleError(error);
-      }
-    },
     formatDateTime(value) {
       if (!value) {
         return "Never";
       }
-      return new Date(value).toLocaleString();
+      return new Date(value).toLocaleDateString();
     },
   },
 };
 </script>
 
 <style scoped>
-.table-container {
-  overflow-x: auto;
+h3 {
+  margin-top: var(--space-lg, 1.5rem);
 }
-.table-container table {
-  width: 100%;
+.table-scroll td,
+.table-scroll th {
+  font-size: 0.9em;
 }
-.api-token-create {
-  margin-top: 1em;
+@media (max-width: 600px) {
+  .table-scroll td,
+  .table-scroll th {
+    padding-left: 0.5em;
+    padding-right: 0.5em;
+  }
 }
-.api-token-create h3 {
-  margin-bottom: 0.5em;
-}
-.api-token-create-fields {
-  display: grid;
-  gap: 0.25em;
-  max-width: 400px;
-  margin-bottom: 1em;
-}
-.api-token-value {
-  overflow-wrap: anywhere;
-  word-break: break-all;
-  white-space: pre-wrap;
+.empty-state {
+  text-align: center;
+  padding: var(--space-xl, 2rem);
+  opacity: 0.6;
 }
 </style>
