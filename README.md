@@ -66,5 +66,34 @@ See the [ConfigMap YAML](docs/deployments/kubernetes/kubernetes-web-lightclient/
 | LLM_API_URL                                             | Chat completions endpoint of the LLM provider                                                                         | https://api.deepseek.com/chat/completions | Config file or environment variable |
 | LLM_MODEL                                               | LLM model to use for recommendations                                                                                  | deepseek-chat | Config file or environment variable |
 | LLM_RECOMMENDATIONS_CRON                                | Cron schedule for generating recommendations                                                                          | 0 8 * * 1 (every Monday at 08:00) | Config file or environment variable |
-| NOTIFICATIONS_API                                       | Notifications service API endpoint (e.g. `https://notifications.example.com/api/notifications`)                       | (empty)       | Config file or environment variable |
-| NOTIFICATIONS_TOKEN                                     | Notifications service API token                                                                                       | (empty)       | Config file or environment variable |
+| NOTIFICATIONS_API                                      | Notifications service API endpoint (e.g. `https://notifications.example.com/api/notifications`)                       | (empty)       | Config file or environment variable |
+| NOTIFICATIONS_TOKEN                                    | Notifications service API token                                                                                       | (empty)       | Config file or environment variable |
+| API_TOKENS_MAX_PER_USER                                | Maximum number of API tokens per user                                                                                 | 100           | Config file or environment variable |
+
+## Authentication
+
+Two authentication methods are supported on all `/api/*` routes:
+
+- **JWT sessions** for human users through the web UI: login via `POST /api/users/session` and pass the returned token as `Authorization: Bearer <jwt>`. This is what the web UI itself uses; nothing changed for existing users.
+- **API tokens** for machine clients (scripts, agents, integrations): pass a user-scoped token as `Authorization: Bearer <api-token>`. API tokens are an addition, not a replacement: JWT sessions keep working unchanged.
+
+API tokens are managed self-service, either in the web UI (Settings → API Tokens) or through the REST endpoints (authenticated with a JWT session):
+
+- `POST /api/users/tokens` with body `{"name": "my-machine-client"}` (optional `"expiresAt"`: ISO 8601 datetime in the future) creates a token. The plaintext token is returned **exactly once** in the response field `token` — store it immediately, it cannot be retrieved afterwards.
+- `GET /api/users/tokens` lists the tokens of the authenticated user (name, creation date, expiry, last-used; never the token itself or its hash).
+- `DELETE /api/users/tokens/:id` revokes a token (owner or admin). Revocation takes effect immediately.
+
+Security properties:
+
+- Only the SHA-256 hash of a token is stored; plaintext tokens are never logged or persisted.
+- A token grants exactly the permissions of its owning user (role and scopes are resolved live on every request): revoking a role instantly narrows the token.
+- Expired (`expiresAt` in the past) and revoked tokens are rejected immediately.
+- The number of tokens per user is capped by `API_TOKENS_MAX_PER_USER` (default: 100).
+
+Example: query a pod with a machine client:
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"object":"pod","command":"get","namespace":"default","argument":"my-pod"}' \
+  https://<instance>/api/kubectl/command
+```
