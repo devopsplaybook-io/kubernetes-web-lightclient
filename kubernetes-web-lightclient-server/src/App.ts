@@ -25,6 +25,7 @@ import {
   AuthSetOTel,
   DbUtilsInit,
   DbUtilsSetOTel,
+  UsersApiTokensDataSetOTel,
   UsersDataSetOTel,
   UsersRoutes,
 } from "@devopsplaybook.io/common-utils";
@@ -57,6 +58,7 @@ Promise.resolve().then(async () => {
   await DbUtilsInit(span, config, path.resolve(__dirname, "../sql"));
   AuthSetOTel(OTelTracer());
   UsersDataSetOTel(OTelTracer());
+  UsersApiTokensDataSetOTel(OTelTracer());
   await AuthInit(span, config, []);
   await StatsDataInit(span, config);
   await StatsDataRecommendationInit(span, config);
