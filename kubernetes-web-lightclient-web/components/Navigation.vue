@@ -31,14 +31,6 @@
           <span class="nav-label">Settings</span></NuxtLink
         >
       </li>
-      <li>
-        <NuxtLink
-          to="/users"
-          :class="activeRoute == '/users' ? 'active' : 'inactive'"
-          ><i class="bi bi-person-circle"></i>
-          <span class="nav-label">Users</span></NuxtLink
-        >
-      </li>
     </ul>
   </AppNavigation>
 </template>
