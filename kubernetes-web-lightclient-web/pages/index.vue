@@ -11,7 +11,7 @@ export default {
     if (await AuthenticationStore().ensureAuthenticated()) {
       useRouter().push({ path: "/kubernetes" });
     } else {
-      useRouter().push({ path: "/users" });
+      useRouter().push({ path: "/settings" });
     }
   },
 };

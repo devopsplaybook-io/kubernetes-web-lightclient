@@ -234,7 +234,7 @@ export default {
     }
 
     if (!(await AuthenticationStore().ensureAuthenticated())) {
-      useRouter().push({ path: "/users" });
+      useRouter().push({ path: "/settings" });
       return;
     }
 

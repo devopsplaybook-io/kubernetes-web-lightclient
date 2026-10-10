@@ -38,6 +38,13 @@ const BUILT_IN_RESOURCES: ResourceType[] = [
     isCrd: false,
     group: "apps",
   },
+  {
+    id: "replicaset",
+    name: "ReplicaSets",
+    namespaced: true,
+    isCrd: false,
+    group: "apps",
+  },
   { id: "job", name: "Jobs", namespaced: true, isCrd: false, group: "batch" },
   {
     id: "cronjob",
@@ -61,6 +68,13 @@ const BUILT_IN_RESOURCES: ResourceType[] = [
     group: "networking.k8s.io",
   },
   {
+    id: "networkpolicy",
+    name: "Network Policies",
+    namespaced: true,
+    isCrd: false,
+    group: "networking.k8s.io",
+  },
+  {
     id: "configmap",
     name: "ConfigMap",
     namespaced: true,
@@ -75,6 +89,20 @@ const BUILT_IN_RESOURCES: ResourceType[] = [
     namespaced: true,
     isCrd: false,
     group: "",
+  },
+  {
+    id: "hpa",
+    name: "Horizontal Pod Autoscalers",
+    namespaced: true,
+    isCrd: false,
+    group: "autoscaling",
+  },
+  {
+    id: "pdb",
+    name: "Pod Disruption Budgets",
+    namespaced: true,
+    isCrd: false,
+    group: "policy",
   },
   {
     id: "role",
@@ -104,6 +132,13 @@ const BUILT_IN_RESOURCES: ResourceType[] = [
     namespaced: false,
     isCrd: false,
     group: "",
+  },
+  {
+    id: "storageclass",
+    name: "Storage Classes",
+    namespaced: false,
+    isCrd: false,
+    group: "storage.k8s.io",
   },
   {
     id: "clusterrole",
@@ -142,6 +177,25 @@ export function CrdScannerGetBuiltinResources(): string[] {
   return BUILT_IN_RESOURCES.map((r) => r.id);
 }
 
+/**
+ * Rebuilds a resource list so its non-CRD portion always mirrors the
+ * built-ins of the running release: newly added built-ins appear, retired
+ * ones disappear, and live CRDs from the previous list are preserved.
+ * CRDs whose id now matches a built-in are dropped to avoid duplicates.
+ */
+export function CrdScannerReconcileAvailableResources(
+  resources: ResourceType[],
+): ResourceType[] {
+  const builtInIds = new Set(BUILT_IN_RESOURCES.map((r) => r.id));
+  const crds = new Map<string, ResourceType>();
+  for (const resource of resources) {
+    if (resource.isCrd && !builtInIds.has(resource.id)) {
+      crds.set(resource.id, resource);
+    }
+  }
+  return [...BUILT_IN_RESOURCES, ...crds.values()];
+}
+
 export async function CrdScannerInit(config: Config): Promise<void> {
   resourcesFilePath = path.join(config.DATA_DIR, RESOURCES_FILE);
   logger.info(`Resources file path: ${resourcesFilePath}`);
@@ -151,6 +205,11 @@ export async function CrdScannerInit(config: Config): Promise<void> {
 
   // Load previously saved CRDs from disk if available
   await loadFromDisk();
+
+  // Older deployments persisted the built-ins of their release: reconcile
+  // so new built-in types appear and retired ones disappear
+  availableResources =
+    CrdScannerReconcileAvailableResources(availableResources);
 
   // Schedule daily CRD scan
   cron.schedule(CRD_SCAN_INTERVAL, async () => {
@@ -210,20 +269,14 @@ async function scanCrds(): Promise<void> {
       }
     }
 
-    // Merge: built-in + CRDs, with built-in always first
-    const existingCrdIds = new Set(crdResources.map((r) => r.id));
-    const filteredExisting = availableResources.filter(
-      (r) => !r.isCrd || existingCrdIds.has(r.id),
-    );
-    const newBuiltIn = filteredExisting.filter((r) => !r.isCrd);
-    const existingCrds = filteredExisting.filter((r) => r.isCrd);
-
-    // Keep CRDs that still exist, add new ones, remove stale ones
+    // Merge: built-ins (always mirroring this release) + live CRDs; CRDs
+    // no longer present in the cluster are dropped
     const crdMap = new Map<string, ResourceType>();
-    for (const crd of existingCrds) crdMap.set(crd.id, crd);
     for (const crd of crdResources) crdMap.set(crd.id, crd);
 
-    availableResources = [...newBuiltIn, ...Array.from(crdMap.values())];
+    availableResources = CrdScannerReconcileAvailableResources(
+      Array.from(crdMap.values()),
+    );
     await saveToDisk();
     logger.info(
       `CRD scan complete: ${availableResources.length} total resources (${crdMap.size} CRDs)`,

@@ -307,7 +307,7 @@ export default {
         ? "dark"
         : "light";
     if (!(await AuthenticationStore().ensureAuthenticated())) {
-      useRouter().push({ path: "/users" });
+      useRouter().push({ path: "/settings" });
     }
     this.refreshStats();
     this.refreshPodResources();
