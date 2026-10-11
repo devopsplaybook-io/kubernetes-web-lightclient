@@ -13,6 +13,7 @@ import {
 import { Config } from "../Config";
 import { DeletePolicy } from "../kubectl/DeletePolicy";
 import { IsAllowedResourceType } from "../kubectl/KubeCtlValidation";
+import { OTelRequestSpan } from "../OTelContext";
 
 export class CrdRoutes {
   private config: Config;
@@ -42,6 +43,7 @@ export class CrdRoutes {
         return res.status(400).send({ error: "Invalid user id" });
       }
       const selections = await UserSelectionLoad(
+        OTelRequestSpan(req),
         this.config,
         userSession.userId,
       );
@@ -74,6 +76,7 @@ export class CrdRoutes {
           .send({ error: `Unknown resource type: ${String(invalid)}` });
       }
       await UserSelectionSave(
+        OTelRequestSpan(req),
         this.config,
         userSession.userId,
         req.body.selectedIds,

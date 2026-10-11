@@ -8,6 +8,7 @@ import { KubeCache } from "./cache/KubeCache";
 import { KubeResourceRoutes } from "./cache/KubeResourceRoutes";
 import { CrdRoutes } from "./crds/CrdRoutes";
 import { CrdScannerInit } from "./crds/CrdScanner";
+import { UserSelectionsDataInit } from "./crds/UserResourceSelections";
 import { KubeCtlCommandRoutes } from "./kubectl/KubeCtlCommandRoutes";
 import { KubeCtlLogsRoutes } from "./kubectl/KubeCtlLogsRoutes";
 import {
@@ -60,6 +61,7 @@ Promise.resolve().then(async () => {
   UsersDataSetOTel(OTelTracer());
   UsersApiTokensDataSetOTel(OTelTracer());
   await AuthInit(span, config, []);
+  await UserSelectionsDataInit(config);
   await StatsDataInit(span, config);
   await StatsDataRecommendationInit(span, config);
   await CrdScannerInit(config);
