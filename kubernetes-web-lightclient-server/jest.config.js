@@ -1,7 +1,7 @@
 module.exports = {
   moduleFileExtensions: ["ts", "js"],
   transform: {
-    "^.+\\.(ts|tsx)$": [
+    "^.+\\.(ts|tsx|js)$": [
       "@swc/jest",
       {
         jsc: {
@@ -10,6 +10,8 @@ module.exports = {
       },
     ],
   },
+  // cookie@2 (required by light-my-request@6) is ESM-only
+  transformIgnorePatterns: ["node_modules/(?!(cookie)/)"],
   coverageProvider: "v8",
   coverageThreshold: {
     global: {
