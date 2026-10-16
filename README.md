@@ -7,6 +7,8 @@ Kubernetes Web LightClient is a web-based user interface for Kubernetes. In its 
 - For Pod: Display Log
 - For Deployment, DaemonSet, StatefulSet: Rollout restart
 - For Node: CPU and Memory information
+- Read-only YAML manifest view per object: the details dialog renders `describe` and the raw manifest as YAML with a copy button
+- Shareable per-object deep links: an open details or logs dialog is encoded in the URL query (`dialog`, `name`, `dialogNamespace`) so views survive a refresh and can be bookmarked
 - Optional LLM Recommendations: an analysis and advice on the current cluster, generated on a schedule (default: every Monday) or on demand, displayed in the Stats section and sent to the [notifications service](https://github.com/devopsplaybook-io/notifications) when enabled; notifications are sent with source `kubernetes-web-lightclient` suffixed with the normalized application name (e.g. `kubernetes-web-lightclient-kubernetes`) when `APPLICATION_TITLE` is set
 - Shared web UI with persisted theme preferences, accessible alerts and loading indicators, and offline status
 
@@ -96,4 +98,58 @@ Example: query a pod with a machine client:
 curl -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"object":"pod","command":"get","namespace":"default","argument":"my-pod"}' \
   https://<instance>/api/kubectl/command
+```
+
+## Command API
+
+The kubectl command API exposes a strictly validated, read-only-by-default subset of kubectl. Both routes accept and return JSON; results are gzip-compressed and base64-encoded in the `result` field.
+
+### `POST /api/kubectl/command`
+
+Payload schema:
+
+| Field       | Type    | Required | Description                                                                 |
+| ----------- | ------- | -------- | --------------------------------------------------------------------------- |
+| `command`   | string  | yes      | One of the allowed commands below                                           |
+| `object`    | string  | yes      | A known resource type id (built-ins and scanned CRDs, e.g. `pod`)           |
+| `namespace` | string  | no       | Target namespace; omit for cluster-scoped objects                           |
+| `argument`  | string  | depends  | Command-specific, see the table below                                       |
+| `noJson`    | boolean | no       | When `true`, `get` returns kubectl's default text output instead of `-o json` |
+
+Allowed commands and their argument shape:
+
+| Command            | Argument shape                                  | Example                                     |
+| ------------------ | ----------------------------------------------- | ------------------------------------------- |
+| `get`              | `""` (list), `"-A"` (all namespaces), or a name | `"my-pod"`                                  |
+| `describe`         | an object name                                  | `"my-pod"`                                  |
+| `delete`           | an object name                                  | `"my-pod"` (subject to the delete policy)   |
+| `rollout restart`  | an object name                                  | `"my-deployment"`                           |
+| `scale`            | `<name> --replicas=<n>`                         | `"my-deployment --replicas=3"`              |
+| `create`           | `--from=cronjob/<cronjob> <jobname>` on `job`   | `"--from=cronjob/my-cron my-job"`           |
+
+Response envelope (success): `201` with `{"result": "<gzip+base64 output>"}`.
+
+### `POST /api/kubectl/logs`
+
+Payload schema: `namespace` (required), `pod` (required), `container` (optional), `argument` (optional string of `--previous` and/or `--since=10m|1h|24h`), `timestamps` (optional boolean, default `true`).
+
+### Error responses
+
+- `401` `{"error":"Unauthorized"}` — missing, expired or invalid credentials.
+- `400` `{"error":"...","field":"..."}` — the request was rejected by validation. `field` names the rejected payload field (`command`, `object`, `namespace`, `argument`, `pod`, `container` or `payload`) and `error` says why, e.g. `{"error":"unknown resource type \"secretx\"","field":"object"}` or `{"error":"invalid scale argument \"my-deployment\", expected <name> --replicas=<n>","field":"argument"}`.
+- `403` `{"error":"Deletion of <type> objects is not allowed"}` — the delete policy (`ALLOWED_DELETABLE_OBJECTS`) refused a `delete`.
+- `404` `{"error":"This object no longer exists — ..."}` — the object vanished between listing and the request.
+
+Worked example (success and a rejected request):
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"object":"secretx","command":"get"}' \
+  https://<instance>/api/kubectl/command
+# 400 {"error":"unknown resource type \"secretx\"","field":"object"}
+
+curl -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"object":"pod","command":"get","namespace":"default","argument":"my-pod"}' \
+  https://<instance>/api/kubectl/command
+# 201 {"result":"<gzip+base64 pod manifest>"}
 ```

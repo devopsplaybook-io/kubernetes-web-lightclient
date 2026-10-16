@@ -76,8 +76,9 @@
     </table>
     <DialogDetails
       v-if="dialogDetails.enable"
-      :text="dialogDetails.text"
-      :title="dialogDetails.title"
+      :object-type="dialogDetails.objectType"
+      :object-name="dialogDetails.objectName"
+      :namespace="dialogDetails.namespace"
       @onClose="onCloseDetails()"
     />
     <DialogScaleDeployment
@@ -115,7 +116,11 @@ const namespaceStore = NamespaceStore();
 import { AuthService } from "~~/services/AuthService";
 import { EventBus, EventTypes } from "~~/services/EventBus";
 import { staleAwareHandler } from "~~/services/KubernetesUtils";
-import { UtilsDecompressData } from "~/services/Utils";
+import {
+  clearDialogRoute,
+  readDialogRoute,
+  writeDialogRoute,
+} from "~~/services/DialogDeepLink";
 import axios from "axios";
 import Config from "~~/services/Config.ts";
 
@@ -136,8 +141,9 @@ export default {
       },
       dialogDetails: {
         enable: false,
-        title: "",
-        text: "",
+        objectType: "",
+        namespace: "",
+        objectName: "",
       },
       dialogScale: {
         enable: false,
@@ -155,6 +161,10 @@ export default {
   },
   async created() {
     KubernetesObjectStore().getDeployments();
+    const dialogRoute = readDialogRoute(this.$route?.query);
+    if (dialogRoute && dialogRoute.kind === "details") {
+      this.showDetails(dialogRoute.namespace, dialogRoute.name);
+    }
   },
   methods: {
     confirmDelete(kubeObject) {
@@ -198,32 +208,20 @@ export default {
     onCloseDetails() {
       this.dialogDetails = {
         enable: false,
-        title: "",
-        text: "",
+        objectType: "",
+        namespace: "",
+        objectName: "",
       };
+      clearDialogRoute(this.$router, this.$route);
     },
     async showDetails(namespace, objectName) {
       this.dialogDetails = {
         enable: true,
-        title: "Details",
-        text: "",
+        objectType: "deployment",
+        namespace,
+        objectName,
       };
-      await axios
-        .post(
-          `${(await Config.get()).SERVER_URL}/kubectl/command`,
-          {
-            namespace,
-            object: "deployment",
-            command: "describe",
-            argument: objectName,
-            noJson: true,
-          },
-          await AuthService.getAuthHeader(),
-        )
-        .then(async (res) => {
-          this.dialogDetails.text = await UtilsDecompressData(res.data.result);
-        })
-        .catch(staleAwareHandler("deployment"));
+      writeDialogRoute(this.$router, this.$route, "details", objectName, namespace);
     },
     showScale(namespace, deploymentName, currentReplicas) {
       this.dialogScale = {

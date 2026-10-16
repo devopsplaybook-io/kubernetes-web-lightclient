@@ -86,6 +86,10 @@ describe("KubeCtlCommandRoutes", () => {
       url: "/api/kubectl/command/",
     });
     expect(res.statusCode).toBe(400);
+    expect(res.json()).toEqual({
+      error: "missing or invalid command",
+      field: "command",
+    });
     expect(mockExecuteCommand).not.toHaveBeenCalled();
   });
 
@@ -109,6 +113,8 @@ describe("KubeCtlCommandRoutes", () => {
         payload: { object: payload, command: "get", argument: "my-pod" },
       });
       expect(res.statusCode).toBe(400);
+      expect(res.json().field).toBe("object");
+      expect(res.json().error).toContain("unknown resource type");
       expect(mockExecuteCommand).not.toHaveBeenCalled();
     },
   );
@@ -147,6 +153,8 @@ describe("KubeCtlCommandRoutes", () => {
         },
       });
       expect(res.statusCode).toBe(400);
+      expect(res.json().field).toBe("namespace");
+      expect(res.json().error).toContain("invalid namespace");
       expect(mockExecuteCommand).not.toHaveBeenCalled();
     },
   );
@@ -158,6 +166,29 @@ describe("KubeCtlCommandRoutes", () => {
       payload: { object: "pod", command: "exec", argument: "my-pod" },
     });
     expect(res.statusCode).toBe(400);
+    expect(res.json()).toEqual({
+      error: 'unsupported command "exec"',
+      field: "command",
+    });
+    expect(mockExecuteCommand).not.toHaveBeenCalled();
+  });
+
+  test("rejects malformed scale arguments with a field and reason", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/kubectl/command/",
+      payload: {
+        object: "deployment",
+        command: "scale",
+        argument: "my-deployment",
+        noJson: true,
+      },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toEqual({
+      error: 'invalid scale argument "my-deployment", expected <name> --replicas=<n>',
+      field: "argument",
+    });
     expect(mockExecuteCommand).not.toHaveBeenCalled();
   });
 

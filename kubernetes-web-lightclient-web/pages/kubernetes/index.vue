@@ -236,7 +236,10 @@ export default {
     }
 
     if (!(await AuthenticationStore().ensureAuthenticated())) {
-      useRouter().push({ path: "/settings" });
+      useRouter().push({
+        path: "/settings",
+        query: { return: route.fullPath },
+      });
       return;
     }
 
@@ -255,10 +258,14 @@ export default {
 
     this.refreshIntervalValue = RefreshIntervalService.get();
 
-    // Ensure first objectType is a selected one
-    const selectedIds = KubernetesObjectStore().selectedTypes;
-    if (selectedIds.length > 0 && !selectedIds.includes(this.objectType)) {
-      this.objectType = selectedIds[0];
+    // Ensure first objectType is a selected one, but never override a type
+    // explicitly requested in the URL (e.g. a shared deep link to a type the
+    // viewer has not enabled in their resource selection)
+    if (!route.query.objectType) {
+      const selectedIds = KubernetesObjectStore().selectedTypes;
+      if (selectedIds.length > 0 && !selectedIds.includes(this.objectType)) {
+        this.objectType = selectedIds[0];
+      }
     }
   },
   mounted() {
@@ -305,6 +312,10 @@ export default {
         objectType: newType,
         ...(this.searchFilter ? { search: this.searchFilter } : {}),
       };
+      // Dialogs do not survive object type switches
+      delete query.dialog;
+      delete query.name;
+      delete query.dialogNamespace;
       if (typeInfo && typeInfo.namespaced && this.selectedNamespace !== "*") {
         query.namespace = this.selectedNamespace;
       } else {

@@ -89,6 +89,7 @@ import { AuthService } from "~~/services/AuthService";
 import { handleError, EventBus, EventTypes } from "~~/services/EventBus";
 import { UserService } from "~~/services/UserService";
 import { RefreshIntervalService } from "~~/services/RefreshIntervalService";
+import { isSafeReturnPath } from "~~/services/SessionExpiry";
 
 export default {
   data() {
@@ -143,6 +144,10 @@ export default {
               type: "info",
               text: "User Logged In",
             });
+            const returnPath = this.$route?.query?.return;
+            if (isSafeReturnPath(returnPath)) {
+              this.$router.push(returnPath);
+            }
           })
           .catch(handleError);
       } else {
