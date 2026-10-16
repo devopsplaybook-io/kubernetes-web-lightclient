@@ -3,6 +3,7 @@ import { PreferencesService as CommonPreferencesService } from "@devopsplaybook.
 export const PreferencesService = {
   LOG_WRAP_KEY: "LOGS_WRAP",
   LOG_TIMESTAMPS_KEY: "LOGS_TIMESTAMPS",
+  EVENTS_WARNINGS_ONLY: "EVENTS_WARNINGS_ONLY",
   getStoredBoolean(key: string, defaultValue: boolean): boolean {
     const stored = CommonPreferencesService.get(key);
     if (stored === "true") return true;

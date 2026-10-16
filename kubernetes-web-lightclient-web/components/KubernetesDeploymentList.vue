@@ -113,7 +113,8 @@ const namespaceStore = NamespaceStore();
 
 <script>
 import { AuthService } from "~~/services/AuthService";
-import { handleError, EventBus, EventTypes } from "~~/services/EventBus";
+import { EventBus, EventTypes } from "~~/services/EventBus";
+import { staleAwareHandler } from "~~/services/KubernetesUtils";
 import { UtilsDecompressData } from "~/services/Utils";
 import axios from "axios";
 import Config from "~~/services/Config.ts";
@@ -189,7 +190,7 @@ export default {
           });
           EventBus.emit(EventTypes.OBJECT_CHANGED, "deployment");
         })
-        .catch(handleError);
+        .catch(staleAwareHandler("deployment"));
     },
     onCancelDelete() {
       this.dialogConfirmDelete.enable = false;
@@ -222,7 +223,7 @@ export default {
         .then(async (res) => {
           this.dialogDetails.text = await UtilsDecompressData(res.data.result);
         })
-        .catch(handleError);
+        .catch(staleAwareHandler("deployment"));
     },
     showScale(namespace, deploymentName, currentReplicas) {
       this.dialogScale = {
@@ -261,7 +262,7 @@ export default {
           });
           EventBus.emit(EventTypes.OBJECT_CHANGED, "deployment");
         })
-        .catch(handleError);
+        .catch(staleAwareHandler("deployment"));
     },
     async deploymentRestart(namespace, deploymentName) {
       this.dialogConfirm = {
@@ -293,7 +294,7 @@ export default {
           });
           EventBus.emit(EventTypes.OBJECT_CHANGED, "deployment");
         })
-        .catch(handleError);
+        .catch(staleAwareHandler("deployment"));
     },
     onCancelRestart() {
       this.dialogConfirm.enable = false;

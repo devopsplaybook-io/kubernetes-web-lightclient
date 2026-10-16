@@ -18,6 +18,7 @@ jest.mock("../OTelContext", () => ({
 
 import {
   CompressOutput,
+  IsKubeObjectNotFoundError,
   KubeCtlExecutor,
   KubeCtlExecutorGetInstance,
 } from "./KubeCtlExecutor";
@@ -145,5 +146,44 @@ describe("KubeCtlExecutor", () => {
     const pending = executor.executeCommand(["get", "pods", "-A", "-o", "json"]);
     await expect(pending).rejects.toThrow("Request timed out after 20ms");
     expect(killMock).toHaveBeenCalledWith("SIGTERM");
+  });
+});
+
+describe("IsKubeObjectNotFoundError", () => {
+  test("detects NotFound in a Buffer stderr (execFile default shape)", () => {
+    const error = Object.assign(new Error("Command failed"), {
+      stderr: Buffer.from('Error from server (NotFound): pods "x" not found'),
+    });
+    expect(IsKubeObjectNotFoundError(error)).toBe(true);
+  });
+
+  test("detects NotFound in a string stderr", () => {
+    const error = Object.assign(new Error("Command failed"), {
+      stderr: 'Error from server (NotFound): pods "x" not found',
+    });
+    expect(IsKubeObjectNotFoundError(error)).toBe(true);
+  });
+
+  test("detects NotFound in the error message when stderr is absent", () => {
+    expect(
+      IsKubeObjectNotFoundError(
+        new Error('Error from server (NotFound): pods "x" not found'),
+      ),
+    ).toBe(true);
+  });
+
+  test("rejects non-NotFound kubectl errors", () => {
+    const error = Object.assign(new Error("Command failed"), {
+      stderr: 'Error from server (Forbidden): pods "x" is forbidden',
+    });
+    expect(IsKubeObjectNotFoundError(error)).toBe(false);
+  });
+
+  test("rejects null, undefined and non-Error values", () => {
+    expect(IsKubeObjectNotFoundError(null)).toBe(false);
+    expect(IsKubeObjectNotFoundError(undefined)).toBe(false);
+    expect(IsKubeObjectNotFoundError("Error from server (NotFound)")).toBe(
+      false,
+    );
   });
 });

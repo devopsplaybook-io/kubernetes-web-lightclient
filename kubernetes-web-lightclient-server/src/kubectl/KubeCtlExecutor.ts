@@ -6,6 +6,26 @@ export function CompressOutput(stdout: string): string {
   return zlib.gzipSync(Buffer.from(stdout, "utf8")).toString("base64");
 }
 
+/**
+ * Detects kubectl "object not found" failures. kubectl prints the API error
+ * to stderr, e.g. `Error from server (NotFound): pods "x" not found`.
+ */
+export function IsKubeObjectNotFoundError(error: unknown): boolean {
+  if (!error) {
+    return false;
+  }
+  const stderr = (error as { stderr?: unknown }).stderr;
+  if (stderr) {
+    const stderrText = Buffer.isBuffer(stderr)
+      ? stderr.toString("utf8")
+      : String(stderr);
+    if (stderrText.includes("(NotFound)")) {
+      return true;
+    }
+  }
+  return error instanceof Error && error.message.includes("(NotFound)");
+}
+
 export class KubeCtlExecutor {
   /**
    * Execute a kubectl get for a full list of objects of a type.

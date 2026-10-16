@@ -70,7 +70,8 @@ const namespaceStore = NamespaceStore();
 
 <script>
 import { AuthService } from "~~/services/AuthService";
-import { handleError, EventBus, EventTypes } from "~~/services/EventBus";
+import { EventBus, EventTypes } from "~~/services/EventBus";
+import { staleAwareHandler } from "~~/services/KubernetesUtils";
 import { UtilsDecompressData } from "~/services/Utils";
 import axios from "axios";
 import Config from "~~/services/Config.ts";
@@ -134,7 +135,7 @@ export default {
           });
           EventBus.emit(EventTypes.OBJECT_CHANGED, "ingress");
         })
-        .catch(handleError);
+        .catch(staleAwareHandler("ingress"));
     },
     onCancelDelete() {
       this.dialogConfirmDelete.enable = false;
@@ -179,7 +180,7 @@ export default {
         .then(async (res) => {
           this.dialogDetails.text = await UtilsDecompressData(res.data.result);
         })
-        .catch(handleError);
+        .catch(staleAwareHandler("ingress"));
     },
   },
 };

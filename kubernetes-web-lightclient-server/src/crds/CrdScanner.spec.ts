@@ -84,6 +84,7 @@ describe("CrdScanner", () => {
     it("should expose the standard built-in resource types", () => {
       const ids = CrdScannerGetBuiltinResources();
       expect(ids).toContain("pod");
+      expect(ids).toContain("events");
       expect(ids).toContain("networkpolicy");
       expect(ids).toContain("replicaset");
       expect(ids).toContain("hpa");
@@ -182,8 +183,15 @@ describe("CrdScanner", () => {
         group: "example.com",
       });
       // Built-ins stay first and unchanged
-      expect(resources.slice(0, 2)).toEqual([
+      expect(resources.slice(0, 3)).toEqual([
         { id: "pod", name: "Pods", namespaced: true, isCrd: false, group: "" },
+        {
+          id: "events",
+          name: "Events",
+          namespaced: true,
+          isCrd: false,
+          group: "",
+        },
         {
           id: "deployment",
           name: "Deployments",

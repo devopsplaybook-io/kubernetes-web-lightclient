@@ -1,6 +1,46 @@
 /**
  * Shared utility functions for Kubernetes object display.
  */
+import axios from "axios";
+import { handleError, EventBus, EventTypes } from "~~/services/EventBus";
+import { KubernetesObjectStore } from "~~/stores/KubernetesObjectStore";
+
+export function isObjectNotFoundError(error: unknown): boolean {
+  return axios.isAxiosError(error) && error.response?.status === 404;
+}
+
+/**
+ * Handles the "object vanished since the list was loaded" case: show an
+ * actionable message and refresh that type's cache instead of surfacing the
+ * raw kubectl error. Returns true when the error was handled.
+ */
+export function handleStaleObjectError(
+  error: unknown,
+  objectType: string,
+): boolean {
+  if (!isObjectNotFoundError(error)) {
+    return false;
+  }
+  EventBus.emit(EventTypes.ALERT_MESSAGE, {
+    type: "warning",
+    text: `This ${objectType} no longer exists — the list has been refreshed.`,
+  });
+  KubernetesObjectStore().invalidateAndRefresh(objectType);
+  return true;
+}
+
+/**
+ * Returns a promise-rejection handler treating 404s on kubectl actions as
+ * stale-object signals for the given type; other errors fall through to the
+ * standard error handling.
+ */
+export function staleAwareHandler(objectType: string) {
+  return (error: unknown) => {
+    if (!handleStaleObjectError(error, objectType)) {
+      handleError(error);
+    }
+  };
+}
 
 export function getPodStatus(pod: any): string {
   const phase = pod.status?.phase || "Unknown";

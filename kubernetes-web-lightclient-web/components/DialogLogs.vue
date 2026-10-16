@@ -20,6 +20,16 @@
               <option value="24h">Last 1 day</option>
             </select>
             <span class="actions"
+              ><i
+                class="bi bi-clipboard"
+                title="Copy logs"
+                v-on:click="copyLogs()"
+              ></i
+              ><i
+                class="bi bi-download"
+                title="Download logs"
+                v-on:click="downloadLogs()"
+              ></i
               ><i class="bi bi-arrow-clockwise" v-on:click="fetchLogs()"></i
             ></span>
           </div>
@@ -71,6 +81,10 @@
               />
               Auto-refresh
             </label>
+            <label>
+              <input type="checkbox" v-model="follow" @change="onFollowChange" />
+              Follow
+            </label>
             <label v-if="restartCount > 0">
               <input
                 type="checkbox"
@@ -101,12 +115,16 @@
 
 <script>
 import { AuthService } from "~~/services/AuthService";
-import { handleError, EventBus, EventTypes } from "~~/services/EventBus";
+import { EventBus, EventTypes } from "~~/services/EventBus";
+import { staleAwareHandler } from "~~/services/KubernetesUtils";
 import { PreferencesService } from "~~/services/PreferencesService";
 import { UtilsDecompressData } from "~/services/Utils";
 import axios from "axios";
 import Config from "~~/services/Config.ts";
 import { debounce } from "lodash";
+
+const AUTO_REFRESH_INTERVAL_MS = 10000;
+const FOLLOW_INTERVAL_MS = 4000;
 
 export default {
   props: {
@@ -136,6 +154,8 @@ export default {
       showPreviousLog: false,
       autoRefresh: false,
       autoRefreshTimer: null,
+      follow: false,
+      followTimer: null,
     };
   },
   computed: {
@@ -171,6 +191,7 @@ export default {
   },
   beforeUnmount() {
     this.stopAutoRefresh();
+    this.stopFollow();
   },
   methods: {
     async clickClose(namespace, podname) {
@@ -206,15 +227,17 @@ export default {
         );
         this.restartCount = containerRestarts + initRestarts;
       } catch (e) {
-        handleError(e);
+        staleAwareHandler("pod")(e);
       }
     },
     onAutoRefreshChange() {
       if (this.autoRefresh) {
+        this.follow = false;
+        this.stopFollow();
         this.fetchLogs(true);
         this.autoRefreshTimer = setInterval(
           () => this.fetchLogs(true),
-          10000,
+          AUTO_REFRESH_INTERVAL_MS,
         );
       } else {
         this.stopAutoRefresh();
@@ -225,6 +248,68 @@ export default {
         clearInterval(this.autoRefreshTimer);
         this.autoRefreshTimer = null;
       }
+    },
+    onFollowChange() {
+      if (this.follow) {
+        this.autoRefresh = false;
+        this.stopAutoRefresh();
+        this.fetchLogs(true);
+        this.followTimer = setInterval(
+          () => this.fetchLogs(true),
+          FOLLOW_INTERVAL_MS,
+        );
+      } else {
+        this.stopFollow();
+      }
+    },
+    stopFollow() {
+      if (this.followTimer) {
+        clearInterval(this.followTimer);
+        this.followTimer = null;
+      }
+    },
+    async copyLogs() {
+      const text = this.filteredText;
+      try {
+        try {
+          await navigator.clipboard.writeText(text);
+        } catch {
+          // Plain-HTTP deployments have no secure context: fall back to a
+          // temporary textarea and the legacy execCommand clipboard API
+          const textarea = document.createElement("textarea");
+          textarea.value = text;
+          textarea.style.position = "fixed";
+          textarea.style.opacity = "0";
+          document.body.appendChild(textarea);
+          textarea.select();
+          const copied = document.execCommand("copy");
+          document.body.removeChild(textarea);
+          if (!copied) {
+            throw new Error("Clipboard copy failed");
+          }
+        }
+        EventBus.emit(EventTypes.ALERT_MESSAGE, {
+          type: "info",
+          text: "Logs copied to clipboard",
+        });
+      } catch {
+        EventBus.emit(EventTypes.ALERT_MESSAGE, {
+          type: "error",
+          text: "Failed to copy logs to clipboard",
+        });
+      }
+    },
+    downloadLogs() {
+      const blob = new Blob([this.filteredText], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const containerSuffix = this.selectedContainer
+        ? `_${this.selectedContainer}`
+        : "";
+      link.download = `${this.namespace}_${this.podname}${containerSuffix}.log`;
+      link.href = url;
+      link.click();
+      URL.revokeObjectURL(url);
     },
     async fetchLogs(silent = false) {
       const payload = {
@@ -276,7 +361,7 @@ export default {
             }
           }
         })
-        .catch(handleError);
+        .catch(staleAwareHandler("pod"));
     },
   },
 };
@@ -317,6 +402,9 @@ export default {
 
 #dialog-details-logs .log-controls-row .actions {
   justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 /* Advanced toggle link */

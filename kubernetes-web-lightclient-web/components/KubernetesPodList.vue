@@ -125,14 +125,14 @@
 
 <script setup>
 import { UtilsRelativeTime } from "~~/services/Utils";
-import { getPodStatus, podStatusClass } from "~~/services/KubernetesUtils";
+import { getPodStatus, podStatusClass, staleAwareHandler } from "~~/services/KubernetesUtils";
 const kubernetesObjectStore = KubernetesObjectStore();
 const namespaceStore = NamespaceStore();
 </script>
 
 <script>
 import { AuthService } from "~~/services/AuthService";
-import { handleError, EventBus, EventTypes } from "~~/services/EventBus";
+import { EventBus, EventTypes } from "~~/services/EventBus";
 import { UtilsDecompressData } from "~/services/Utils";
 import axios from "axios";
 import Config from "~~/services/Config.ts";
@@ -198,7 +198,7 @@ export default {
           });
           EventBus.emit(EventTypes.OBJECT_CHANGED, "pod");
         })
-        .catch(handleError);
+        .catch(staleAwareHandler("pod"));
     },
     onCancelDelete() {
       this.dialogConfirm.enable = false;
@@ -236,7 +236,7 @@ export default {
         .then(async (res) => {
           this.dialogDetails.text = await UtilsDecompressData(res.data.result);
         })
-        .catch(handleError);
+        .catch(staleAwareHandler("pod"));
     },
     async showLogs(namespace, podname) {
       this.dialogLogs = {
