@@ -1,12 +1,37 @@
 <template>
   <div>
-    <table class="striped" v-if="items.length > 0">
+    <ListTriageToolbar
+      v-if="objectType === 'pod'"
+      :filters="availableFilters"
+      :active="activeFilters"
+      @toggle="toggleFilter"
+      @clear="clearAll"
+    />
+    <table class="striped table-cards" v-if="items.length > 0">
       <thead>
         <tr>
-          <th v-if="isNamespaced">Namespace</th>
-          <th>Name</th>
-          <th>Age</th>
-          <th v-if="objectType === 'pod'">Status</th>
+          <th
+            v-if="isNamespaced"
+            class="sortable"
+            :aria-sort="ariaSort('namespace')"
+            v-on:click="onSortToggle('namespace')"
+          >Namespace {{ sortArrow("namespace") }}</th>
+          <th
+            class="sortable"
+            :aria-sort="ariaSort('name')"
+            v-on:click="onSortToggle('name')"
+          >Name {{ sortArrow("name") }}</th>
+          <th
+            class="sortable"
+            :aria-sort="ariaSort('age')"
+            v-on:click="onSortToggle('age')"
+          >Age {{ sortArrow("age") }}</th>
+          <th
+            v-if="objectType === 'pod'"
+            class="sortable"
+            :aria-sort="ariaSort('status')"
+            v-on:click="onSortToggle('status')"
+          >Status {{ sortArrow("status") }}</th>
           <th>Details</th>
           <th v-if="objectType === 'pod'">Logs</th>
           <th v-if="deletable">Delete</th>
@@ -14,30 +39,31 @@
       </thead>
       <tbody>
         <tr
-          v-for="kubeObject of items"
+          v-for="kubeObject of visibleItems"
           v-bind:key="kubeObject.metadata.uid || kubeObject.metadata.name"
         >
-          <td v-if="isNamespaced">{{ kubeObject.metadata.namespace }}</td>
-          <td class="cell-name">{{ kubeObject.metadata.name }}</td>
-          <td>
+          <td v-if="isNamespaced" data-label="Namespace">{{ kubeObject.metadata.namespace }}</td>
+          <td data-label="Name" class="cell-name">{{ kubeObject.metadata.name }}</td>
+          <td data-label="Age">
             {{ UtilsRelativeTime(kubeObject.metadata.creationTimestamp) }}
           </td>
           <td
             v-if="objectType === 'pod'"
+            data-label="Status"
             :class="podStatusClass(getPodStatus(kubeObject))"
           >
             {{ getPodStatus(kubeObject) }}
           </td>
-          <td>
+          <td data-label="Details">
             <i class="bi bi-eye-fill" v-on:click="showDetails(kubeObject)"></i>
           </td>
-          <td v-if="objectType === 'pod'">
+          <td v-if="objectType === 'pod'" data-label="Logs">
             <i
               class="bi bi-file-text-fill"
               v-on:click="showLogs(kubeObject)"
             ></i>
           </td>
-          <td v-if="deletable">
+          <td v-if="deletable" data-label="Delete">
             <i
               class="bi bi-x-circle-fill"
               v-on:click="confirmDelete(kubeObject)"
@@ -85,6 +111,9 @@ import {
   podStatusClass,
   staleAwareHandler,
 } from "~~/services/KubernetesUtils";
+import { createPodFilters } from "~~/services/ListTriage";
+import { useListTriage } from "~~/composables/useListTriage";
+import ListTriageToolbar from "~~/components/ListTriageToolbar.vue";
 import { AuthService } from "~~/services/AuthService";
 import { EventBus, EventTypes } from "~~/services/EventBus";
 import {
@@ -128,6 +157,26 @@ const dialogConfirm = ref({
 
 const items = computed(() => {
   return kubernetesObjectStore.data[props.objectType] || [];
+});
+
+const {
+  visibleItems,
+  onSortToggle,
+  availableFilters,
+  activeFilters,
+  toggleFilter,
+  clearAll,
+  sortArrow,
+  ariaSort,
+} = useListTriage(props.objectType, {
+  rawItems: () => kubernetesObjectStore.data[props.objectType] || [],
+  accessors: {
+    namespace: (kubeObject) => kubeObject.metadata.namespace || "",
+    name: (kubeObject) => kubeObject.metadata.name || "",
+    age: (kubeObject) => kubeObject.metadata.creationTimestamp || "",
+    status: (kubeObject) => getPodStatus(kubeObject),
+  },
+  filterDefs: props.objectType === "pod" ? createPodFilters() : [],
 });
 
 watch(

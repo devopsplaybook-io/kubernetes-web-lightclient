@@ -2,6 +2,19 @@ import { mount, flushPromises } from "@vue/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import KubernetesEventList from "../components/KubernetesEventList.vue";
 
+vi.mock("~~/services/ListPreferencesService", () => ({
+  ListPreferencesService: {
+    ensureLoaded: vi.fn(async () => {}),
+    isLoaded: vi.fn(() => true),
+    get: vi.fn(() => ({})),
+    set: vi.fn(),
+  },
+}));
+
+vi.mock("~~/stores/KubernetesObjectStore", () => ({
+  KubernetesObjectStore: () => ({}),
+}));
+
 function makeEvent(overrides: Record<string, unknown>): Record<string, any> {
   return {
     metadata: { uid: "uid-default", creationTimestamp: "2026-10-15T00:00:00Z" },
@@ -25,17 +38,28 @@ function mountWithEvents(events: Record<string, any>[]) {
   const replaceMock = vi.fn();
   const wrapper = mount(KubernetesEventList, {
     global: {
-      mocks: {
-        $route: { path: "/kubernetes", query: {} },
-        $router: { replace: replaceMock },
+      config: {
+        globalProperties: {
+          $route: { path: "/kubernetes", query: {} },
+          $router: { replace: replaceMock },
+        },
       },
     },
   });
   return { wrapper, store, replaceMock };
 }
 
+function warningsChip(wrapper: any) {
+  const chip = wrapper
+    .findAll("button")
+    .find((button: any) => button.text() === "Warnings only");
+  expect(chip, "Warnings only chip should exist").toBeDefined();
+  return chip;
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.clearAllMocks();
 });
 
 describe("KubernetesEventList", () => {
@@ -57,9 +81,7 @@ describe("KubernetesEventList", () => {
     expect(rows[0].text()).toContain("Warning");
     expect(rows[0].text()).toContain("BackOff");
     expect(wrapper.text()).not.toContain("Started container");
-    const checkbox = wrapper.find('input[type="checkbox"]')
-      .element as HTMLInputElement;
-    expect(checkbox.checked).toBe(true);
+    expect(warningsChip(wrapper).attributes("aria-pressed")).toBe("true");
     wrapper.unmount();
   });
 
@@ -75,14 +97,15 @@ describe("KubernetesEventList", () => {
     ]);
     await flushPromises();
 
-    await wrapper.find('input[type="checkbox"]').setValue(false);
+    await warningsChip(wrapper).trigger("click");
+    await flushPromises();
     const rows = wrapper.findAll("tbody tr");
     expect(rows).toHaveLength(2);
     expect(wrapper.text()).toContain("Started container");
     wrapper.unmount();
   });
 
-  it("sorts events by last timestamp descending", async () => {
+  it("sorts events by last timestamp descending by default", async () => {
     const { wrapper } = mountWithEvents([
       makeEvent({
         metadata: { uid: "uid-old" },
@@ -97,10 +120,36 @@ describe("KubernetesEventList", () => {
     ]);
     await flushPromises();
 
-    await wrapper.find('input[type="checkbox"]').setValue(false);
+    await warningsChip(wrapper).trigger("click");
+    await flushPromises();
     const rows = wrapper.findAll("tbody tr");
     expect(rows[0].text()).toContain("NewEvent");
     expect(rows[1].text()).toContain("OldEvent");
+    wrapper.unmount();
+  });
+
+  it("sorts by count descending on first click and toggles direction", async () => {
+    const { wrapper } = mountWithEvents([
+      makeEvent({
+        metadata: { uid: "uid-low" },
+        reason: "LowCount",
+        count: 2,
+      }),
+      makeEvent({
+        metadata: { uid: "uid-high" },
+        reason: "HighCount",
+        count: 9,
+      }),
+    ]);
+    await flushPromises();
+
+    await warningsChip(wrapper).trigger("click");
+
+    await clickHeader(wrapper, "Count");
+    expect(rowReasons(wrapper)).toEqual(["HighCount", "LowCount"]);
+
+    await clickHeader(wrapper, "Count");
+    expect(rowReasons(wrapper)).toEqual(["LowCount", "HighCount"]);
     wrapper.unmount();
   });
 
@@ -121,7 +170,7 @@ describe("KubernetesEventList", () => {
     const row = wrapper.findAll("tbody tr")[0];
     expect(row.text()).toContain("Deployment my-deployment");
     expect(row.text()).toContain("7");
-    const headers = wrapper.findAll("thead th").map((th) => th.text());
+    const headers = wrapper.findAll("thead th").map((th: any) => th.text());
     expect(headers).toEqual([
       "Type",
       "Reason",
@@ -176,3 +225,18 @@ describe("KubernetesEventList", () => {
     wrapper.unmount();
   });
 });
+
+function rowReasons(wrapper: any): string[] {
+  return wrapper
+    .findAll("tbody tr")
+    .map((row: any) => row.findAll("td")[1].text());
+}
+
+async function clickHeader(wrapper: any, label: string) {
+  const header = wrapper
+    .findAll("thead th")
+    .find((th: any) => th.text().startsWith(label));
+  expect(header, `header ${label} should exist`).toBeDefined();
+  await header.trigger("click");
+  await flushPromises();
+}

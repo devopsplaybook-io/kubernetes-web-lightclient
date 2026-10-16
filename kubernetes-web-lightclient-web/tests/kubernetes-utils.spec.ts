@@ -10,6 +10,9 @@ vi.mock("../stores/KubernetesObjectStore", () => ({
 }));
 
 import {
+  getPodLastRestartAt,
+  getPodReadyCount,
+  getPodRestartCount,
   handleStaleObjectError,
   isObjectNotFoundError,
 } from "../services/KubernetesUtils";
@@ -63,5 +66,62 @@ describe("handleStaleObjectError", () => {
     expect(emitSpy).not.toHaveBeenCalled();
     expect(mockStore.invalidateAndRefresh).not.toHaveBeenCalled();
     emitSpy.mockRestore();
+  });
+});
+
+describe("pod cell helpers", () => {
+  function makePod(status: Record<string, any>): any {
+    return { status };
+  }
+
+  it("getPodReadyCount returns ready and total container counts", () => {
+    expect(
+      getPodReadyCount(
+        makePod({
+          containerStatuses: [
+            { ready: true, restartCount: 0 },
+            { ready: false, restartCount: 2 },
+          ],
+        }),
+      ),
+    ).toEqual({ ready: 1, total: 2 });
+    expect(getPodReadyCount(makePod({}))).toEqual({ ready: 0, total: 0 });
+  });
+
+  it("getPodRestartCount sums the container restart counts", () => {
+    expect(
+      getPodRestartCount(
+        makePod({
+          containerStatuses: [
+            { ready: true, restartCount: 2 },
+            { ready: true, restartCount: 3 },
+          ],
+        }),
+      ),
+    ).toBe(5);
+    expect(getPodRestartCount(makePod({}))).toBe(0);
+    expect(
+      getPodRestartCount(
+        makePod({ containerStatuses: [{ ready: true }] }),
+      ),
+    ).toBe(0);
+  });
+
+  it("getPodLastRestartAt returns the latest restart timestamp", () => {
+    expect(
+      getPodLastRestartAt(
+        makePod({
+          containerStatuses: [
+            {
+              lastState: { terminated: { finishedAt: "2026-10-14T00:00:00Z" } },
+            },
+            {
+              state: { terminated: { finishedAt: "2026-10-15T00:00:00Z" } },
+            },
+          ],
+        }),
+      ),
+    ).toBe("2026-10-15T00:00:00Z");
+    expect(getPodLastRestartAt(makePod({}))).toBe("");
   });
 });

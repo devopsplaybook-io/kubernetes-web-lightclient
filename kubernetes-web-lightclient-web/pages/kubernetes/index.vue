@@ -146,6 +146,7 @@
         />
         <KubernetesObjectList
           v-else-if="objectType"
+          :key="objectType"
           :objectType="objectType"
           :isNamespaced="isCurrentTypeNamespaced"
           :isCrd="true"
@@ -413,8 +414,54 @@ select {
   width: 100%;
   position: relative;
 }
-#object-list td {
+
+/* Sortable list headers */
+#object-list th.sortable {
+  cursor: pointer;
+  user-select: none;
   white-space: nowrap;
+}
+
+@media (min-width: 769px) {
+  #object-list td {
+    white-space: nowrap;
+  }
+}
+
+/* Compact card layout for wide tables on small screens: each row becomes a
+ * labelled card (labels come from the td data-label attributes) */
+@media (max-width: 768px) {
+  #object-list table.table-cards thead {
+    display: none;
+  }
+  #object-list table.table-cards,
+  #object-list table.table-cards tbody,
+  #object-list table.table-cards tr,
+  #object-list table.table-cards td {
+    display: block;
+    width: 100%;
+  }
+  #object-list table.table-cards tr {
+    border: 1px solid var(--pico-muted-border-color, #ccc);
+    border-radius: 0.5rem;
+    padding: 0.4rem 0.6rem;
+    margin: 0 0 0.75rem 0;
+  }
+  #object-list table.table-cards td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    white-space: normal;
+    text-align: right;
+  }
+  #object-list table.table-cards td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    opacity: 0.65;
+    text-align: left;
+    flex-shrink: 0;
+  }
 }
 
 #object-list td,

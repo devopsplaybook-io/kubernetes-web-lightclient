@@ -1,24 +1,42 @@
 <template>
   <div>
-    <label class="events-warnings-only">
-      <input type="checkbox" v-model="warningsOnly" />
-      Warnings only
-    </label>
-    <table class="striped" v-if="visibleEvents.length > 0">
+    <ListTriageToolbar
+      :filters="availableFilters"
+      :active="activeFilters"
+      @toggle="toggleFilter"
+      @clear="clearAll"
+    />
+    <table class="striped" v-if="displayedEvents.length > 0">
       <thead>
         <tr>
-          <th>Type</th>
+          <th
+            class="sortable"
+            :aria-sort="ariaSort('type')"
+            v-on:click="onSortToggle('type')"
+          >Type {{ sortArrow("type") }}</th>
           <th>Reason</th>
           <th>Message</th>
-          <th>Involved Object</th>
-          <th>Count</th>
-          <th>Age</th>
+          <th
+            class="sortable"
+            :aria-sort="ariaSort('involved')"
+            v-on:click="onSortToggle('involved')"
+          >Involved Object {{ sortArrow("involved") }}</th>
+          <th
+            class="sortable"
+            :aria-sort="ariaSort('count')"
+            v-on:click="onSortToggle('count')"
+          >Count {{ sortArrow("count") }}</th>
+          <th
+            class="sortable"
+            :aria-sort="ariaSort('age')"
+            v-on:click="onSortToggle('age')"
+          >Age {{ sortArrow("age") }}</th>
           <th>Logs</th>
         </tr>
       </thead>
       <tbody>
         <tr
-          v-for="event of visibleEvents"
+          v-for="event of displayedEvents"
           v-bind:key="eventKey(event)"
         >
           <td :class="event.type === 'Warning' ? 'status-error' : 'status-neutral'">
@@ -45,7 +63,7 @@
       </tbody>
     </table>
     <p v-if="isTruncated" class="events-truncated">
-      Showing latest {{ maxEvents }} of {{ sortedEvents.length }} events
+      Showing latest {{ maxEvents }} of {{ sortedFilteredEvents.length }} events
     </p>
     <DialogLogs
       v-if="dialogLogs.enable"
@@ -56,9 +74,87 @@
   </div>
 </template>
 
-<script>
+<script setup>
+import { computed } from "vue";
 import { UtilsRelativeTime } from "~~/services/Utils";
 import { PreferencesService } from "~~/services/PreferencesService";
+import { createEventFilters } from "~~/services/ListTriage";
+import { useListTriage } from "~~/composables/useListTriage";
+import ListTriageToolbar from "~~/components/ListTriageToolbar.vue";
+
+const kubernetesObjectStore = KubernetesObjectStore();
+
+function eventTime(event) {
+  return (
+    event.lastTimestamp ||
+    event.eventTime ||
+    event.firstTimestamp ||
+    event.metadata?.creationTimestamp ||
+    ""
+  );
+}
+
+function eventAge(event) {
+  return UtilsRelativeTime(eventTime(event));
+}
+
+function eventKey(event) {
+  return (
+    event.metadata?.uid ||
+    `${event.involvedObject?.namespace || ""}/${event.involvedObject?.name || ""}/${event.reason}/${eventTime(event)}`
+  );
+}
+
+function involvedObjectLabel(event) {
+  const involved = event.involvedObject || {};
+  return `${involved.kind || ""} ${involved.name || ""}`.trim();
+}
+
+// Time-descending is the unsorted default order; it always runs first so the
+// composable's sort, when active, only re-orders an already newest-first list
+function newestFirstEvents() {
+  const events = [...(kubernetesObjectStore.data.events || [])];
+  events.sort((a, b) => (eventTime(a) < eventTime(b) ? 1 : -1));
+  return events;
+}
+
+const warningsOnlyStored = PreferencesService.getStoredBoolean(
+  PreferencesService.EVENTS_WARNINGS_ONLY,
+  true,
+);
+
+const {
+  visibleItems: sortedFilteredEvents,
+  onSortToggle,
+  availableFilters,
+  activeFilters,
+  toggleFilter,
+  clearAll,
+  sortArrow,
+  ariaSort,
+} = useListTriage("events", {
+  rawItems: newestFirstEvents,
+  accessors: {
+    type: (event) => event.type || "",
+    involved: (event) => involvedObjectLabel(event),
+    count: (event) => event.count || 0,
+    age: (event) => eventTime(event),
+  },
+  filterDefs: createEventFilters(),
+  defaultSortDirections: { count: "desc" },
+  initialFilters: warningsOnlyStored ? ["warnings"] : [],
+});
+
+const maxEvents = 200;
+const displayedEvents = computed(() =>
+  sortedFilteredEvents.value.slice(0, maxEvents),
+);
+const isTruncated = computed(
+  () => sortedFilteredEvents.value.length > maxEvents,
+);
+</script>
+
+<script>
 import {
   clearDialogRoute,
   readDialogRoute,
@@ -68,47 +164,12 @@ import {
 export default {
   data() {
     return {
-      warningsOnly: PreferencesService.getStoredBoolean(
-        PreferencesService.EVENTS_WARNINGS_ONLY,
-        true,
-      ),
-      maxEvents: 200,
       dialogLogs: {
         enable: false,
         podname: "",
         namespace: "",
       },
     };
-  },
-  computed: {
-    sortedEvents() {
-      const events = KubernetesObjectStore().data.events || [];
-      const withSortKey = events.map((event) => ({
-        event,
-        sortKey: this.eventTime(event) || "",
-      }));
-      withSortKey.sort((a, b) => (a.sortKey < b.sortKey ? 1 : -1));
-      return withSortKey.map((entry) => entry.event);
-    },
-    warningEvents() {
-      return this.sortedEvents.filter((event) => event.type === "Warning");
-    },
-    visibleEvents() {
-      const source = this.warningsOnly ? this.warningEvents : this.sortedEvents;
-      return source.slice(0, this.maxEvents);
-    },
-    isTruncated() {
-      const source = this.warningsOnly ? this.warningEvents : this.sortedEvents;
-      return source.length > this.maxEvents;
-    },
-  },
-  watch: {
-    warningsOnly(value) {
-      PreferencesService.storeBoolean(
-        PreferencesService.EVENTS_WARNINGS_ONLY,
-        value,
-      );
-    },
   },
   async created() {
     KubernetesObjectStore().getEvents();
@@ -118,28 +179,6 @@ export default {
     }
   },
   methods: {
-    eventAge(event) {
-      return UtilsRelativeTime(this.eventTime(event));
-    },
-    eventTime(event) {
-      return (
-        event.lastTimestamp ||
-        event.eventTime ||
-        event.firstTimestamp ||
-        event.metadata?.creationTimestamp ||
-        ""
-      );
-    },
-    eventKey(event) {
-      return (
-        event.metadata?.uid ||
-        `${event.involvedObject?.namespace || ""}/${event.involvedObject?.name || ""}/${event.reason}/${this.eventTime(event)}`
-      );
-    },
-    involvedObjectLabel(event) {
-      const involved = event.involvedObject || {};
-      return `${involved.kind || ""} ${involved.name || ""}`.trim();
-    },
     showLogs(namespace, podname) {
       this.dialogLogs = {
         enable: true,
@@ -161,15 +200,6 @@ export default {
 </script>
 
 <style scoped>
-.events-warnings-only {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin: 0 0 0.5rem 0;
-}
-.events-warnings-only input[type="checkbox"] {
-  margin: 0;
-}
 .event-message {
   white-space: normal;
   word-break: break-word;
