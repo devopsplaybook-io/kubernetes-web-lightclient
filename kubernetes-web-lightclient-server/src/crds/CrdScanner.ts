@@ -17,6 +17,7 @@ export interface ResourceType {
 
 const BUILT_IN_RESOURCES: ResourceType[] = [
   { id: "pod", name: "Pods", namespaced: true, isCrd: false, group: "" },
+  { id: "events", name: "Events", namespaced: true, isCrd: false, group: "" },
   {
     id: "deployment",
     name: "Deployments",

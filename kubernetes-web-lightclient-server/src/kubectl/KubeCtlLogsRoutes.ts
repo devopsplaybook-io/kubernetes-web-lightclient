@@ -1,7 +1,7 @@
 import { FastifyInstance, RequestGenericInterface } from "fastify";
 import { AuthGetUserSession } from "@devopsplaybook.io/common-utils";
 import { OTelTracer } from "../OTelContext";
-import { KubeCtlExecutorGetInstance } from "./KubeCtlExecutor";
+import { IsKubeObjectNotFoundError, KubeCtlExecutorGetInstance } from "./KubeCtlExecutor";
 import { BuildLogsArgs } from "./KubeCtlValidation";
 
 export class KubeCtlLogsRoutes {
@@ -39,6 +39,14 @@ export class KubeCtlLogsRoutes {
           20000,
         );
         return res.status(201).send({ result: commandOutput });
+      } catch (error) {
+        if (IsKubeObjectNotFoundError(error)) {
+          return res.status(404).send({
+            error:
+              "This object no longer exists — it may have been deleted since the list was loaded",
+          });
+        }
+        throw error;
       } finally {
         span.end();
       }

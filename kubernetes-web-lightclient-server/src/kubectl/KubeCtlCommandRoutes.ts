@@ -3,7 +3,10 @@ import { AuthGetUserSession } from "@devopsplaybook.io/common-utils";
 import { OTelTracer } from "../OTelContext";
 import { Config } from "../Config";
 import { DeletePolicy } from "./DeletePolicy";
-import { KubeCtlExecutorGetInstance } from "./KubeCtlExecutor";
+import {
+  IsKubeObjectNotFoundError,
+  KubeCtlExecutorGetInstance,
+} from "./KubeCtlExecutor";
 import { BuildCommandArgs } from "./KubeCtlValidation";
 
 export class KubeCtlCommandRoutes {
@@ -57,6 +60,14 @@ export class KubeCtlCommandRoutes {
           20000,
         );
         return res.status(201).send({ result: commandOutput });
+      } catch (error) {
+        if (IsKubeObjectNotFoundError(error)) {
+          return res.status(404).send({
+            error:
+              "This object no longer exists — it may have been deleted since the list was loaded",
+          });
+        }
+        throw error;
       } finally {
         span.end();
       }

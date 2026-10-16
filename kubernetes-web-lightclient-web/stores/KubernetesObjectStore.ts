@@ -75,6 +75,13 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
         argument: "-A",
       });
     },
+    async getEvents() {
+      await this.getObject("events", {
+        object: "events",
+        command: "get",
+        argument: "-A",
+      });
+    },
     async getDeployments() {
       await this.getObject("deployment", {
         object: "deployment",
@@ -270,8 +277,11 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
           this.hasEverLoaded = true;
           return this.applyFilter(type);
         })
-        .catch((error) => {
+        .catch(async (error) => {
           this.loading = false;
+          if (await handleStaleObjectError(error, type)) {
+            return;
+          }
           console.error(error);
         });
     },

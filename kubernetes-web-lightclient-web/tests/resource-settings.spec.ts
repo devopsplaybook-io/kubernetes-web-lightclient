@@ -5,6 +5,7 @@ import { ResourceService } from "../services/ResourceService";
 
 const SAMPLE_TYPES = [
   { id: "pod", name: "Pod", isCrd: false },
+  { id: "events", name: "Events", isCrd: false },
   { id: "deployment", name: "Deployment", isCrd: false },
   { id: "applications", name: "Application (CRD)", isCrd: true },
 ];
@@ -39,7 +40,7 @@ describe("ResourceSettings", () => {
     expect(wrapper.text()).toContain("Built-in Resources");
     expect(wrapper.text()).toContain("Custom Resources (CRDs)");
     const checkboxes = wrapper.findAll('input[type="checkbox"]');
-    expect(checkboxes).toHaveLength(3);
+    expect(checkboxes).toHaveLength(4);
     expect((checkboxes[0].element as HTMLInputElement).checked).toBe(true);
     expect((checkboxes[1].element as HTMLInputElement).checked).toBe(false);
     wrapper.unmount();

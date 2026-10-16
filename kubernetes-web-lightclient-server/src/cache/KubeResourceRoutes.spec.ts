@@ -157,6 +157,17 @@ describe("KubeResourceRoutes", () => {
     expect(res.statusCode).toBe(503);
   });
 
+  test("serves events through the cached pipeline", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/resources/data/events",
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().status).toBe("fresh");
+    expect(res.json().data).toBe("COMPRESSED_DATA");
+    expect(mockExecuteGetRequest).toHaveBeenCalledWith("events");
+  });
+
   test("force=true clears the cache before fetching", async () => {
     await cache.set("pod", "OLD_DATA");
     const res = await app.inject({

@@ -79,9 +79,13 @@
 
 <script setup>
 import { UtilsRelativeTime } from "~~/services/Utils";
-import { getPodStatus, podStatusClass } from "~~/services/KubernetesUtils";
+import {
+  getPodStatus,
+  podStatusClass,
+  staleAwareHandler,
+} from "~~/services/KubernetesUtils";
 import { AuthService } from "~~/services/AuthService";
-import { handleError, EventBus, EventTypes } from "~~/services/EventBus";
+import { EventBus, EventTypes } from "~~/services/EventBus";
 import { UtilsDecompressData } from "~/services/Utils";
 import axios from "axios";
 import Config from "~~/services/Config.ts";
@@ -160,7 +164,7 @@ async function showDetails(kubeObject) {
     );
     dialogDetails.value.text = await UtilsDecompressData(res.data.result);
   } catch (error) {
-    handleError(error);
+    staleAwareHandler(props.objectType)(error);
   }
 }
 
@@ -204,7 +208,7 @@ async function onConfirmDelete() {
     });
     EventBus.emit(EventTypes.OBJECT_CHANGED, props.objectType);
   } catch (error) {
-    handleError(error);
+    staleAwareHandler(props.objectType)(error);
   }
 }
 

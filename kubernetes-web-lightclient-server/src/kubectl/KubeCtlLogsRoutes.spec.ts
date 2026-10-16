@@ -27,6 +27,8 @@ jest.mock("./KubeCtlExecutor", () => ({
     executeCommand: mockExecuteCommand,
     executeGetRequest: jest.fn(),
   }),
+  IsKubeObjectNotFoundError: (error: unknown) =>
+    String((error as { stderr?: unknown })?.stderr ?? "").includes("(NotFound)"),
 }));
 
 jest.mock("@devopsplaybook.io/common-utils", () => ({
@@ -70,6 +72,15 @@ describe("KubeCtlLogsRoutes", () => {
 
   afterEach(async () => {
     await app.close();
+  });
+
+  test("rejects a request without a body with 400", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/kubectl/logs/",
+    });
+    expect(res.statusCode).toBe(400);
+    expect(mockExecuteCommand).not.toHaveBeenCalled();
   });
 
   test("rejects unauthenticated requests with 401", async () => {
@@ -174,6 +185,24 @@ describe("KubeCtlLogsRoutes", () => {
       payload: { namespace: "default", pod: "my-pod" },
     });
     expect(res.statusCode).toBe(500);
+    expect(mockSpan.end).toHaveBeenCalledTimes(1);
+  });
+
+  test("returns a clean 404 when the pod no longer exists", async () => {
+    mockExecuteCommand.mockRejectedValue(
+      Object.assign(new Error("Command failed"), {
+        stderr: 'Error from server (NotFound): pods "my-pod" not found',
+      }),
+    );
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/kubectl/logs/",
+      payload: { namespace: "default", pod: "my-pod" },
+    });
+    expect(res.statusCode).toBe(404);
+    expect(res.json().error).toBe(
+      "This object no longer exists — it may have been deleted since the list was loaded",
+    );
     expect(mockSpan.end).toHaveBeenCalledTimes(1);
   });
 });

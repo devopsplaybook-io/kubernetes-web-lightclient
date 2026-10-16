@@ -67,6 +67,7 @@
           v-if="objectType === 'pod'"
           :deletable="isCurrentTypeDeletable"
         />
+        <KubernetesEventList v-else-if="objectType === 'events'" />
         <KubernetesDeploymentList
           v-else-if="objectType === 'deployment'"
           :deletable="isCurrentTypeDeletable"
@@ -161,6 +162,7 @@ import { RefreshIntervalService } from "~~/services/RefreshIntervalService";
 import { ResourceService } from "~~/services/ResourceService";
 import { EventBus, EventTypes } from "~~/services/EventBus";
 import KubernetesPodList from "~~/components/KubernetesPodList.vue";
+import KubernetesEventList from "~~/components/KubernetesEventList.vue";
 import KubernetesDeploymentList from "~~/components/KubernetesDeploymentList.vue";
 import KubernetesStatefulSetList from "~~/components/KubernetesStatefulSetList.vue";
 import KubernetesDaemonSetList from "~~/components/KubernetesDaemonSetList.vue";
