@@ -6,10 +6,26 @@
     >
       <thead>
         <tr>
-          <th>Namespace</th>
-          <th>DaemonSet</th>
-          <th>Age</th>
-          <th>Ready</th>
+          <th
+            class="sortable"
+            :aria-sort="ariaSort('namespace')"
+            v-on:click="onSortToggle('namespace')"
+          >Namespace {{ sortArrow("namespace") }}</th>
+          <th
+            class="sortable"
+            :aria-sort="ariaSort('name')"
+            v-on:click="onSortToggle('name')"
+          >DaemonSet {{ sortArrow("name") }}</th>
+          <th
+            class="sortable"
+            :aria-sort="ariaSort('age')"
+            v-on:click="onSortToggle('age')"
+          >Age {{ sortArrow("age") }}</th>
+          <th
+            class="sortable"
+            :aria-sort="ariaSort('ready')"
+            v-on:click="onSortToggle('ready')"
+          >Ready {{ sortArrow("ready") }}</th>
           <th>Details</th>
           <th>Restart</th>
           <th v-if="deletable">Delete</th>
@@ -17,7 +33,7 @@
       </thead>
       <tbody>
         <tr
-          v-for="kubeObject of kubernetesObjectStore.data.daemonSets"
+          v-for="kubeObject of visibleItems"
           v-bind:key="kubeObject.metadata.uid"
         >
           <td>{{ kubeObject.metadata.namespace }}</td>
@@ -86,9 +102,22 @@
 </template>
 
 <script setup>
-import { UtilsRelativeTime } from "~~/services/Utils";
+import { useListTriage } from "~~/composables/useListTriage";
 const kubernetesObjectStore = KubernetesObjectStore();
 const namespaceStore = NamespaceStore();
+
+const { visibleItems, onSortToggle, sortArrow, ariaSort } = useListTriage("daemonset", {
+  rawItems: () => kubernetesObjectStore.data.daemonSets,
+  accessors: {
+    namespace: (kubeObject) => kubeObject.metadata.namespace || "",
+    name: (kubeObject) => kubeObject.metadata.name || "",
+    age: (kubeObject) => kubeObject.metadata.creationTimestamp || "",
+    ready: (kubeObject) => {
+      const total = kubeObject.status?.desiredNumberScheduled || 0;
+      return total === 0 ? -1 : (kubeObject.status?.numberReady || 0) / total;
+    },
+  },
+});
 </script>
 
 <script>

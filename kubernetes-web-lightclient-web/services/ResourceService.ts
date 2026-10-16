@@ -1,6 +1,7 @@
 import axios from "axios";
 import { AuthService } from "./AuthService";
 import Config from "./Config";
+import type { ListPreference } from "./ListTriage";
 
 export interface ResourceType {
   id: string;
@@ -32,6 +33,26 @@ export class ResourceService {
     await axios.put(
       `${(await Config.get()).SERVER_URL}/resources/selections`,
       { selectedIds },
+      await AuthService.getAuthHeader(),
+    );
+  }
+
+  static async getUserListPreferences(): Promise<
+    Record<string, ListPreference>
+  > {
+    const response = await axios.get(
+      `${(await Config.get()).SERVER_URL}/resources/selections`,
+      await AuthService.getAuthHeader(),
+    );
+    return response.data.listPreferences || {};
+  }
+
+  static async saveUserListPreferences(
+    listPreferences: Record<string, ListPreference>,
+  ): Promise<void> {
+    await axios.put(
+      `${(await Config.get()).SERVER_URL}/resources/selections`,
+      { listPreferences },
       await AuthService.getAuthHeader(),
     );
   }

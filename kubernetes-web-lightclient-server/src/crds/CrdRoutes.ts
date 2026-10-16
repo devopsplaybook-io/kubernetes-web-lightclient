@@ -7,8 +7,10 @@ import {
 } from "./CrdScanner";
 import {
   IsValidUserId,
+  ListPreference,
   UserSelectionLoad,
   UserSelectionSave,
+  ValidateListPreferences,
 } from "./UserResourceSelections";
 import { Config } from "../Config";
 import { DeletePolicy } from "../kubectl/DeletePolicy";
@@ -47,13 +49,20 @@ export class CrdRoutes {
         this.config,
         userSession.userId,
       );
-      return res.status(200).send({ selectedIds: selections.selectedIds });
+      return res
+        .status(200)
+        .send({
+          selectedIds: selections.selectedIds,
+          listPreferences: selections.listPreferences,
+        });
     });
 
-    // PUT /api/resources/selections - Save user's selected resource types
+    // PUT /api/resources/selections - Save user's selected resource types and/or
+    // list triage preferences; a field absent from the body leaves the stored value unchanged
     interface PutSelections extends RequestGenericInterface {
       Body: {
-        selectedIds: string[];
+        selectedIds?: string[];
+        listPreferences?: unknown;
       };
     }
     fastify.put<PutSelections>("/selections", async (req, res) => {
@@ -64,22 +73,44 @@ export class CrdRoutes {
       if (!IsValidUserId(userSession.userId)) {
         return res.status(400).send({ error: "Invalid user id" });
       }
-      if (!Array.isArray(req.body.selectedIds)) {
-        return res.status(400).send({ error: "selectedIds must be an array" });
-      }
-      const invalid = req.body.selectedIds.find(
-        (id) => typeof id !== "string" || !IsAllowedResourceType(id),
-      );
-      if (invalid !== undefined) {
+      const hasSelectedIds = req.body.selectedIds !== undefined;
+      const hasListPreferences = req.body.listPreferences !== undefined;
+      if (!hasSelectedIds && !hasListPreferences) {
         return res
           .status(400)
-          .send({ error: `Unknown resource type: ${String(invalid)}` });
+          .send({ error: "At least one of selectedIds or listPreferences is required" });
+      }
+      if (hasSelectedIds) {
+        if (!Array.isArray(req.body.selectedIds)) {
+          return res
+            .status(400)
+            .send({ error: "selectedIds must be an array" });
+        }
+        const invalid = req.body.selectedIds.find(
+          (id) => typeof id !== "string" || !IsAllowedResourceType(id),
+        );
+        if (invalid !== undefined) {
+          return res
+            .status(400)
+            .send({ error: `Unknown resource type: ${String(invalid)}` });
+        }
+      }
+      let listPreferences: Record<string, ListPreference> | undefined;
+      if (hasListPreferences) {
+        listPreferences = ValidateListPreferences(req.body.listPreferences);
+        if (listPreferences === null) {
+          return res.status(400).send({
+            error: "Invalid listPreferences payload",
+            field: "listPreferences",
+          });
+        }
       }
       await UserSelectionSave(
         OTelRequestSpan(req),
         this.config,
         userSession.userId,
-        req.body.selectedIds,
+        hasSelectedIds ? req.body.selectedIds : undefined,
+        hasListPreferences ? listPreferences : undefined,
       );
       return res.status(200).send({ success: true });
     });

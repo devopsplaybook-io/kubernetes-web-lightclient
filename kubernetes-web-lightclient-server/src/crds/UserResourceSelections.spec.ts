@@ -20,9 +20,11 @@ import {
 import { Config } from "../Config";
 import {
   IsValidUserId,
+  ListPreference,
   UserSelectionLoad,
   UserSelectionSave,
   UserSelectionsDataInit,
+  ValidateListPreferences,
 } from "./UserResourceSelections";
 import { CrdScannerGetBuiltinResources } from "./CrdScanner";
 
@@ -266,5 +268,163 @@ describe("UserResourceSelections", () => {
     expect(IsValidUserId("11111111-1111-1111-1111-11111111111g")).toBe(false);
     expect(IsValidUserId(undefined as unknown as string)).toBe(false);
     expect(IsValidUserId(12345 as unknown as string)).toBe(false);
+  });
+
+  test("save then load round-trips the list preferences", async () => {
+    const preferences: Record<string, ListPreference> = {
+      pod: { sortBy: "restarts", sortDir: "desc", filters: ["not-ready"] },
+      node: { sortBy: "name" },
+    };
+    await UserSelectionSave(
+      undefined as never,
+      config,
+      USER_A,
+      ["pod"],
+      preferences,
+    );
+
+    const selections = await UserSelectionLoad(undefined as never, config, USER_A);
+
+    expect(selections.selectedIds).toEqual(["pod"]);
+    expect(selections.listPreferences).toEqual(preferences);
+  });
+
+  test("a selectedIds-only save preserves the stored list preferences", async () => {
+    await UserSelectionSave(
+      undefined as never,
+      config,
+      USER_A,
+      ["pod"],
+      { pod: { sortBy: "age", sortDir: "asc" } },
+    );
+
+    await UserSelectionSave(undefined as never, config, USER_A, ["node"]);
+
+    const selections = await UserSelectionLoad(undefined as never, config, USER_A);
+    expect(selections.selectedIds).toEqual(["node"]);
+    expect(selections.listPreferences).toEqual({
+      pod: { sortBy: "age", sortDir: "asc" },
+    });
+  });
+
+  test("a preferences-only save preserves the stored selected ids", async () => {
+    await UserSelectionSave(undefined as never, config, USER_A, ["pod", "node"]);
+
+    await UserSelectionSave(
+      undefined as never,
+      config,
+      USER_A,
+      undefined,
+      { pod: { filters: ["restarts"] } },
+    );
+
+    const selections = await UserSelectionLoad(undefined as never, config, USER_A);
+    expect(selections.selectedIds).toEqual(["pod", "node"]);
+    expect(selections.listPreferences).toEqual({
+      pod: { filters: ["restarts"] },
+    });
+  });
+
+  test("a preferences-only save creates the row with defaults selected on load", async () => {
+    await UserSelectionSave(
+      undefined as never,
+      config,
+      USER_A,
+      undefined,
+      { pod: { sortBy: "name" } },
+    );
+
+    const selections = await UserSelectionLoad(undefined as never, config, USER_A);
+
+    expect(selections.selectedIds).toEqual(CrdScannerGetBuiltinResources());
+    expect(selections.listPreferences).toEqual({ pod: { sortBy: "name" } });
+  });
+
+  test("loading corrupt listPreferences JSON returns null without throwing", async () => {
+    await UserSelectionSave(undefined as never, config, USER_A, ["pod"]);
+    DbUtilsExecSQL(
+      undefined as never,
+      "UPDATE users_resource_selections SET listPreferences = ? WHERE userId = ?",
+      ["{corrupted json", USER_A],
+    );
+
+    const selections = await UserSelectionLoad(undefined as never, config, USER_A);
+
+    expect(selections.selectedIds).toEqual(["pod"]);
+    expect(selections.listPreferences).toBeNull();
+  });
+
+  test("loading a non-object listPreferences value returns null without throwing", async () => {
+    await UserSelectionSave(undefined as never, config, USER_A, ["pod"]);
+    DbUtilsExecSQL(
+      undefined as never,
+      "UPDATE users_resource_selections SET listPreferences = ? WHERE userId = ?",
+      ["[1,2,3]", USER_A],
+    );
+
+    const selections = await UserSelectionLoad(undefined as never, config, USER_A);
+
+    expect(selections.listPreferences).toBeNull();
+  });
+
+  test("ValidateListPreferences accepts valid payloads including an empty object", () => {
+    expect(ValidateListPreferences({})).toEqual({});
+    expect(
+      ValidateListPreferences({
+        pod: { sortBy: "restarts", sortDir: "desc", filters: ["not-ready"] },
+        node: {},
+      }),
+    ).toEqual({
+      pod: { sortBy: "restarts", sortDir: "desc", filters: ["not-ready"] },
+      node: {},
+    });
+    expect(ValidateListPreferences(undefined)).toBeNull();
+    expect(ValidateListPreferences(null)).toBeNull();
+  });
+
+  test("ValidateListPreferences rejects malformed payloads", () => {
+    // Not an object
+    expect(ValidateListPreferences("pod")).toBeNull();
+    expect(ValidateListPreferences([["pod"]])).toBeNull();
+    expect(ValidateListPreferences(42)).toBeNull();
+    // Per-preference shape
+    expect(ValidateListPreferences({ pod: "name" })).toBeNull();
+    expect(ValidateListPreferences({ pod: null })).toBeNull();
+    expect(ValidateListPreferences({ pod: [] })).toBeNull();
+    expect(ValidateListPreferences({ pod: { sortBy: 42 } })).toBeNull();
+    expect(ValidateListPreferences({ pod: { sortBy: "" } })).toBeNull();
+    expect(ValidateListPreferences({ pod: { sortDir: "up" } })).toBeNull();
+    expect(ValidateListPreferences({ pod: { filters: "not-ready" } })).toBeNull();
+    expect(ValidateListPreferences({ pod: { filters: [42] } })).toBeNull();
+    expect(ValidateListPreferences({ pod: { filters: [""] } })).toBeNull();
+    // Unknown fields are dropped, not rejected
+    expect(ValidateListPreferences({ pod: { unknown: true } })).toEqual({
+      pod: {},
+    });
+  });
+
+  test("ValidateListPreferences enforces size bounds", () => {
+    const tooManyTypes: Record<string, ListPreference> = {};
+    for (let i = 0; i < 101; i++) {
+      tooManyTypes[`type-${i}`] = { sortBy: "name" };
+    }
+    expect(ValidateListPreferences(tooManyTypes)).toBeNull();
+    expect(
+      ValidateListPreferences({ pod: { sortBy: "a".repeat(65) } }),
+    ).toBeNull();
+    expect(
+      ValidateListPreferences({ pod: { filters: Array(17).fill("f") } }),
+    ).toBeNull();
+    expect(
+      ValidateListPreferences({ pod: { filters: ["f".repeat(33)] } }),
+    ).toBeNull();
+    const oversized: Record<string, ListPreference> = {};
+    for (let i = 0; i < 100; i++) {
+      oversized[`type-${i}`] = {
+        sortBy: "a".repeat(64),
+        filters: Array(16).fill("f".repeat(32)),
+      };
+    }
+    expect(ValidateListPreferences(oversized)).toBeNull();
   });
 });

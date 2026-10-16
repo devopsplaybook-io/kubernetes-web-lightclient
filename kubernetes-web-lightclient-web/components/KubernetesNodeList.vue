@@ -1,23 +1,41 @@
 <template>
   <div>
+    <ListTriageToolbar
+      :filters="availableFilters"
+      :active="activeFilters"
+      @toggle="toggleFilter"
+      @clear="clearAll"
+    />
     <table class="striped">
       <thead>
         <tr>
-          <th>Node</th>
-          <th>Status</th>
+          <th
+            class="sortable"
+            :aria-sort="ariaSort('name')"
+            v-on:click="onSortToggle('name')"
+          >Node {{ sortArrow("name") }}</th>
+          <th
+            class="sortable"
+            :aria-sort="ariaSort('status')"
+            v-on:click="onSortToggle('status')"
+          >Status {{ sortArrow("status") }}</th>
           <th>Role</th>
           <th>Version</th>
           <th>Memory</th>
           <th>CPU</th>
           <th>Disk</th>
-          <th>Age</th>
+          <th
+            class="sortable"
+            :aria-sort="ariaSort('age')"
+            v-on:click="onSortToggle('age')"
+          >Age {{ sortArrow("age") }}</th>
           <th>Details</th>
           <th v-if="deletable">Delete</th>
         </tr>
       </thead>
       <tbody>
         <tr
-          v-for="kubeObject of kubernetesObjectStore.data.nodes"
+          v-for="kubeObject of visibleItems"
           v-bind:key="kubeObject.metadata.uid"
         >
           <td>{{ kubeObject.metadata.name }}</td>
@@ -66,7 +84,38 @@
 
 <script setup>
 import { UtilsRelativeTime } from "~~/services/Utils";
+import { useListTriage } from "~~/composables/useListTriage";
+import ListTriageToolbar from "~~/components/ListTriageToolbar.vue";
 const kubernetesObjectStore = KubernetesObjectStore();
+
+// Local predicate next to the existing status helpers: a node "has warnings"
+// when its Ready condition is not True
+function getNodeStatus(node) {
+  const readyCondition = node.status.conditions?.find(
+    (condition) => condition.type === "Ready",
+  );
+  return readyCondition?.status === "True" ? "Ready" : "NotReady";
+}
+
+function nodeHasWarnings(node) {
+  return getNodeStatus(node) !== "Ready";
+}
+
+const { visibleItems, onSortToggle, availableFilters, activeFilters, toggleFilter, clearAll, sortArrow, ariaSort } = useListTriage("node", {
+  rawItems: () => kubernetesObjectStore.data.nodes,
+  accessors: {
+    name: (node) => node.metadata.name || "",
+    status: (node) => getNodeStatus(node),
+    age: (node) => node.metadata.creationTimestamp || "",
+  },
+  filterDefs: [
+    {
+      id: "has-warnings",
+      label: "Has warnings",
+      predicate: nodeHasWarnings,
+    },
+  ],
+});
 </script>
 
 <script>
@@ -200,12 +249,6 @@ export default {
         return "master";
       }
       return "worker";
-    },
-    getNodeStatus(node) {
-      const readyCondition = node.status.conditions?.find(
-        (condition) => condition.type === "Ready",
-      );
-      return readyCondition?.status === "True" ? "Ready" : "NotReady";
     },
     onCloseDetails() {
       this.dialogDetails = {

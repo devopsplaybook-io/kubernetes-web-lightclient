@@ -6,12 +6,24 @@
     >
       <thead>
         <tr>
-          <th>Namespace</th>
-          <th>CronJob</th>
+          <th
+            class="sortable"
+            :aria-sort="ariaSort('namespace')"
+            v-on:click="onSortToggle('namespace')"
+          >Namespace {{ sortArrow("namespace") }}</th>
+          <th
+            class="sortable"
+            :aria-sort="ariaSort('name')"
+            v-on:click="onSortToggle('name')"
+          >CronJob {{ sortArrow("name") }}</th>
           <th>Schedule</th>
           <th>Suspend</th>
           <th>Active</th>
-          <th>Age</th>
+          <th
+            class="sortable"
+            :aria-sort="ariaSort('age')"
+            v-on:click="onSortToggle('age')"
+          >Age {{ sortArrow("age") }}</th>
           <th>Details</th>
           <th>Trigger</th>
           <th v-if="deletable">Delete</th>
@@ -19,7 +31,7 @@
       </thead>
       <tbody>
         <tr
-          v-for="kubeObject of kubernetesObjectStore.data.cronjobs"
+          v-for="kubeObject of visibleItems"
           v-bind:key="kubeObject.metadata.uid"
         >
           <td>{{ kubeObject.metadata.namespace }}</td>
@@ -93,9 +105,18 @@
 </template>
 
 <script setup>
-import { UtilsRelativeTime } from "~~/services/Utils";
+import { useListTriage } from "~~/composables/useListTriage";
 const kubernetesObjectStore = KubernetesObjectStore();
 const namespaceStore = NamespaceStore();
+
+const { visibleItems, onSortToggle, sortArrow, ariaSort } = useListTriage("cronjob", {
+  rawItems: () => kubernetesObjectStore.data.cronjobs,
+  accessors: {
+    namespace: (kubeObject) => kubeObject.metadata.namespace || "",
+    name: (kubeObject) => kubeObject.metadata.name || "",
+    age: (kubeObject) => kubeObject.metadata.creationTimestamp || "",
+  },
+});
 </script>
 
 <script>

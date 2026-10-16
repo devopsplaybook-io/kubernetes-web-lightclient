@@ -92,3 +92,36 @@ export function podStatusClass(status: string): string {
     return "status-error";
   return "status-neutral";
 }
+
+/**
+ * Ready and total container counts of a pod, shared by the Ready cell display
+ * and the list sort accessors so they cannot drift apart.
+ */
+export function getPodReadyCount(pod: any): { ready: number; total: number } {
+  const statuses = pod.status?.containerStatuses || [];
+  return {
+    ready: statuses.filter((s) => s.ready).length,
+    total: statuses.length,
+  };
+}
+
+export function getPodRestartCount(pod: any): number {
+  const statuses = pod.status?.containerStatuses || [];
+  return statuses.reduce((sum, s) => sum + (s.restartCount || 0), 0);
+}
+
+export function getPodLastRestartAt(pod: any): string {
+  const statuses = pod.status?.containerStatuses || [];
+  // Find the latest restart time among all containers
+  return (
+    statuses
+      .map(
+        (s) =>
+          s.state?.terminated?.finishedAt ||
+          s.lastState?.terminated?.finishedAt,
+      )
+      .filter(Boolean)
+      .sort()
+      .reverse()[0] || ""
+  );
+}

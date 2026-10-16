@@ -1,22 +1,40 @@
 <template>
   <div>
+    <ListTriageToolbar
+      :filters="availableFilters"
+      :active="activeFilters"
+      @toggle="toggleFilter"
+      @clear="clearAll"
+    />
     <table class="striped">
       <thead>
         <tr>
-          <th>PV</th>
+          <th
+            class="sortable"
+            :aria-sort="ariaSort('name')"
+            v-on:click="onSortToggle('name')"
+          >PV {{ sortArrow("name") }}</th>
           <th>Capacity</th>
           <th>Access Modes</th>
           <th>Reclaim Policy</th>
-          <th>Status</th>
+          <th
+            class="sortable"
+            :aria-sort="ariaSort('status')"
+            v-on:click="onSortToggle('status')"
+          >Status {{ sortArrow("status") }}</th>
           <th>Claim</th>
-          <th>Age</th>
+          <th
+            class="sortable"
+            :aria-sort="ariaSort('age')"
+            v-on:click="onSortToggle('age')"
+          >Age {{ sortArrow("age") }}</th>
           <th>Details</th>
           <th v-if="deletable">Delete</th>
         </tr>
       </thead>
       <tbody>
         <tr
-          v-for="kubeObject of kubernetesObjectStore.data.pvs"
+          v-for="kubeObject of visibleItems"
           v-bind:key="kubeObject.metadata.uid"
         >
           <td>{{ kubeObject.metadata.name }}</td>
@@ -64,7 +82,31 @@
 
 <script setup>
 import { UtilsRelativeTime } from "~~/services/Utils";
+import { useListTriage } from "~~/composables/useListTriage";
+import ListTriageToolbar from "~~/components/ListTriageToolbar.vue";
 const kubernetesObjectStore = KubernetesObjectStore();
+
+// Local predicate next to the existing status helper: a PV "has warnings"
+// when it reached the Failed phase
+function pvHasWarnings(pv) {
+  return pv.status?.phase === "Failed";
+}
+
+const { visibleItems, onSortToggle, availableFilters, activeFilters, toggleFilter, clearAll, sortArrow, ariaSort } = useListTriage("pv", {
+  rawItems: () => kubernetesObjectStore.data.pvs,
+  accessors: {
+    name: (pv) => pv.metadata.name || "",
+    status: (pv) => pv.status?.phase || "Unknown",
+    age: (pv) => pv.metadata.creationTimestamp || "",
+  },
+  filterDefs: [
+    {
+      id: "has-warnings",
+      label: "Has warnings",
+      predicate: pvHasWarnings,
+    },
+  ],
+});
 </script>
 
 <script>

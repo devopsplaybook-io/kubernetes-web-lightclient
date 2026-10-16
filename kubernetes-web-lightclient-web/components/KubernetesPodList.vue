@@ -1,14 +1,44 @@
 <template>
   <div>
-    <table class="striped" v-if="kubernetesObjectStore.data.pods.length > 0">
+    <ListTriageToolbar
+      :filters="availableFilters"
+      :active="activeFilters"
+      @toggle="toggleFilter"
+      @clear="clearAll"
+    />
+    <table class="striped table-cards" v-if="kubernetesObjectStore.data.pods.length > 0">
       <thead>
         <tr>
-          <th>Namespace</th>
-          <th>Pod</th>
-          <th>Status</th>
-          <th>Age</th>
-          <th>Ready</th>
-          <th>Restarts</th>
+          <th
+            class="sortable"
+            :aria-sort="ariaSort('namespace')"
+            v-on:click="onSortToggle('namespace')"
+          >Namespace {{ sortArrow("namespace") }}</th>
+          <th
+            class="sortable"
+            :aria-sort="ariaSort('name')"
+            v-on:click="onSortToggle('name')"
+          >Pod {{ sortArrow("name") }}</th>
+          <th
+            class="sortable"
+            :aria-sort="ariaSort('status')"
+            v-on:click="onSortToggle('status')"
+          >Status {{ sortArrow("status") }}</th>
+          <th
+            class="sortable"
+            :aria-sort="ariaSort('age')"
+            v-on:click="onSortToggle('age')"
+          >Age {{ sortArrow("age") }}</th>
+          <th
+            class="sortable"
+            :aria-sort="ariaSort('ready')"
+            v-on:click="onSortToggle('ready')"
+          >Ready {{ sortArrow("ready") }}</th>
+          <th
+            class="sortable"
+            :aria-sort="ariaSort('restarts')"
+            v-on:click="onSortToggle('restarts')"
+          >Restarts {{ sortArrow("restarts") }}</th>
           <th>Details</th>
           <th>Logs</th>
           <th v-if="deletable">Delete</th>
@@ -16,55 +46,34 @@
       </thead>
       <tbody>
         <tr
-          v-for="kubeObject of kubernetesObjectStore.data.pods"
+          v-for="kubeObject of visibleItems"
           v-bind:key="kubeObject.metadata.uid || kubeObject.metadata.name"
         >
-          <td>{{ kubeObject.metadata.namespace }}</td>
-          <td>{{ kubeObject.metadata.name }}</td>
-          <td :class="podStatusClass(getPodStatus(kubeObject))">
+          <td data-label="Namespace">{{ kubeObject.metadata.namespace }}</td>
+          <td data-label="Pod" class="cell-name">{{ kubeObject.metadata.name }}</td>
+          <td
+            data-label="Status"
+            :class="podStatusClass(getPodStatus(kubeObject))"
+          >
             {{ getPodStatus(kubeObject) }}
           </td>
-          <td>
+          <td data-label="Age">
             {{ UtilsRelativeTime(kubeObject.metadata.creationTimestamp) }}
           </td>
-          <td>
-            {{
-              (() => {
-                const statuses = kubeObject.status?.containerStatuses || [];
-                const readyCount = statuses.filter((s) => s.ready).length;
-                const totalCount = statuses.length;
-                return `${readyCount}/${totalCount}`;
-              })()
+          <td data-label="Ready">
+            {{ getPodReadyCount(kubeObject).ready }}/{{
+              getPodReadyCount(kubeObject).total
             }}
           </td>
-          <td>
-            {{
-              (() => {
-                const statuses = kubeObject.status?.containerStatuses || [];
-                return statuses.reduce(
-                  (sum, s) => sum + (s.restartCount || 0),
-                  0,
-                );
-              })()
-            }}
+          <td data-label="Restarts">
+            {{ getPodRestartCount(kubeObject) }}
             ({{
-              (() => {
-                const statuses = kubeObject.status?.containerStatuses || [];
-                // Find the latest restart time among all containers
-                const lastRestart = statuses
-                  .map(
-                    (s) =>
-                      s.state?.terminated?.finishedAt ||
-                      s.lastState?.terminated?.finishedAt,
-                  )
-                  .filter(Boolean)
-                  .sort()
-                  .reverse()[0];
-                return lastRestart ? UtilsRelativeTime(lastRestart) : "-";
-              })()
+              getPodLastRestartAt(kubeObject)
+                ? UtilsRelativeTime(getPodLastRestartAt(kubeObject))
+                : "-"
             }})
           </td>
-          <td>
+          <td data-label="Details">
             <i
               class="bi bi-eye-fill"
               v-on:click="
@@ -75,7 +84,7 @@
               "
             ></i>
           </td>
-          <td>
+          <td data-label="Logs">
             <i
               class="bi bi-file-text-fill"
               v-on:click="
@@ -86,7 +95,7 @@
               "
             ></i>
           </td>
-          <td v-if="deletable">
+          <td v-if="deletable" data-label="Delete">
             <i
               class="bi bi-x-circle-fill"
               v-on:click="
@@ -126,9 +135,39 @@
 
 <script setup>
 import { UtilsRelativeTime } from "~~/services/Utils";
-import { getPodStatus, podStatusClass, staleAwareHandler } from "~~/services/KubernetesUtils";
+import {
+  getPodLastRestartAt,
+  getPodReadyCount,
+  getPodRestartCount,
+  getPodStatus,
+  podStatusClass,
+  staleAwareHandler,
+} from "~~/services/KubernetesUtils";
+import { createPodFilters } from "~~/services/ListTriage";
+import { useListTriage } from "~~/composables/useListTriage";
+import ListTriageToolbar from "~~/components/ListTriageToolbar.vue";
 const kubernetesObjectStore = KubernetesObjectStore();
 const namespaceStore = NamespaceStore();
+
+const { visibleItems, onSortToggle, availableFilters, activeFilters, toggleFilter, clearAll, sortArrow, ariaSort } = useListTriage(
+  "pod",
+  {
+    rawItems: () => kubernetesObjectStore.data.pods,
+    accessors: {
+      namespace: (pod) => pod.metadata.namespace || "",
+      name: (pod) => pod.metadata.name || "",
+      status: (pod) => getPodStatus(pod),
+      age: (pod) => pod.metadata.creationTimestamp || "",
+      ready: (pod) => {
+        const counts = getPodReadyCount(pod);
+        return counts.total === 0 ? -1 : counts.ready / counts.total;
+      },
+      restarts: (pod) => getPodRestartCount(pod),
+    },
+    filterDefs: createPodFilters(),
+    defaultSortDirections: { restarts: "desc" },
+  },
+);
 </script>
 
 <script>
@@ -251,3 +290,9 @@ export default {
   },
 };
 </script>
+
+<style scoped>
+.cell-name {
+  word-break: break-all;
+}
+</style>

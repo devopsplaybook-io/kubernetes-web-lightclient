@@ -3,17 +3,29 @@
     <table class="striped">
       <thead>
         <tr>
-          <th>Namespace</th>
-          <th>Role Binding</th>
+          <th
+            class="sortable"
+            :aria-sort="ariaSort('namespace')"
+            v-on:click="onSortToggle('namespace')"
+          >Namespace {{ sortArrow("namespace") }}</th>
+          <th
+            class="sortable"
+            :aria-sort="ariaSort('name')"
+            v-on:click="onSortToggle('name')"
+          >Role Binding {{ sortArrow("name") }}</th>
           <th>Role</th>
-          <th>Age</th>
+          <th
+            class="sortable"
+            :aria-sort="ariaSort('age')"
+            v-on:click="onSortToggle('age')"
+          >Age {{ sortArrow("age") }}</th>
           <th>Details</th>
           <th v-if="deletable">Delete</th>
         </tr>
       </thead>
       <tbody>
         <tr
-          v-for="kubeObject of kubernetesObjectStore.data.rolebindings"
+          v-for="kubeObject of visibleItems"
           v-bind:key="kubeObject.metadata.uid"
         >
           <td>{{ kubeObject.metadata.namespace }}</td>
@@ -60,9 +72,18 @@
 </template>
 
 <script setup>
-import { UtilsRelativeTime } from "~~/services/Utils";
+import { useListTriage } from "~~/composables/useListTriage";
 const kubernetesObjectStore = KubernetesObjectStore();
 const namespaceStore = NamespaceStore();
+
+const { visibleItems, onSortToggle, sortArrow, ariaSort } = useListTriage("rolebinding", {
+  rawItems: () => kubernetesObjectStore.data.rolebindings,
+  accessors: {
+    namespace: (kubeObject) => kubeObject.metadata.namespace || "",
+    name: (kubeObject) => kubeObject.metadata.name || "",
+    age: (kubeObject) => kubeObject.metadata.creationTimestamp || "",
+  },
+});
 </script>
 
 <script>
