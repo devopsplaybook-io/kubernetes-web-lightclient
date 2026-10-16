@@ -56,8 +56,9 @@
     </div>
     <DialogDetails
       v-if="dialogDetails.enable"
-      :text="dialogDetails.text"
-      :title="dialogDetails.title"
+      :object-type="dialogDetails.objectType"
+      :object-name="dialogDetails.objectName"
+      :namespace="dialogDetails.namespace"
       @onClose="onCloseDetails()"
     />
     <DialogLogs
@@ -86,12 +87,18 @@ import {
 } from "~~/services/KubernetesUtils";
 import { AuthService } from "~~/services/AuthService";
 import { EventBus, EventTypes } from "~~/services/EventBus";
-import { UtilsDecompressData } from "~/services/Utils";
+import {
+  clearDialogRoute,
+  readDialogRoute,
+  writeDialogRoute,
+} from "~~/services/DialogDeepLink";
 import axios from "axios";
 import Config from "~~/services/Config.ts";
 import { ref, computed, watch, onMounted } from "vue";
 
 const kubernetesObjectStore = KubernetesObjectStore();
+const router = useRouter();
+const route = useRoute();
 
 const props = defineProps({
   objectType: { type: String, required: true },
@@ -100,7 +107,12 @@ const props = defineProps({
   deletable: { type: Boolean, default: false },
 });
 
-const dialogDetails = ref({ enable: false, title: "", text: "" });
+const dialogDetails = ref({
+  enable: false,
+  objectType: "",
+  namespace: "",
+  objectName: "",
+});
 const dialogLogs = ref({
   enable: false,
   podname: "",
@@ -127,6 +139,14 @@ watch(
 
 onMounted(() => {
   fetchData(props.objectType);
+  const dialogRoute = readDialogRoute(route?.query);
+  if (dialogRoute) {
+    if (dialogRoute.kind === "details") {
+      openDetails(dialogRoute.name, dialogRoute.namespace);
+    } else if (props.objectType === "pod") {
+      openLogs(dialogRoute.name, dialogRoute.namespace);
+    }
+  }
 });
 
 function fetchData(type) {
@@ -139,42 +159,42 @@ function fetchData(type) {
 }
 
 function onCloseDetails() {
-  dialogDetails.value = { enable: false, title: "", text: "" };
+  dialogDetails.value = {
+    enable: false,
+    objectType: "",
+    namespace: "",
+    objectName: "",
+  };
   dialogLogs.value = { enable: false, podname: "", namespace: "", title: "" };
+  clearDialogRoute(router, route);
 }
 
 async function showDetails(kubeObject) {
+  openDetails(kubeObject.metadata.name, kubeObject.metadata.namespace || "");
+}
+
+function openDetails(objectName, namespace) {
   dialogDetails.value = {
     enable: true,
-    title: `Details: ${kubeObject.metadata.name}`,
-    text: "",
+    objectType: props.objectType,
+    namespace,
+    objectName,
   };
-  const namespace = kubeObject.metadata.namespace;
-  try {
-    const res = await axios.post(
-      `${(await Config.get()).SERVER_URL}/kubectl/command`,
-      {
-        namespace: namespace || undefined,
-        object: props.objectType,
-        command: "describe",
-        argument: kubeObject.metadata.name,
-        noJson: true,
-      },
-      await AuthService.getAuthHeader(),
-    );
-    dialogDetails.value.text = await UtilsDecompressData(res.data.result);
-  } catch (error) {
-    staleAwareHandler(props.objectType)(error);
-  }
+  writeDialogRoute(router, route, "details", objectName, namespace);
 }
 
 function showLogs(kubeObject) {
+  openLogs(kubeObject.metadata.name, kubeObject.metadata.namespace);
+}
+
+function openLogs(podname, namespace) {
   dialogLogs.value = {
     enable: true,
-    podname: kubeObject.metadata.name,
-    namespace: kubeObject.metadata.namespace,
-    title: `Logs: ${kubeObject.metadata.name}`,
+    podname,
+    namespace,
+    title: `Logs: ${podname}`,
   };
+  writeDialogRoute(router, route, "logs", podname, namespace);
 }
 
 function confirmDelete(kubeObject) {

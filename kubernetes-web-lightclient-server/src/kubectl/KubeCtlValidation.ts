@@ -7,7 +7,24 @@ const OBJECT_NAME_REGEX = /^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/;
 const NAMESPACE_REGEX = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
 const MAX_NAME_LENGTH = 253;
 
-export type ArgumentBuildResult = { ok: true; argv: string[] } | { ok: false };
+export type ValidationErrorField =
+  | "command"
+  | "object"
+  | "namespace"
+  | "argument"
+  | "pod"
+  | "container"
+  | "payload";
+
+export type ArgumentBuildResult =
+  | { ok: true; argv: string[] }
+  | { ok: false; error: string; field: ValidationErrorField };
+
+// Rejected values are embedded via JSON.stringify so control characters and
+// newlines from a hostile payload cannot forge extra lines in the message.
+function rejected(value: unknown): string {
+  return JSON.stringify(value) ?? "undefined";
+}
 
 /**
  * A resource type is only accepted when it matches an anchored name pattern
@@ -57,10 +74,14 @@ export interface CommandPayload {
  */
 export function BuildCommandArgs(payload: CommandPayload): ArgumentBuildResult {
   if (!payload || typeof payload.command !== "string") {
-    return { ok: false };
+    return { ok: false, error: "missing or invalid command", field: "command" };
   }
   if (!IsAllowedResourceType(payload.object)) {
-    return { ok: false };
+    return {
+      ok: false,
+      error: `unknown resource type ${rejected(payload.object)}`,
+      field: "object",
+    };
   }
 
   const namespace = payload.namespace;
@@ -70,7 +91,11 @@ export function BuildCommandArgs(payload: CommandPayload): ArgumentBuildResult {
     namespace !== "" &&
     !IsValidNamespace(namespace)
   ) {
-    return { ok: false };
+    return {
+      ok: false,
+      error: `invalid namespace ${rejected(namespace)}`,
+      field: "namespace",
+    };
   }
   const namespaceArg = namespace ? ["-n", namespace] : [];
   const argument = payload.argument ?? "";
@@ -82,7 +107,11 @@ export function BuildCommandArgs(payload: CommandPayload): ArgumentBuildResult {
         argv.push("-A");
       } else if (argument !== "") {
         if (!IsValidObjectName(argument)) {
-          return { ok: false };
+          return {
+            ok: false,
+            error: `invalid object name ${rejected(argument)}`,
+            field: "argument",
+          };
         }
         argv.push(argument);
         argv.push(...namespaceArg);
@@ -97,21 +126,33 @@ export function BuildCommandArgs(payload: CommandPayload): ArgumentBuildResult {
 
     case "describe": {
       if (!IsValidObjectName(argument)) {
-        return { ok: false };
+        return {
+          ok: false,
+          error: `invalid object name ${rejected(argument)}`,
+          field: "argument",
+        };
       }
       return { ok: true, argv: ["describe", payload.object, argument, ...namespaceArg] };
     }
 
     case "delete": {
       if (!IsValidObjectName(argument)) {
-        return { ok: false };
+        return {
+          ok: false,
+          error: `invalid object name ${rejected(argument)}`,
+          field: "argument",
+        };
       }
       return { ok: true, argv: ["delete", payload.object, argument, ...namespaceArg] };
     }
 
     case "rollout restart": {
       if (!IsValidObjectName(argument)) {
-        return { ok: false };
+        return {
+          ok: false,
+          error: `invalid object name ${rejected(argument)}`,
+          field: "argument",
+        };
       }
       return {
         ok: true,
@@ -124,7 +165,11 @@ export function BuildCommandArgs(payload: CommandPayload): ArgumentBuildResult {
         argument,
       );
       if (!match) {
-        return { ok: false };
+        return {
+          ok: false,
+          error: `invalid scale argument ${rejected(argument)}, expected <name> --replicas=<n>`,
+          field: "argument",
+        };
       }
       return {
         ok: true,
@@ -141,14 +186,22 @@ export function BuildCommandArgs(payload: CommandPayload): ArgumentBuildResult {
     case "create": {
       // Only "create job --from=cronjob/<name> <jobName>" is supported.
       if (payload.object !== "job") {
-        return { ok: false };
+        return {
+          ok: false,
+          error: "command create is only supported for object job",
+          field: "object",
+        };
       }
       const match =
         /^--from=cronjob\/([a-z0-9](?:[a-z0-9.-]*[a-z0-9])?) ([a-z0-9](?:[a-z0-9.-]*[a-z0-9])?)$/.exec(
           argument,
         );
       if (!match) {
-        return { ok: false };
+        return {
+          ok: false,
+          error: `invalid create argument ${rejected(argument)}, expected --from=cronjob/<cronjob> <jobname>`,
+          field: "argument",
+        };
       }
       return {
         ok: true,
@@ -163,7 +216,11 @@ export function BuildCommandArgs(payload: CommandPayload): ArgumentBuildResult {
     }
 
     default:
-      return { ok: false };
+      return {
+        ok: false,
+        error: `unsupported command ${rejected(payload.command)}`,
+        field: "command",
+      };
   }
 }
 
@@ -184,18 +241,30 @@ const LOGS_SINCE_REGEX = /^--since=(10m|1h|24h)$/;
  */
 export function BuildLogsArgs(payload: LogsPayload): ArgumentBuildResult {
   if (!payload) {
-    return { ok: false };
+    return { ok: false, error: "missing request payload", field: "payload" };
   }
   const { namespace, pod, container, argument, timestamps } = payload;
   if (!IsValidNamespace(namespace)) {
-    return { ok: false };
+    return {
+      ok: false,
+      error: `invalid namespace ${rejected(namespace)}`,
+      field: "namespace",
+    };
   }
   if (!IsValidObjectName(pod)) {
-    return { ok: false };
+    return {
+      ok: false,
+      error: `invalid pod name ${rejected(pod)}`,
+      field: "pod",
+    };
   }
   if (container !== undefined && container !== null && container !== "") {
     if (!IsValidObjectName(container)) {
-      return { ok: false };
+      return {
+        ok: false,
+        error: `invalid container name ${rejected(container)}`,
+        field: "container",
+      };
     }
   }
 
@@ -214,7 +283,11 @@ export function BuildLogsArgs(payload: LogsPayload): ArgumentBuildResult {
         argv.push(token);
         continue;
       }
-      return { ok: false };
+      return {
+        ok: false,
+        error: `unsupported logs option ${rejected(token)}, allowed: --previous, --since=10m|1h|24h`,
+        field: "argument",
+      };
     }
   }
   if (timestamps !== false) {

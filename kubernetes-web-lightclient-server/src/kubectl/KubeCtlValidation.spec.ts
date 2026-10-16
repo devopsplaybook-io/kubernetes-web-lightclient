@@ -188,52 +188,89 @@ describe("KubeCtlValidation", () => {
     test.each(INJECTION_PAYLOADS)(
       "rejects object payload %j",
       (payload) => {
-        expect(
-          BuildCommandArgs({
-            object: payload,
-            command: "get",
-            argument: "my-pod",
-          }).ok,
-        ).toBe(false);
+        const result = BuildCommandArgs({
+          object: payload,
+          command: "get",
+          argument: "my-pod",
+        });
+        expect(result.ok).toBe(false);
+        if (result.ok === false) {
+          expect(result.error).toContain("unknown resource type");
+          expect(result.field).toBe("object");
+        }
       },
     );
 
     test.each(INJECTION_PAYLOADS)(
       "rejects argument payload %j",
       (payload) => {
-        expect(
-          BuildCommandArgs({
-            object: "deployment",
-            command: "delete",
-            argument: payload,
-            noJson: true,
-          }).ok,
-        ).toBe(false);
+        const result = BuildCommandArgs({
+          object: "deployment",
+          command: "delete",
+          argument: payload,
+          noJson: true,
+        });
+        expect(result.ok).toBe(false);
+        if (result.ok === false) {
+          expect(result.error).toContain("invalid object name");
+          expect(result.field).toBe("argument");
+        }
       },
     );
 
     test.each(INJECTION_PAYLOADS)(
       "rejects namespace payload %j",
       (payload) => {
-        expect(
-          BuildCommandArgs({
-            object: "pod",
-            command: "get",
-            namespace: payload,
-            argument: "my-pod",
-          }).ok,
-        ).toBe(false);
+        const result = BuildCommandArgs({
+          object: "pod",
+          command: "get",
+          namespace: payload,
+          argument: "my-pod",
+        });
+        expect(result.ok).toBe(false);
+        if (result.ok === false) {
+          expect(result.error).toContain("invalid namespace");
+          expect(result.field).toBe("namespace");
+        }
       },
     );
 
-    test("rejects unknown commands", () => {
+    test("rejects unknown commands with a command field", () => {
+      const exec = BuildCommandArgs({
+        object: "pod",
+        command: "exec",
+        argument: "my-pod",
+      });
+      expect(exec).toMatchObject({
+        ok: false,
+        error: 'unsupported command "exec"',
+        field: "command",
+      });
       expect(
-        BuildCommandArgs({ object: "pod", command: "exec", argument: "my-pod" })
-          .ok,
-      ).toBe(false);
-      expect(
-        BuildCommandArgs({ object: "pod", command: "get pods; id" }).ok,
-      ).toBe(false);
+        BuildCommandArgs({ object: "pod", command: "get pods; id" }),
+      ).toMatchObject({
+        ok: false,
+        error: 'unsupported command "get pods; id"',
+        field: "command",
+      });
+      expect(BuildCommandArgs(null)).toMatchObject({
+        ok: false,
+        error: "missing or invalid command",
+        field: "command",
+      });
+    });
+
+    test("rejects a get with an invalid object name", () => {
+      const result = BuildCommandArgs({
+        object: "pod",
+        command: "get",
+        argument: "my-pod; id",
+      });
+      expect(result).toMatchObject({
+        ok: false,
+        error: 'invalid object name "my-pod; id"',
+        field: "argument",
+      });
     });
 
     test("rejects malformed scale and create arguments", () => {
@@ -245,14 +282,17 @@ describe("KubeCtlValidation", () => {
           noJson: true,
         }).ok,
       ).toBe(false);
-      expect(
-        BuildCommandArgs({
-          object: "deployment",
-          command: "scale",
-          argument: "my-deployment",
-          noJson: true,
-        }).ok,
-      ).toBe(false);
+      const scale = BuildCommandArgs({
+        object: "deployment",
+        command: "scale",
+        argument: "my-deployment",
+        noJson: true,
+      });
+      expect(scale).toMatchObject({
+        ok: false,
+        error: 'invalid scale argument "my-deployment", expected <name> --replicas=<n>',
+        field: "argument",
+      });
       expect(
         BuildCommandArgs({
           object: "job",
@@ -261,14 +301,17 @@ describe("KubeCtlValidation", () => {
           noJson: true,
         }).ok,
       ).toBe(false);
-      expect(
-        BuildCommandArgs({
-          object: "pod",
-          command: "create",
-          argument: "--from=cronjob/my-cron my-job",
-          noJson: true,
-        }).ok,
-      ).toBe(false);
+      const createOnPod = BuildCommandArgs({
+        object: "pod",
+        command: "create",
+        argument: "--from=cronjob/my-cron my-job",
+        noJson: true,
+      });
+      expect(createOnPod).toMatchObject({
+        ok: false,
+        error: "command create is only supported for object job",
+        field: "object",
+      });
     });
   });
 
@@ -310,32 +353,54 @@ describe("KubeCtlValidation", () => {
     });
 
     test.each(INJECTION_PAYLOADS)("rejects pod payload %j", (payload) => {
-      expect(
-        BuildLogsArgs({ namespace: "default", pod: payload }).ok,
-      ).toBe(false);
+      const result = BuildLogsArgs({ namespace: "default", pod: payload });
+      expect(result.ok).toBe(false);
+      if (result.ok === false) {
+        expect(result.error).toContain("invalid pod name");
+        expect(result.field).toBe("pod");
+      }
+    });
+
+    test("rejects an invalid container name", () => {
+      const result = BuildLogsArgs({
+        namespace: "default",
+        pod: "my-pod",
+        container: "container$(id)",
+      });
+      expect(result).toMatchObject({
+        ok: false,
+        error: 'invalid container name "container$(id)"',
+        field: "container",
+      });
     });
 
     test.each(INJECTION_PAYLOADS)(
       "rejects argument payload %j",
       (payload) => {
-        expect(
-          BuildLogsArgs({
-            namespace: "default",
-            pod: "my-pod",
-            argument: payload,
-          }).ok,
-        ).toBe(false);
+        const result = BuildLogsArgs({
+          namespace: "default",
+          pod: "my-pod",
+          argument: payload,
+        });
+        expect(result.ok).toBe(false);
+        if (result.ok === false) {
+          expect(result.field).toBe("argument");
+        }
       },
     );
 
-    test("rejects unknown log options", () => {
-      expect(
-        BuildLogsArgs({
-          namespace: "default",
-          pod: "my-pod",
-          argument: "--tail=10",
-        }).ok,
-      ).toBe(false);
+    test("rejects unknown log options with the allowed list in the message", () => {
+      const tail = BuildLogsArgs({
+        namespace: "default",
+        pod: "my-pod",
+        argument: "--tail=10",
+      });
+      expect(tail).toMatchObject({
+        ok: false,
+        error:
+          'unsupported logs option "--tail=10", allowed: --previous, --since=10m|1h|24h',
+        field: "argument",
+      });
       expect(
         BuildLogsArgs({
           namespace: "default",
@@ -346,9 +411,17 @@ describe("KubeCtlValidation", () => {
     });
 
     test("rejects missing namespace", () => {
-      expect(
-        BuildLogsArgs({ namespace: "", pod: "my-pod" }).ok,
-      ).toBe(false);
+      const result = BuildLogsArgs({ namespace: "", pod: "my-pod" });
+      expect(result).toMatchObject({
+        ok: false,
+        error: 'invalid namespace ""',
+        field: "namespace",
+      });
+      expect(BuildLogsArgs(null)).toMatchObject({
+        ok: false,
+        error: "missing request payload",
+        field: "payload",
+      });
     });
   });
 });

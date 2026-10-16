@@ -22,8 +22,16 @@ function mountWithEvents(events: Record<string, any>[]) {
     getEvents: vi.fn(),
   };
   vi.stubGlobal("KubernetesObjectStore", () => store);
-  const wrapper = mount(KubernetesEventList);
-  return { wrapper, store };
+  const replaceMock = vi.fn();
+  const wrapper = mount(KubernetesEventList, {
+    global: {
+      mocks: {
+        $route: { path: "/kubernetes", query: {} },
+        $router: { replace: replaceMock },
+      },
+    },
+  });
+  return { wrapper, store, replaceMock };
 }
 
 afterEach(() => {
@@ -127,7 +135,7 @@ describe("KubernetesEventList", () => {
   });
 
   it("offers pod logs only for events involving a Pod", async () => {
-    const { wrapper } = mountWithEvents([
+    const { wrapper, replaceMock } = mountWithEvents([
       makeEvent({ metadata: { uid: "uid-pod" } }),
       makeEvent({
         metadata: { uid: "uid-dep" },
@@ -148,6 +156,10 @@ describe("KubernetesEventList", () => {
       enable: true,
       podname: "my-pod",
       namespace: "default",
+    });
+    expect(replaceMock).toHaveBeenCalledWith({
+      path: "/kubernetes",
+      query: { dialog: "logs", name: "my-pod", dialogNamespace: "default" },
     });
     wrapper.unmount();
   });

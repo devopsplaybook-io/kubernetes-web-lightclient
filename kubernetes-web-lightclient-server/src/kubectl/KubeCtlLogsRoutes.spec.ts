@@ -80,6 +80,10 @@ describe("KubeCtlLogsRoutes", () => {
       url: "/api/kubectl/logs/",
     });
     expect(res.statusCode).toBe(400);
+    expect(res.json()).toEqual({
+      error: "invalid namespace undefined",
+      field: "namespace",
+    });
     expect(mockExecuteCommand).not.toHaveBeenCalled();
   });
 
@@ -103,6 +107,8 @@ describe("KubeCtlLogsRoutes", () => {
         payload: { namespace: "default", pod: payload },
       });
       expect(res.statusCode).toBe(400);
+      expect(res.json().field).toBe("pod");
+      expect(res.json().error).toContain("invalid pod name");
       expect(mockExecuteCommand).not.toHaveBeenCalled();
     },
   );
@@ -144,6 +150,8 @@ describe("KubeCtlLogsRoutes", () => {
       },
     });
     expect(res.statusCode).toBe(400);
+    expect(res.json().field).toBe("container");
+    expect(res.json().error).toContain("invalid container name");
     expect(mockExecuteCommand).not.toHaveBeenCalled();
   });
 

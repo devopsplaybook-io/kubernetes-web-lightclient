@@ -11,7 +11,10 @@ export default {
     if (await AuthenticationStore().ensureAuthenticated()) {
       useRouter().push({ path: "/kubernetes" });
     } else {
-      useRouter().push({ path: "/settings" });
+      useRouter().push({
+        path: "/settings",
+        query: { return: useRoute().fullPath },
+      });
     }
   },
 };

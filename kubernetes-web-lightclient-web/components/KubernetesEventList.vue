@@ -33,7 +33,12 @@
             <i
               v-if="event.involvedObject?.kind === 'Pod'"
               class="bi bi-file-text-fill"
-              v-on:click="showLogs(event)"
+              v-on:click="
+                showLogs(
+                  event.involvedObject.namespace || '',
+                  event.involvedObject.name,
+                )
+              "
             ></i>
           </td>
         </tr>
@@ -54,6 +59,11 @@
 <script>
 import { UtilsRelativeTime } from "~~/services/Utils";
 import { PreferencesService } from "~~/services/PreferencesService";
+import {
+  clearDialogRoute,
+  readDialogRoute,
+  writeDialogRoute,
+} from "~~/services/DialogDeepLink";
 
 export default {
   data() {
@@ -102,6 +112,10 @@ export default {
   },
   async created() {
     KubernetesObjectStore().getEvents();
+    const dialogRoute = readDialogRoute(this.$route?.query);
+    if (dialogRoute && dialogRoute.kind === "logs") {
+      this.showLogs(dialogRoute.namespace, dialogRoute.name);
+    }
   },
   methods: {
     eventAge(event) {
@@ -126,12 +140,13 @@ export default {
       const involved = event.involvedObject || {};
       return `${involved.kind || ""} ${involved.name || ""}`.trim();
     },
-    showLogs(event) {
+    showLogs(namespace, podname) {
       this.dialogLogs = {
         enable: true,
-        podname: event.involvedObject.name,
-        namespace: event.involvedObject.namespace || "",
+        podname,
+        namespace,
       };
+      writeDialogRoute(this.$router, this.$route, "logs", podname, namespace);
     },
     onCloseLogs() {
       this.dialogLogs = {
@@ -139,6 +154,7 @@ export default {
         podname: "",
         namespace: "",
       };
+      clearDialogRoute(this.$router, this.$route);
     },
   },
 };

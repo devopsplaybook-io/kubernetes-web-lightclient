@@ -25,8 +25,10 @@ export class KubeCtlLogsRoutes {
 
       const payload = req.body || ({} as PostCommand["Body"]);
       const buildResult = BuildLogsArgs(payload);
-      if (!buildResult.ok) {
-        return res.status(400).send({ error: "Malformed Request" });
+      if (buildResult.ok === false) {
+        return res
+          .status(400)
+          .send({ error: buildResult.error, field: buildResult.field });
       }
 
       const span = OTelTracer().startSpan("KubeCtlLogs");

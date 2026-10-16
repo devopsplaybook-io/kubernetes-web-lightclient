@@ -36,8 +36,10 @@ export class KubeCtlCommandRoutes {
 
       const payload = req.body || ({} as PostCommand["Body"]);
       const buildResult = BuildCommandArgs(payload);
-      if (!buildResult.ok) {
-        return res.status(400).send({ error: "Malformed Request" });
+      if (buildResult.ok === false) {
+        return res
+          .status(400)
+          .send({ error: buildResult.error, field: buildResult.field });
       }
       if (payload.command === "delete") {
         const deletePolicy = new DeletePolicy(
