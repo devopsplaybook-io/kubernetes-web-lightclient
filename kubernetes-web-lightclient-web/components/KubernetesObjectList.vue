@@ -7,7 +7,7 @@
       @toggle="toggleFilter"
       @clear="clearAll"
     />
-    <table class="striped table-cards" v-if="items.length > 0">
+    <table class="striped" v-if="items.length > 0">
       <thead>
         <tr>
           <th
@@ -42,28 +42,27 @@
           v-for="kubeObject of visibleItems"
           v-bind:key="kubeObject.metadata.uid || kubeObject.metadata.name"
         >
-          <td v-if="isNamespaced" data-label="Namespace">{{ kubeObject.metadata.namespace }}</td>
-          <td data-label="Name" class="cell-name">{{ kubeObject.metadata.name }}</td>
-          <td data-label="Age">
+          <td v-if="isNamespaced">{{ kubeObject.metadata.namespace }}</td>
+          <td class="cell-name">{{ kubeObject.metadata.name }}</td>
+          <td>
             {{ UtilsRelativeTime(kubeObject.metadata.creationTimestamp) }}
           </td>
           <td
             v-if="objectType === 'pod'"
-            data-label="Status"
             :class="podStatusClass(getPodStatus(kubeObject))"
           >
             {{ getPodStatus(kubeObject) }}
           </td>
-          <td data-label="Details">
+          <td>
             <i class="bi bi-eye-fill" v-on:click="showDetails(kubeObject)"></i>
           </td>
-          <td v-if="objectType === 'pod'" data-label="Logs">
+          <td v-if="objectType === 'pod'">
             <i
               class="bi bi-file-text-fill"
               v-on:click="showLogs(kubeObject)"
             ></i>
           </td>
-          <td v-if="deletable" data-label="Delete">
+          <td v-if="deletable">
             <i
               class="bi bi-x-circle-fill"
               v-on:click="confirmDelete(kubeObject)"

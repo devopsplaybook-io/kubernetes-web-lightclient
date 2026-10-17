@@ -5,7 +5,6 @@ Kubernetes Web LightClient is a web-based user interface for Kubernetes. In its 
 - List: Deployment, ReplicaSet, StatefulSet, DaemonSet, Pod, Job, CronJob, Service, Ingress, NetworkPolicy, HorizontalPodAutoscaler, PodDisruptionBudget, ConfigMap, Secret, PVC, StorageClass, Node, Namespace
 - Sortable list columns (name, status, age, restarts, ...) and one-click status quick-filters (pods: "Not ready" and "Restarts > 0"; events: "Warnings only"; nodes and PVs: "Has warnings")
 - Per-user persisted list preferences: the active column sort and quick-filters of each list follow the user across devices via `GET/PUT /api/resources/selections` (`listPreferences` field); in a PUT body a field that is omitted (`selectedIds` or `listPreferences`) leaves the stored value unchanged
-- Compact card layout for the pod and generic lists on small screens (under 768 px)
 - Delete objects (configurable, see `ALLOWED_DELETABLE_OBJECTS`)
 - For Pod: Display Log
 - For Deployment, DaemonSet, StatefulSet: Rollout restart

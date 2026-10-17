@@ -221,15 +221,22 @@ describe("KubernetesPodList", () => {
     wrapper.unmount();
   });
 
-  it("renders data-label attributes for the mobile card layout", async () => {
+  it("renders the pod list as a real table at any viewport", async () => {
     const wrapper = mountWithPods([makePod("pod-a", true, 0)]);
 
-    for (const label of ["Namespace", "Pod", "Status", "Age", "Ready", "Restarts"]) {
-      expect(
-        wrapper.find(`td[data-label="${label}"]`).exists(),
-        `missing td[data-label="${label}"]`,
-      ).toBe(true);
-    }
+    const table = wrapper.find("table.striped");
+    expect(table.exists()).toBe(true);
+    expect(table.find("thead").exists()).toBe(true);
+    const headers = table.findAll("thead th").map((th: any) => th.text());
+    expect(headers.slice(0, 6)).toEqual([
+      "Namespace",
+      "Pod",
+      "Status",
+      "Age",
+      "Ready",
+      "Restarts",
+    ]);
+    expect(table.findAll("tbody tr")).toHaveLength(1);
     wrapper.unmount();
   });
 });
