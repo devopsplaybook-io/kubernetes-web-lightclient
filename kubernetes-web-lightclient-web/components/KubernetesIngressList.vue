@@ -76,6 +76,7 @@
 </template>
 
 <script setup>
+import { UtilsRelativeTime } from "~~/services/Utils";
 import { useListTriage } from "~~/composables/useListTriage";
 const kubernetesObjectStore = KubernetesObjectStore();
 const namespaceStore = NamespaceStore();

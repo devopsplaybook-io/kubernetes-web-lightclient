@@ -6,7 +6,7 @@
       @toggle="toggleFilter"
       @clear="clearAll"
     />
-    <table class="striped table-cards" v-if="kubernetesObjectStore.data.pods.length > 0">
+    <table class="striped" v-if="kubernetesObjectStore.data.pods.length > 0">
       <thead>
         <tr>
           <th
@@ -49,23 +49,20 @@
           v-for="kubeObject of visibleItems"
           v-bind:key="kubeObject.metadata.uid || kubeObject.metadata.name"
         >
-          <td data-label="Namespace">{{ kubeObject.metadata.namespace }}</td>
-          <td data-label="Pod" class="cell-name">{{ kubeObject.metadata.name }}</td>
-          <td
-            data-label="Status"
-            :class="podStatusClass(getPodStatus(kubeObject))"
-          >
+          <td>{{ kubeObject.metadata.namespace }}</td>
+          <td class="cell-name">{{ kubeObject.metadata.name }}</td>
+          <td :class="podStatusClass(getPodStatus(kubeObject))">
             {{ getPodStatus(kubeObject) }}
           </td>
-          <td data-label="Age">
+          <td>
             {{ UtilsRelativeTime(kubeObject.metadata.creationTimestamp) }}
           </td>
-          <td data-label="Ready">
+          <td>
             {{ getPodReadyCount(kubeObject).ready }}/{{
               getPodReadyCount(kubeObject).total
             }}
           </td>
-          <td data-label="Restarts">
+          <td>
             {{ getPodRestartCount(kubeObject) }}
             ({{
               getPodLastRestartAt(kubeObject)
@@ -73,7 +70,7 @@
                 : "-"
             }})
           </td>
-          <td data-label="Details">
+          <td>
             <i
               class="bi bi-eye-fill"
               v-on:click="
@@ -84,7 +81,7 @@
               "
             ></i>
           </td>
-          <td data-label="Logs">
+          <td>
             <i
               class="bi bi-file-text-fill"
               v-on:click="
@@ -95,7 +92,7 @@
               "
             ></i>
           </td>
-          <td v-if="deletable" data-label="Delete">
+          <td v-if="deletable">
             <i
               class="bi bi-x-circle-fill"
               v-on:click="
