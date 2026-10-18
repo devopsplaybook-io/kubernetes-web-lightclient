@@ -43,7 +43,7 @@
           v-bind:key="kubeObject.metadata.uid || kubeObject.metadata.name"
         >
           <td v-if="isNamespaced">{{ kubeObject.metadata.namespace }}</td>
-          <td class="cell-name">{{ kubeObject.metadata.name }}</td>
+          <td>{{ kubeObject.metadata.name }}</td>
           <td>
             {{ UtilsRelativeTime(kubeObject.metadata.creationTimestamp) }}
           </td>
@@ -290,9 +290,5 @@ function onCancelDelete() {
   text-align: center;
   padding: 2em;
   opacity: 0.6;
-}
-
-.cell-name {
-  word-break: break-all;
 }
 </style>

@@ -422,10 +422,8 @@ select {
   white-space: nowrap;
 }
 
-@media (min-width: 769px) {
-  #object-list td {
-    white-space: nowrap;
-  }
+#object-list td {
+  white-space: nowrap;
 }
 
 #object-list td,

@@ -50,7 +50,7 @@
           v-bind:key="kubeObject.metadata.uid || kubeObject.metadata.name"
         >
           <td>{{ kubeObject.metadata.namespace }}</td>
-          <td class="cell-name">{{ kubeObject.metadata.name }}</td>
+          <td>{{ kubeObject.metadata.name }}</td>
           <td :class="podStatusClass(getPodStatus(kubeObject))">
             {{ getPodStatus(kubeObject) }}
           </td>
@@ -288,8 +288,3 @@ export default {
 };
 </script>
 
-<style scoped>
-.cell-name {
-  word-break: break-all;
-}
-</style>
