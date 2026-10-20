@@ -7,7 +7,7 @@
             href="#close"
             aria-label="Close"
             class="close"
-            v-on:click="clickClose()"
+            v-on:click.prevent="clickClose()"
           ></a>
           Pod Log: {{ podname }} ({{ namespace }})
         </header>

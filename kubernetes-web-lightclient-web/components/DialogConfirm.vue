@@ -7,7 +7,7 @@
             href="#close"
             aria-label="Close"
             class="close"
-            v-on:click="onCancel()"
+            v-on:click.prevent="onCancel()"
           ></a>
           {{ title }}
         </header>
