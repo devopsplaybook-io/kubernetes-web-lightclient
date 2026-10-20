@@ -120,5 +120,29 @@ describe("DialogDeepLink", () => {
       );
       expect(router.replace).not.toHaveBeenCalled();
     });
+
+    it("returns the router.replace promise so callers can await the URL update", async () => {
+      const navigation = Promise.resolve();
+      const router = { replace: vi.fn(() => navigation) };
+
+      const result = clearDialogRoute(router, {
+        path: "/kubernetes",
+        query: { dialog: "details", name: "my-pod" },
+      });
+
+      expect(result).toBe(navigation);
+      await expect(result).resolves.toBeUndefined();
+    });
+
+    it("returns undefined when there is nothing to clear", () => {
+      const router = routerMock();
+
+      expect(
+        clearDialogRoute(router, {
+          path: "/kubernetes",
+          query: { objectType: "pod" },
+        }),
+      ).toBeUndefined();
+    });
   });
 });

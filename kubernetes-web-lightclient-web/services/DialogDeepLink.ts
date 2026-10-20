@@ -80,17 +80,17 @@ export function writeDialogRoute(
 export function clearDialogRoute(
   router: { replace: (location: unknown) => unknown },
   route: { path: string; query: Record<string, unknown> },
-): void {
+): unknown {
   if (
     route.query.dialog === undefined &&
     route.query.name === undefined &&
     route.query.dialogNamespace === undefined
   ) {
-    return;
+    return undefined;
   }
   const query = { ...route.query };
   delete query.dialog;
   delete query.name;
   delete query.dialogNamespace;
-  void router.replace({ path: route.path, query });
+  return router.replace({ path: route.path, query });
 }

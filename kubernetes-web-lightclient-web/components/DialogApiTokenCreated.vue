@@ -7,7 +7,7 @@
             href="#close"
             aria-label="Close"
             class="close"
-            v-on:click="onClose()"
+            v-on:click.prevent="onClose()"
           ></a>
           API Token Created
         </header>

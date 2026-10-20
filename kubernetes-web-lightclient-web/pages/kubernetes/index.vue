@@ -9,7 +9,7 @@
       v-on:input="onKeywordChanged"
     />
     <div id="object-actions" class="actions">
-      <select v-model="objectType">
+      <select :value="objectType" @change="onObjectTypeChange">
         <option
           v-for="feature in enabledFeatures"
           :key="feature.id"
@@ -162,6 +162,7 @@ import { debounce } from "lodash";
 import { RefreshIntervalService } from "~~/services/RefreshIntervalService";
 import { ResourceService } from "~~/services/ResourceService";
 import { EventBus, EventTypes } from "~~/services/EventBus";
+import { clearDialogRoute } from "~~/services/DialogDeepLink";
 import KubernetesPodList from "~~/components/KubernetesPodList.vue";
 import KubernetesEventList from "~~/components/KubernetesEventList.vue";
 import KubernetesDeploymentList from "~~/components/KubernetesDeploymentList.vue";
@@ -349,6 +350,17 @@ export default {
     },
   },
   methods: {
+    async onObjectTypeChange(event) {
+      const newType = event.target.value;
+      try {
+        // Wait for the dialog deep link to be removed before mounting the
+        // list of the new type: otherwise it reads the stale route and
+        // writes the previous dialog params back into the URL.
+        await clearDialogRoute(useRouter(), useRoute());
+      } finally {
+        this.objectType = newType;
+      }
+    },
     refreshObject() {
       KubernetesObjectStore().refreshLast();
     },
