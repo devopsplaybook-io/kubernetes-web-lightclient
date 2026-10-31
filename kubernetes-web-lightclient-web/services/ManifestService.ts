@@ -2,7 +2,7 @@ import axios from "axios";
 import Config from "~~/services/Config.ts";
 import { AuthService } from "~~/services/AuthService";
 import { UtilsDecompressData } from "~~/services/Utils";
-import yaml from "js-yaml";
+import { dump } from "js-yaml";
 
 interface CommandPayload {
   object: string;
@@ -52,5 +52,5 @@ export async function getObjectManifestYaml(
     payload.namespace = namespace;
   }
   const json = JSON.parse(await postCommand(payload));
-  return yaml.dump(json);
+  return dump(json);
 }
