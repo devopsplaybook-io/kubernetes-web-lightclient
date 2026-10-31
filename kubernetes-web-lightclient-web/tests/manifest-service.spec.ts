@@ -118,8 +118,8 @@ describe("ManifestService", () => {
 
       const yaml = await getObjectManifestYaml("configmap", "default", "my-cm");
 
-      const { default: jsYaml } = await import("js-yaml");
-      expect(jsYaml.load(yaml)).toEqual(manifest);
+      const { load } = await import("js-yaml");
+      expect(load(yaml)).toEqual(manifest);
     });
 
     it("propagates invalid JSON payloads", async () => {
