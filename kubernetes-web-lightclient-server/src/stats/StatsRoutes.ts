@@ -1,5 +1,5 @@
 import { FastifyInstance } from "fastify";
-import { AuthGetUserSession } from "@devopsplaybook.io/common-utils";
+import { AuthGetLiveUser } from "@devopsplaybook.io/common-utils";
 import { StatsDataGet, PodResourcesGet, PodUsageStatsGet } from "./StatsData";
 import {
   RecommendationGenerate,
@@ -13,32 +13,32 @@ export class StatsRoutes {
   public async getRoutes(fastify: FastifyInstance): Promise<void> {
     //
     fastify.get("/nodes", async (req, res) => {
-      const userSession = await AuthGetUserSession(req);
-      if (!userSession.isAuthenticated) {
+      const user = await AuthGetLiveUser(req);
+      if (!user) {
         return res.status(401).send({ error: "Unauthorized" });
       }
       return res.status(200).send({ stats: await StatsDataGet() });
     });
 
     fastify.get("/pod-resources", async (req, res) => {
-      const userSession = await AuthGetUserSession(req);
-      if (!userSession.isAuthenticated) {
+      const user = await AuthGetLiveUser(req);
+      if (!user) {
         return res.status(401).send({ error: "Unauthorized" });
       }
       return res.status(200).send({ podResources: await PodResourcesGet() });
     });
 
     fastify.get("/pod-usage", async (req, res) => {
-      const userSession = await AuthGetUserSession(req);
-      if (!userSession.isAuthenticated) {
+      const user = await AuthGetLiveUser(req);
+      if (!user) {
         return res.status(401).send({ error: "Unauthorized" });
       }
       return res.status(200).send({ podUsageStats: await PodUsageStatsGet() });
     });
 
     fastify.get("/recommendation", async (req, res) => {
-      const userSession = await AuthGetUserSession(req);
-      if (!userSession.isAuthenticated) {
+      const user = await AuthGetLiveUser(req);
+      if (!user) {
         return res.status(401).send({ error: "Unauthorized" });
       }
       return res.status(200).send({
@@ -48,8 +48,8 @@ export class StatsRoutes {
     });
 
     fastify.post("/recommendation/regenerate", async (req, res) => {
-      const userSession = await AuthGetUserSession(req);
-      if (!userSession.isAuthenticated) {
+      const user = await AuthGetLiveUser(req);
+      if (!user) {
         return res.status(401).send({ error: "Unauthorized" });
       }
       if (!RecommendationIsEnabled()) {

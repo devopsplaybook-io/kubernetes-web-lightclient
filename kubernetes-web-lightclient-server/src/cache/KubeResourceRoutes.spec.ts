@@ -29,12 +29,12 @@ jest.mock("../kubectl/KubeCtlExecutor", () => ({
 }));
 
 jest.mock("@devopsplaybook.io/common-utils", () => ({
-  AuthGetUserSession: jest.fn(),
+  AuthGetLiveUser: jest.fn(),
 }));
 
-import { AuthGetUserSession } from "@devopsplaybook.io/common-utils";
+import { AuthGetLiveUser } from "@devopsplaybook.io/common-utils";
 
-const authMock = AuthGetUserSession as unknown as jest.Mock;
+const authMock = AuthGetLiveUser as unknown as jest.Mock;
 
 const INJECTION_PAYLOADS = [
   "pods\nid",
@@ -59,10 +59,7 @@ describe("KubeResourceRoutes", () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    authMock.mockResolvedValue({
-      isAuthenticated: true,
-      userId: "11111111-1111-4111-8111-111111111111",
-    });
+    authMock.mockResolvedValue({ id: "11111111-1111-4111-8111-111111111111" });
     mockExecuteGetRequest.mockResolvedValue("COMPRESSED_DATA");
     cacheDir = path.join(os.tmpdir(), `kube-resource-routes-test-${Date.now()}`);
     cache = new KubeCache(cacheDir, 30000);
@@ -76,7 +73,7 @@ describe("KubeResourceRoutes", () => {
   });
 
   test("rejects unauthenticated requests with 401", async () => {
-    authMock.mockResolvedValue({ isAuthenticated: false });
+    authMock.mockResolvedValue(null);
     const res = await app.inject({
       method: "GET",
       url: "/api/resources/data/pod",

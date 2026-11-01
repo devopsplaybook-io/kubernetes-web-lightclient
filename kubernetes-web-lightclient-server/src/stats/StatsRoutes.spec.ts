@@ -2,7 +2,7 @@ import Fastify from "fastify";
 import { StatsRoutes } from "./StatsRoutes";
 
 jest.mock("@devopsplaybook.io/common-utils", () => ({
-  AuthGetUserSession: jest.fn(),
+  AuthGetLiveUser: jest.fn(),
 }));
 
 const mockStatsDataGet = jest.fn(async () => []);
@@ -27,9 +27,9 @@ jest.mock("./StatsDataRecommendation", () => ({
   RecommendationIsGenerating: () => mockRecommendationIsGenerating(),
 }));
 
-import { AuthGetUserSession } from "@devopsplaybook.io/common-utils";
+import { AuthGetLiveUser } from "@devopsplaybook.io/common-utils";
 
-const authMock = AuthGetUserSession as unknown as jest.Mock;
+const authMock = AuthGetLiveUser as unknown as jest.Mock;
 
 function buildApp(): ReturnType<typeof Fastify> {
   const app = Fastify();
@@ -43,10 +43,7 @@ describe("StatsRoutes", () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    authMock.mockResolvedValue({
-      isAuthenticated: true,
-      userId: "11111111-1111-4111-8111-111111111111",
-    });
+    authMock.mockResolvedValue({ id: "11111111-1111-4111-8111-111111111111" });
     mockRecommendationIsEnabled.mockReturnValue(true);
     mockRecommendationIsGenerating.mockReturnValue(false);
     app = buildApp();
@@ -63,7 +60,7 @@ describe("StatsRoutes", () => {
     "/api/stats/pod-usage",
     "/api/stats/recommendation",
   ])("GET %s returns 401 when unauthenticated", async (url) => {
-    authMock.mockResolvedValue({ isAuthenticated: false });
+    authMock.mockResolvedValue(null);
     const res = await app.inject({ method: "GET", url });
     expect(res.statusCode).toBe(401);
   });
@@ -79,7 +76,7 @@ describe("StatsRoutes", () => {
   });
 
   test("POST regenerate returns 401 when unauthenticated", async () => {
-    authMock.mockResolvedValue({ isAuthenticated: false });
+    authMock.mockResolvedValue(null);
     const res = await app.inject({
       method: "POST",
       url: "/api/stats/recommendation/regenerate",

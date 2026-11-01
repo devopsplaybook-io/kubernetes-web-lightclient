@@ -1,5 +1,5 @@
 import { FastifyInstance, RequestGenericInterface } from "fastify";
-import { AuthGetUserSession } from "@devopsplaybook.io/common-utils";
+import { AuthGetLiveUser } from "@devopsplaybook.io/common-utils";
 import { OTelLogger } from "../OTelContext";
 import { KubeCache } from "./KubeCache";
 import { KubeCtlExecutorGetInstance } from "../kubectl/KubeCtlExecutor";
@@ -27,8 +27,8 @@ export class KubeResourceRoutes {
     }
 
     fastify.get<GetResourceData>("/data/:type", async (req, res) => {
-      const userSession = await AuthGetUserSession(req);
-      if (!userSession.isAuthenticated) {
+      const user = await AuthGetLiveUser(req);
+      if (!user) {
         return res.status(401).send({ error: "Unauthorized" });
       }
 
