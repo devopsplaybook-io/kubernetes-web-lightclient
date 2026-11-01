@@ -102,7 +102,7 @@ describe("Common-Web layer integration", () => {
     expect(axios.post).toHaveBeenCalledWith(
       "/api/users/session/refresh",
       {},
-      { headers: { Authorization: `Bearer ${token}` } },
+      { headers: { Authorization: `Bearer ${token}` }, timeout: 10000 },
     );
     expect(localStorage.getItem("auth_token")).toBe(renewedToken);
   });

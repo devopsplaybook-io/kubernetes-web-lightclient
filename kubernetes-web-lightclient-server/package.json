@@ -1,6 +1,6 @@
 {
   "name": "kubernetes-web-lightclient-server",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "author": "",
   "license": "MIT",
   "scripts": {
@@ -13,23 +13,24 @@
     "dev:test": "NODE_ENV=dev jest --watch --config='jest.config.js'"
   },
   "dependencies": {
-    "@devopsplaybook.io/common-utils": "^1.15.1",
-    "@devopsplaybook.io/otel-utils-fastify": "^1.4.1",
+    "@devopsplaybook.io/common-utils": "^2.4.1",
+    "@devopsplaybook.io/otel-utils-fastify": "^1.7.1",
     "@fastify/cors": "^11.3.1",
-    "@fastify/multipart": "^10.1.4",
-    "@fastify/static": "^10.1.6",
+    "@fastify/multipart": "^10.1.6",
+    "@fastify/static": "^10.1.8",
     "fastify": "^5.12.7",
     "fs-extra": "^11.4.1",
     "node-cron": "^4.6.0"
   },
   "devDependencies": {
-    "@swc/core": "^1.16.18",
+    "@opentelemetry/sdk-trace": "^3.0.0",
+    "@swc/core": "^1.16.21",
     "@swc/jest": "^0.2.39",
     "@types/fs-extra": "^11.0.4",
     "@types/jest": "^30.0.0",
-    "@types/node": "^26.6.5",
+    "@types/node": "^26.6.6",
     "jest": "^30.5.2",
-    "oxlint": "^1.88.0",
+    "oxlint": "^1.90.0",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
   }

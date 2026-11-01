@@ -1,5 +1,5 @@
 import { FastifyInstance, RequestGenericInterface } from "fastify";
-import { AuthGetUserSession } from "@devopsplaybook.io/common-utils";
+import { AuthGetLiveUser } from "@devopsplaybook.io/common-utils";
 import { OTelTracer } from "../OTelContext";
 import { IsKubeObjectNotFoundError, KubeCtlExecutorGetInstance } from "./KubeCtlExecutor";
 import { BuildLogsArgs } from "./KubeCtlValidation";
@@ -18,8 +18,8 @@ export class KubeCtlLogsRoutes {
       };
     }
     fastify.post<PostCommand>("/", async (req, res) => {
-      const userSession = await AuthGetUserSession(req);
-      if (!userSession.isAuthenticated) {
+      const user = await AuthGetLiveUser(req);
+      if (!user) {
         return res.status(401).send({ error: "Unauthorized" });
       }
 

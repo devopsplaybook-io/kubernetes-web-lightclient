@@ -1,5 +1,5 @@
 import { FastifyInstance, RequestGenericInterface } from "fastify";
-import { AuthGetUserSession } from "@devopsplaybook.io/common-utils";
+import { AuthGetLiveUser } from "@devopsplaybook.io/common-utils";
 import {
   CrdScannerGetAvailableResources,
   CrdScannerRefresh,
@@ -27,8 +27,8 @@ export class CrdRoutes {
   public async getRoutes(fastify: FastifyInstance): Promise<void> {
     // GET /api/resources/types - Get all available resource types
     fastify.get("/types", async (req, res) => {
-      const userSession = await AuthGetUserSession(req);
-      if (!userSession.isAuthenticated) {
+      const user = await AuthGetLiveUser(req);
+      if (!user) {
         return res.status(401).send({ error: "Unauthorized" });
       }
       const types = this.withDeletableFlag(CrdScannerGetAvailableResources());
@@ -37,17 +37,17 @@ export class CrdRoutes {
 
     // GET /api/resources/selections - Get user's selected resource types
     fastify.get("/selections", async (req, res) => {
-      const userSession = await AuthGetUserSession(req);
-      if (!userSession.isAuthenticated) {
+      const user = await AuthGetLiveUser(req);
+      if (!user) {
         return res.status(401).send({ error: "Unauthorized" });
       }
-      if (!IsValidUserId(userSession.userId)) {
+      if (!IsValidUserId(user.id)) {
         return res.status(400).send({ error: "Invalid user id" });
       }
       const selections = await UserSelectionLoad(
         OTelRequestSpan(req),
         this.config,
-        userSession.userId,
+        user.id,
       );
       return res
         .status(200)
@@ -66,11 +66,11 @@ export class CrdRoutes {
       };
     }
     fastify.put<PutSelections>("/selections", async (req, res) => {
-      const userSession = await AuthGetUserSession(req);
-      if (!userSession.isAuthenticated) {
+      const user = await AuthGetLiveUser(req);
+      if (!user) {
         return res.status(401).send({ error: "Unauthorized" });
       }
-      if (!IsValidUserId(userSession.userId)) {
+      if (!IsValidUserId(user.id)) {
         return res.status(400).send({ error: "Invalid user id" });
       }
       const hasSelectedIds = req.body.selectedIds !== undefined;
@@ -108,7 +108,7 @@ export class CrdRoutes {
       await UserSelectionSave(
         OTelRequestSpan(req),
         this.config,
-        userSession.userId,
+        user.id,
         hasSelectedIds ? req.body.selectedIds : undefined,
         hasListPreferences ? listPreferences : undefined,
       );
@@ -117,8 +117,8 @@ export class CrdRoutes {
 
     // POST /api/resources/refresh - Trigger CRD re-scan
     fastify.post("/refresh", async (req, res) => {
-      const userSession = await AuthGetUserSession(req);
-      if (!userSession.isAuthenticated) {
+      const user = await AuthGetLiveUser(req);
+      if (!user) {
         return res.status(401).send({ error: "Unauthorized" });
       }
       const types = this.withDeletableFlag(await CrdScannerRefresh());
