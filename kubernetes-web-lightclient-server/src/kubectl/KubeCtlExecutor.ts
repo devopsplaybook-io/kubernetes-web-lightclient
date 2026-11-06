@@ -1,9 +1,49 @@
 import * as childProcess from "child_process";
+import * as crypto from "crypto";
+import { promisify } from "util";
 import * as zlib from "zlib";
 import { RequestQueueGetInstance } from "../queue/RequestQueue";
 
-export function CompressOutput(stdout: string): string {
-  return zlib.gzipSync(Buffer.from(stdout, "utf8")).toString("base64");
+const gzip = promisify(zlib.gzip);
+
+/**
+ * Compress kubectl stdout for transport. Asynchronous on purpose: synchronous
+ * gzip of multi-megabyte listings blocks the Node event loop.
+ */
+export async function CompressOutput(stdout: string): Promise<string> {
+  const compressed = await gzip(Buffer.from(stdout, "utf8"));
+  return compressed.toString("base64");
+}
+
+/**
+ * Deduplication key for a kubectl argument vector. Only read-only commands
+ * are coalesced; side-effect commands (delete, scale, create, ...) must
+ * never share an execution.
+ */
+export function DedupKeyFor(args: string[]): string | null {
+  if (args.length > 0 && args[0] === "logs") {
+    // Hash the full argv: identical log requests coalesce, while different
+    // pods/containers/--since values stay distinct. Pod names never appear
+    // in queue keys (they are logged by the queue).
+    return (
+      "logs:" +
+      crypto
+        .createHash("sha256")
+        .update(args.join("\u0000"))
+        .digest("hex")
+        .slice(0, 16)
+    );
+  }
+  if (
+    args.length === 5 &&
+    args[0] === "get" &&
+    args[2] === "-A" &&
+    args[3] === "-o" &&
+    args[4] === "json"
+  ) {
+    return `get:${args[1]}`;
+  }
+  return null;
 }
 
 /**
@@ -38,24 +78,46 @@ export class KubeCtlExecutor {
   ): Promise<string> {
     // Always fetch all namespaces - filtering is done on the client side
     const args = ["get", objectType, "-A", "-o", "json"];
-    const queue = RequestQueueGetInstance();
-    return queue.execute(
-      `get:${objectType}`,
-      (signal) => this.runCommand(args, signal).then(CompressOutput),
-      timeout,
+    return this.enqueue(args, timeout, `get:${objectType}`).then(
+      CompressOutput,
     );
   }
 
   /**
-   * Execute a kubectl command from an argument vector without deduplication.
-   * The caller is responsible for building a validated argument vector.
+   * Execute a kubectl command from an argument vector. Read-only commands
+   * are deduplicated by their argument vector.
    * Returns base64-encoded gzip-compressed output.
    */
   public executeCommand(args: string[], timeout?: number): Promise<string> {
+    return this.enqueue(args, timeout, DedupKeyFor(args)).then(CompressOutput);
+  }
+
+  /**
+   * Execute a kubectl command and return the raw (uncompressed) stdout.
+   * Used by background work (stats captures, CRD scans) that parses JSON
+   * in-process instead of shipping it to a client.
+   */
+  public executeRawCommand(
+    args: string[],
+    timeout?: number,
+    key?: string | null,
+  ): Promise<string> {
+    return this.enqueue(
+      args,
+      timeout,
+      key === undefined ? DedupKeyFor(args) : key,
+    );
+  }
+
+  private enqueue(
+    args: string[],
+    timeout: number | undefined,
+    key: string | null,
+  ): Promise<string> {
     const queue = RequestQueueGetInstance();
     return queue.execute(
-      null,
-      (signal) => this.runCommand(args, signal).then(CompressOutput),
+      key,
+      (signal) => this.runCommand(args, signal),
       timeout,
     );
   }

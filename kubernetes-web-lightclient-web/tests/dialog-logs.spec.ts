@@ -99,6 +99,8 @@ describe("DialogLogs", () => {
       (checkbox("Auto-refresh").element as HTMLInputElement).checked,
     ).toBe(false);
 
+    // Let the immediate follow-up fetch settle before the next tick
+    await flushPromises();
     vi.advanceTimersByTime(4000);
     await flushPromises();
     expect(postMock().mock.calls.length).toBe(callsAtOpen + 2);
@@ -108,6 +110,40 @@ describe("DialogLogs", () => {
     vi.advanceTimersByTime(12000);
     await flushPromises();
     expect(postMock().mock.calls.length).toBe(callsAfterStop);
+    wrapper.unmount();
+  });
+
+  it("skips Follow ticks while a log request is still pending", async () => {
+    vi.useFakeTimers();
+    const pending: Array<(value: unknown) => void> = [];
+    vi.spyOn(axios, "post")
+      .mockResolvedValueOnce({ data: { result: POD_JSON } })
+      .mockResolvedValueOnce({ data: { result: "LOG LINE 1" } })
+      .mockImplementation(
+        () => new Promise((resolve) => pending.push(resolve)),
+      );
+
+    const wrapper = await mountDialog();
+    await advancedToggle().trigger("click");
+
+    const callsAtOpen = postMock().mock.calls.length;
+    await checkbox("Follow").setValue(true);
+    // Follow polls immediately; this request stays pending
+    expect(postMock().mock.calls.length).toBe(callsAtOpen + 1);
+    expect(pending).toHaveLength(1);
+
+    // A timer tick during the pending request must not stack a new one
+    vi.advanceTimersByTime(4000);
+    await flushPromises();
+    expect(postMock().mock.calls.length).toBe(callsAtOpen + 1);
+
+    // Once the pending request settles, the next tick fetches again
+    pending[0]({ data: { result: "LOG LINE 2" } });
+    await flushPromises();
+    vi.advanceTimersByTime(4000);
+    await flushPromises();
+    expect(postMock().mock.calls.length).toBe(callsAtOpen + 2);
+
     wrapper.unmount();
   });
 
@@ -127,6 +163,8 @@ describe("DialogLogs", () => {
     ).toBe(false);
 
     const callsAtStart = postMock().mock.calls.length;
+    // Let the immediate auto-refresh fetch settle before the next tick
+    await flushPromises();
     vi.advanceTimersByTime(10000);
     await flushPromises();
     expect(postMock().mock.calls.length).toBe(callsAtStart + 1);

@@ -156,6 +156,7 @@ export default {
       autoRefreshTimer: null,
       follow: false,
       followTimer: null,
+      fetchInFlight: false,
     };
   },
   computed: {
@@ -312,56 +313,66 @@ export default {
       URL.revokeObjectURL(url);
     },
     async fetchLogs(silent = false) {
-      const payload = {
-        namespace: this.namespace,
-        pod: this.podname,
-        container: this.selectedContainer,
-        argument: "",
-      };
-      if (this.logTime !== "all") {
-        payload.argument += ` --since=${this.logTime} `;
+      // Skip this tick when a fetch is already pending: slow responses must
+      // not stack up behind the Follow/Auto-refresh intervals.
+      if (this.fetchInFlight) {
+        return;
       }
-      if (this.showPreviousLog) {
-        payload.argument += ` --previous `;
-      }
-      payload.timestamps = this.showTimestamps;
-      const logsElement = this.$refs.logsText;
-      const previousScrollTop = logsElement ? logsElement.scrollTop : 0;
-      const wasAtBottom = logsElement
-        ? logsElement.scrollHeight -
-            logsElement.scrollTop -
-            logsElement.clientHeight <
-          40
-        : true;
-      if (!silent) {
-        this.text = "Loading logs...";
-      }
-      await axios
-        .post(
-          `${(await Config.get()).SERVER_URL}/kubectl/logs`,
-          payload,
-          await AuthService.getAuthHeader(),
-        )
-        .then(async (res) => {
-          const newText = await UtilsDecompressData(res.data.result);
-          if (silent && newText === this.text) {
-            return;
-          }
-          this.text = newText;
-          if (silent) {
-            // Keep the reading position: new lines are appended at the
-            // bottom without resetting the view. When already following
-            // the latest lines, keep following them.
-            await this.$nextTick();
-            const updatedElement = this.$refs.logsText;
-            if (updatedElement) {
-              updatedElement.scrollTop = wasAtBottom
-                ? updatedElement.scrollHeight
-                : previousScrollTop;
+      this.fetchInFlight = true;
+      try {
+        const payload = {
+          namespace: this.namespace,
+          pod: this.podname,
+          container: this.selectedContainer,
+          argument: "",
+        };
+        if (this.logTime !== "all") {
+          payload.argument += ` --since=${this.logTime} `;
+        }
+        if (this.showPreviousLog) {
+          payload.argument += ` --previous `;
+        }
+        payload.timestamps = this.showTimestamps;
+        const logsElement = this.$refs.logsText;
+        const previousScrollTop = logsElement ? logsElement.scrollTop : 0;
+        const wasAtBottom = logsElement
+          ? logsElement.scrollHeight -
+              logsElement.scrollTop -
+              logsElement.clientHeight <
+            40
+          : true;
+        if (!silent) {
+          this.text = "Loading logs...";
+        }
+        await axios
+          .post(
+            `${(await Config.get()).SERVER_URL}/kubectl/logs`,
+            payload,
+            await AuthService.getAuthHeader(),
+          )
+          .then(async (res) => {
+            const newText = await UtilsDecompressData(res.data.result);
+            if (silent && newText === this.text) {
+              return;
             }
-          }
-        })
-        .catch(staleAwareHandler("pod"));
+            this.text = newText;
+            if (silent) {
+              // Keep the reading position: new lines are appended at the
+              // bottom without resetting the view. When already following
+              // the latest lines, keep following them.
+              await this.$nextTick();
+              const updatedElement = this.$refs.logsText;
+              if (updatedElement) {
+                updatedElement.scrollTop = wasAtBottom
+                  ? updatedElement.scrollHeight
+                  : previousScrollTop;
+              }
+            }
+          })
+          .catch(staleAwareHandler("pod"));
+      } finally {
+        this.fetchInFlight = false;
+      }
     },
   },
 };

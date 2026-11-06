@@ -186,10 +186,30 @@ describe("KubeCtlLogsRoutes", () => {
         "my-container",
         "--since=1h",
         "--previous",
+        "--tail=5000",
         "--timestamps",
       ],
       20000,
     );
+  });
+
+  test("returns 429 when the request queue is full", async () => {
+    mockExecuteCommand.mockRejectedValue(
+      Object.assign(new Error("Request queue is full"), {
+        code: "REQUEST_QUEUE_FULL",
+      }),
+    );
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/kubectl/logs/",
+      payload: { namespace: "default", pod: "my-pod" },
+    });
+    expect(res.statusCode).toBe(429);
+    expect(res.json()).toEqual({
+      error: "Server is busy, please retry",
+      requestId: expect.any(String),
+    });
+    expect(mockSpan.end).toHaveBeenCalledTimes(1);
   });
 
   test("returns a sanitized 502 and ends the span when the executor fails", async () => {

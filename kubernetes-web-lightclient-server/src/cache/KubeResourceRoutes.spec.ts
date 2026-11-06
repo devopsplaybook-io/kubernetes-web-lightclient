@@ -174,6 +174,23 @@ describe("KubeResourceRoutes", () => {
     );
   });
 
+  test("returns 429 when the request queue is full", async () => {
+    mockExecuteGetRequest.mockRejectedValue(
+      Object.assign(new Error("Request queue is full"), {
+        code: "REQUEST_QUEUE_FULL",
+      }),
+    );
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/resources/data/pod",
+    });
+    expect(res.statusCode).toBe(429);
+    expect(res.json()).toEqual({
+      error: "Server is busy, please retry",
+      requestId: expect.any(String),
+    });
+  });
+
   test("serves events through the cached pipeline", async () => {
     const res = await app.inject({
       method: "GET",

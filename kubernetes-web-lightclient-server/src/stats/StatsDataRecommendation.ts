@@ -22,6 +22,7 @@ let notificationsClient: NotificationsClient | null = null;
 let recommendationFilePath = "";
 let cachedRecommendation: RecommendationResult | null = null;
 let generationPromise: Promise<void> | null = null;
+let cronTask: ReturnType<typeof cron.schedule> | null = null;
 
 export interface RecommendationResult {
   generatedAt: string;
@@ -51,6 +52,23 @@ export async function StatsDataRecommendationInit(
     logger.error("Failed to load cached recommendation", error, span);
   }
 
+  // The initial generation is deferred until after the first stats capture
+  // (see StatsDataRecommendationStartInitialGeneration), so a cold start
+  // does not send an empty stats snapshot to the LLM.
+  ApplyRecommendationConfig({ startInitialGeneration: false });
+  span.end();
+}
+
+/**
+ * Apply the current configuration: recreate the LLM/notification clients and
+ * re-arm the cron schedule. Called on startup and whenever the config file is
+ * reloaded, so LLM settings apply without a restart.
+ */
+function ApplyRecommendationConfig(options: {
+  startInitialGeneration: boolean;
+}): void {
+  recommendationFilePath = path.join(config.DATA_DIR, RECOMMENDATION_FILE);
+
   llmClient = new LLMClient({
     apiKey: config.LLM_API_KEY,
     apiUrl: config.LLM_API_URL,
@@ -63,34 +81,58 @@ export async function StatsDataRecommendationInit(
     logger,
   });
 
-  if (RecommendationIsEnabled()) {
-    if (cron.validate(config.LLM_RECOMMENDATIONS_CRON)) {
-      logger.info(
-        `Scheduling LLM recommendations: ${config.LLM_RECOMMENDATIONS_CRON}`,
-      );
-      cron.schedule(config.LLM_RECOMMENDATIONS_CRON, () => {
-        RecommendationGenerate().catch((err) =>
-          logger.error(`Failed to generate scheduled recommendation: ${err.message}`),
-        );
-      });
-    } else {
-      logger.warn(
-        `Invalid LLM_RECOMMENDATIONS_CRON: ${config.LLM_RECOMMENDATIONS_CRON}`,
-      );
-    }
-    // Generate on startup if no cached recommendation exists
-    if (!cachedRecommendation) {
-      logger.info(
-        "No cached recommendation found, triggering initial generation",
-      );
-      RecommendationGenerate().catch((err) =>
-        logger.error(`Failed to generate initial recommendation: ${err.message}`),
-      );
-    }
-  } else {
-    logger.info("LLM recommendations disabled");
+  if (cronTask) {
+    cronTask.stop();
+    cronTask.destroy();
+    cronTask = null;
   }
-  span.end();
+
+  if (!RecommendationIsEnabled()) {
+    logger.info("LLM recommendations disabled");
+    return;
+  }
+
+  if (cron.validate(config.LLM_RECOMMENDATIONS_CRON)) {
+    logger.info(
+      `Scheduling LLM recommendations: ${config.LLM_RECOMMENDATIONS_CRON}`,
+    );
+    cronTask = cron.schedule(config.LLM_RECOMMENDATIONS_CRON, () => {
+      RecommendationGenerate().catch((err) =>
+        logger.error(`Failed to generate scheduled recommendation: ${err.message}`),
+      );
+    });
+  } else {
+    logger.warn(
+      `Invalid LLM_RECOMMENDATIONS_CRON: ${config.LLM_RECOMMENDATIONS_CRON}`,
+    );
+  }
+
+  if (options.startInitialGeneration) {
+    StatsDataRecommendationStartInitialGeneration();
+  }
+}
+
+/**
+ * Re-apply recommendation settings after a configuration reload: recreates
+ * the clients, destroys the old cron task and schedules a new one.
+ */
+export function StatsDataRecommendationReconfigure(configIn: Config): void {
+  config = configIn;
+  ApplyRecommendationConfig({ startInitialGeneration: true });
+}
+
+/**
+ * Trigger the startup generation once, unless recommendations are disabled
+ * or a cached recommendation already exists.
+ */
+export function StatsDataRecommendationStartInitialGeneration(): void {
+  if (!RecommendationIsEnabled() || cachedRecommendation) {
+    return;
+  }
+  logger.info("No cached recommendation found, triggering initial generation");
+  RecommendationGenerate().catch((err) =>
+    logger.error(`Failed to generate initial recommendation: ${err.message}`),
+  );
 }
 
 /**
@@ -335,7 +377,7 @@ async function GetPodStatuses(): Promise<Map<string, PodStatusInfo>> {
   const podStatuses = new Map<string, PodStatusInfo>();
   try {
     const podsObj = JSON.parse(
-      await kubernetesCommand(["get", "pods", "--all-namespaces", "-o", "json"]),
+      await kubernetesCommand(["get", "pods", "-A", "-o", "json"]),
     );
     for (const pod of podsObj.items || []) {
       const namespace = pod.metadata?.namespace;

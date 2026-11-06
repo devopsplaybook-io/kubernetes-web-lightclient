@@ -5,6 +5,7 @@ import { NormalizeError } from "../ErrorHandling";
 import { OTelLogger } from "../OTelContext";
 import { KubeCache } from "./KubeCache";
 import { KubeCtlExecutorGetInstance } from "../kubectl/KubeCtlExecutor";
+import { IsRequestQueueFullError } from "../queue/RequestQueue";
 import { IsAllowedResourceType } from "../kubectl/KubeCtlValidation";
 
 const logger = OTelLogger().createModuleLogger("KubeResourceRoutes");
@@ -105,6 +106,12 @@ export class KubeResourceRoutes {
           status: "fresh",
         });
       } catch (error) {
+        if (IsRequestQueueFullError(error)) {
+          return res.status(429).send({
+            error: "Server is busy, please retry",
+            requestId: req.id,
+          });
+        }
         const normalized = NormalizeError(error);
         logger.error(
           `[${req.id}] Failed to fetch data for ${type}: ${

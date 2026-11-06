@@ -1,4 +1,3 @@
-import type { Span } from "@opentelemetry/sdk-trace";
 import type { Config } from "../Config";
 
 const mockSpan = {
@@ -29,7 +28,11 @@ jest.mock("./StatsDataUtils", () => ({
   kubernetesCommand: (args: string[]) => mockKubernetesCommand(args),
 }));
 
-import { StatsDataGet, StatsDataMetricsInit } from "./StatsDataMetrics";
+import {
+  StatsDataGet,
+  StatsDataMetricsRunCapture,
+  StatsDataMetricsSetup,
+} from "./StatsDataMetrics";
 
 const config = {
   STATS_FETCH_FREQUENCY: 3600,
@@ -84,7 +87,8 @@ describe("StatsDataMetrics", () => {
       throw new Error(`Unexpected kubectl command: ${args.join(" ")}`);
     });
 
-    await StatsDataMetricsInit(mockSpan as unknown as Span, config);
+    StatsDataMetricsSetup(config);
+    await StatsDataMetricsRunCapture(config);
 
     const topCalls = mockKubernetesCommand.mock.calls.filter(
       (call) => call[0][0] === "top",
@@ -124,7 +128,8 @@ describe("StatsDataMetrics", () => {
       throw new Error(`Unexpected kubectl command: ${args.join(" ")}`);
     });
 
-    await StatsDataMetricsInit(mockSpan as unknown as Span, config);
+    StatsDataMetricsSetup(config);
+    await StatsDataMetricsRunCapture(config);
 
     const node = (await StatsDataGet()).find(
       (s) => s.node === "node-no-metrics",
@@ -153,11 +158,9 @@ describe("StatsDataMetrics", () => {
       throw new Error(`Unexpected kubectl command: ${args.join(" ")}`);
     });
 
-    const firstInit = StatsDataMetricsInit(mockSpan as unknown as Span, config);
-    const secondInit = StatsDataMetricsInit(
-      mockSpan as unknown as Span,
-      config,
-    );
+    StatsDataMetricsSetup(config);
+    const firstInit = StatsDataMetricsRunCapture(config);
+    const secondInit = StatsDataMetricsRunCapture(config);
     await secondInit;
 
     // The overlapping capture was skipped: kubectl ran only once for nodes
@@ -179,7 +182,8 @@ describe("StatsDataMetrics", () => {
   test("releases the overlap guard and ends the span when a capture fails", async () => {
     mockKubernetesCommand.mockRejectedValue(new Error("kubectl boom"));
 
-    await StatsDataMetricsInit(mockSpan as unknown as Span, config);
+    StatsDataMetricsSetup(config);
+    await StatsDataMetricsRunCapture(config);
     expect(mockSpan.end).toHaveBeenCalledTimes(1);
 
     // The guard was released by the failed capture: a new capture can run
@@ -198,7 +202,8 @@ describe("StatsDataMetrics", () => {
       throw new Error(`Unexpected kubectl command: ${args.join(" ")}`);
     });
 
-    await StatsDataMetricsInit(mockSpan as unknown as Span, config);
+    StatsDataMetricsSetup(config);
+    await StatsDataMetricsRunCapture(config);
     expect((await StatsDataGet()).some((s) => s.node === "node-after-error")).toBe(
       true,
     );

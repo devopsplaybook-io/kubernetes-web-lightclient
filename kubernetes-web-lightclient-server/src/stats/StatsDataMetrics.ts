@@ -1,4 +1,3 @@
-import { Span } from "@opentelemetry/api";
 import { Config } from "../Config";
 import { StatsNodeMesurement } from "../model/StatsNodeMesurement";
 import { OTelLogger, OTelMeter, OTelTracer } from "../OTelContext";
@@ -9,12 +8,12 @@ let running = false;
 let intervalHandle: NodeJS.Timeout | null = null;
 const logger = OTelLogger().createModuleLogger("StatsDataMetrics");
 
-export async function StatsDataMetricsInit(
-  context: Span,
-  config: Config,
-): Promise<void> {
-  await executeStatsCapture(config);
-
+/**
+ * Register the observable gauges and arm the capture interval. The initial
+ * capture is run separately (after the HTTP listener is up) so startup never
+ * blocks on kubectl.
+ */
+export async function StatsDataMetricsSetup(config: Config): Promise<void> {
   OTelMeter().createObservableGauge(
     "kubernetes.stats.nodes.cpu",
     (observableResult) => {
@@ -70,9 +69,17 @@ export function StatsDataMetricsReconfigure(config: Config): void {
     clearInterval(intervalHandle);
   }
   intervalHandle = setInterval(
-    () => executeStatsCapture(config),
+    () => StatsDataMetricsRunCapture(config),
     config.STATS_FETCH_FREQUENCY * 1000,
   );
+}
+
+/**
+ * Run one metrics capture. Guarded against overlap: a capture triggered
+ * while the previous one is still running is skipped.
+ */
+export async function StatsDataMetricsRunCapture(config: Config): Promise<void> {
+  await executeStatsCapture(config);
 }
 
 export async function StatsDataGet(): Promise<StatsNodeMesurement[]> {
@@ -108,7 +115,7 @@ async function StatsDataCapture(): Promise<void> {
   if (!nodesObj.items) return;
 
   const podsObj = JSON.parse(
-    await kubernetesCommand(["get", "pods", "--all-namespaces", "-o", "json"]),
+    await kubernetesCommand(["get", "pods", "-A", "-o", "json"]),
   );
 
   // A single "top nodes" call replaces one "top node <name>" call per node
@@ -136,6 +143,29 @@ async function StatsDataCapture(): Promise<void> {
 
   const timestamp = new Date();
 
+  // Aggregate pods and restarts per node in a single pass instead of
+  // filtering the whole pod list once (or twice) per node.
+  const nodeAggregates = new Map<string, { pods: number; restarts: number }>();
+  for (const pod of podsObj.items || []) {
+    const podNodeName = pod.spec?.nodeName;
+    if (!podNodeName) {
+      continue;
+    }
+    const aggregate = nodeAggregates.get(podNodeName) || {
+      pods: 0,
+      restarts: 0,
+    };
+    aggregate.pods += 1;
+    if (pod.status && pod.status.containerStatuses) {
+      aggregate.restarts += pod.status.containerStatuses.reduce(
+        (sum: number, containerStatus: { restartCount?: number }) =>
+          sum + (containerStatus.restartCount || 0),
+        0,
+      );
+    }
+    nodeAggregates.set(podNodeName, aggregate);
+  }
+
   for (const node of nodesObj.items) {
     const nodeName = node.metadata.name;
     const measurement = new StatsNodeMesurement({
@@ -151,29 +181,10 @@ async function StatsDataCapture(): Promise<void> {
       measurement.cpuUsage = top.cpu;
       measurement.memoryUsage = top.memory;
     }
-    if (podsObj.items) {
-      measurement.pods = podsObj.items.filter(
-        (pod: { spec?: { nodeName?: string } }) =>
-          pod.spec?.nodeName === nodeName,
-      ).length;
-
-      measurement.podRestarts = podsObj.items
-        .filter(
-          (pod: { spec?: { nodeName?: string } }) =>
-            pod.spec?.nodeName === nodeName,
-        )
-        .reduce((acc: number, pod: any) => {
-          if (pod.status && pod.status.containerStatuses) {
-            return (
-              acc +
-              pod.status.containerStatuses.reduce(
-                (sum: number, cs: any) => sum + (cs.restartCount || 0),
-                0,
-              )
-            );
-          }
-          return acc;
-        }, 0);
+    const aggregate = nodeAggregates.get(nodeName);
+    if (aggregate) {
+      measurement.pods = aggregate.pods;
+      measurement.podRestarts = aggregate.restarts;
     }
     stats.push(measurement);
   }

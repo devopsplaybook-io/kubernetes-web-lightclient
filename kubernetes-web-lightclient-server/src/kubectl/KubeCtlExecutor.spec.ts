@@ -18,6 +18,7 @@ jest.mock("../OTelContext", () => ({
 
 import {
   CompressOutput,
+  DedupKeyFor,
   IsKubeObjectNotFoundError,
   KubeCtlExecutor,
   KubeCtlExecutorGetInstance,
@@ -55,9 +56,9 @@ describe("KubeCtlExecutor", () => {
     executor = new KubeCtlExecutor();
   });
 
-  test("CompressOutput produces base64 gzip that decompresses to the original stdout", () => {
+  test("CompressOutput produces base64 gzip that decompresses to the original stdout", async () => {
     const output = '{"items":[{"metadata":{"name":"my-pod"}}]}';
-    expect(decode(CompressOutput(output))).toBe(output);
+    expect(decode(await CompressOutput(output))).toBe(output);
   });
 
   test("executeGetRequest runs kubectl with an argument vector and compresses the result", async () => {
@@ -130,6 +131,64 @@ describe("KubeCtlExecutor", () => {
     const first = KubeCtlExecutorGetInstance();
     expect(first).toBeInstanceOf(KubeCtlExecutor);
     expect(KubeCtlExecutorGetInstance()).toBe(first);
+  });
+
+  test("shares one kubectl execution between raw and compressed list reads", async () => {
+    const raw = executor.executeRawCommand(["get", "pods", "-A", "-o", "json"]);
+    const compressed = executor.executeGetRequest("pods");
+    expect(execFileMock).toHaveBeenCalledTimes(1);
+
+    callbacks[0](null, '{"items":[]}');
+    expect(await raw).toBe('{"items":[]}');
+    expect(decode(await compressed)).toBe('{"items":[]}');
+  });
+
+  test("executeRawCommand returns uncompressed stdout", async () => {
+    const raw = executor.executeRawCommand(["get", "nodes", "-o", "json"]);
+    callbacks[0](null, '{"items":[{"metadata":{"name":"n1"}}]}');
+    expect(await raw).toBe('{"items":[{"metadata":{"name":"n1"}}]}');
+  });
+
+  test("coalesces identical logs commands but keeps different ones separate", async () => {
+    const argv = ["logs", "-n", "default", "my-pod", "--tail=5000", "--timestamps"];
+    const first = executor.executeCommand(argv);
+    const second = executor.executeCommand(argv);
+    expect(execFileMock).toHaveBeenCalledTimes(1);
+
+    callbacks[0](null, "LOG OUTPUT");
+    expect(decode(await first)).toBe("LOG OUTPUT");
+    expect(decode(await second)).toBe("LOG OUTPUT");
+
+    const otherPod = executor.executeCommand([
+      "logs",
+      "-n",
+      "default",
+      "other-pod",
+      "--tail=5000",
+      "--timestamps",
+    ]);
+    const otherSince = executor.executeCommand([
+      "logs",
+      "-n",
+      "default",
+      "my-pod",
+      "--since=1h",
+      "--tail=5000",
+      "--timestamps",
+    ]);
+    expect(execFileMock).toHaveBeenCalledTimes(3);
+
+    callbacks[1](null, "OTHER POD");
+    callbacks[2](null, "OTHER SINCE");
+    expect(decode(await otherPod)).toBe("OTHER POD");
+    expect(decode(await otherSince)).toBe("OTHER SINCE");
+  });
+
+  test("does not deduplicate side-effect commands", () => {
+    expect(DedupKeyFor(["delete", "pod", "my-pod", "-n", "default"])).toBeNull();
+    expect(DedupKeyFor(["scale", "deployment", "web", "--replicas=3"])).toBeNull();
+    expect(DedupKeyFor(["logs", "-n", "default", "my-pod"])).toMatch(/^logs:/);
+    expect(DedupKeyFor(["get", "pods", "-A", "-o", "json"])).toBe("get:pods");
   });
 
   test("rejects with the kubectl error when the command fails", async () => {

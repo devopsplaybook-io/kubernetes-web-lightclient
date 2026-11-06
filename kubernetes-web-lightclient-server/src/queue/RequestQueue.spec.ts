@@ -1,4 +1,8 @@
-import { RequestQueue } from "./RequestQueue";
+import {
+  IsRequestQueueFullError,
+  RequestQueue,
+  RequestQueueFullError,
+} from "./RequestQueue";
 
 describe("RequestQueue", () => {
   let queue: RequestQueue;
@@ -184,5 +188,85 @@ describe("RequestQueue", () => {
     expect(r1).toBe("first");
     expect(r2).toBe("first"); // Should get the same result due to dedup
     expect(executionCount).toBe(1);
+  });
+
+  test("counts time spent waiting in the queue toward the timeout", async () => {
+    const singleQueue = new RequestQueue(1, 5000, 20);
+    let releaseActive!: (value: string) => void;
+    const active = singleQueue.execute(
+      null,
+      () =>
+        new Promise<string>((resolve) => {
+          releaseActive = resolve;
+        }),
+    );
+
+    let queuedRan = false;
+    const queued = singleQueue.execute(
+      null,
+      async () => {
+        queuedRan = true;
+        return "queued";
+      },
+      30,
+    );
+
+    // The deadline started at enqueue: it expires while still waiting
+    await expect(queued).rejects.toThrow("Request timed out after 30ms");
+    expect(queuedRan).toBe(false);
+    expect(singleQueue.getQueuedCount()).toBe(0);
+
+    releaseActive("active");
+    await expect(active).resolves.toBe("active");
+  });
+
+  test("rejects with RequestQueueFullError when the waiting queue is full", async () => {
+    const cappedQueue = new RequestQueue(1, 5000, 1);
+    let releaseActive!: (value: string) => void;
+    const active = cappedQueue.execute(
+      null,
+      () =>
+        new Promise<string>((resolve) => {
+          releaseActive = resolve;
+        }),
+    );
+    const queued = cappedQueue.execute(null, async () => "queued");
+
+    const overflow = cappedQueue.execute(null, async () => "overflow");
+    await expect(overflow).rejects.toBeInstanceOf(RequestQueueFullError);
+    await expect(overflow).rejects.toMatchObject({
+      code: "REQUEST_QUEUE_FULL",
+      statusCode: 429,
+    });
+    expect(IsRequestQueueFullError(await overflow.catch((e) => e))).toBe(true);
+    expect(cappedQueue.getQueuedCount()).toBe(1);
+
+    releaseActive("active");
+    await expect(active).resolves.toBe("active");
+    await expect(queued).resolves.toBe("queued");
+  });
+
+  test("lets deduplicated joins through even when the queue is full", async () => {
+    const cappedQueue = new RequestQueue(1, 5000, 1);
+    let releaseActive!: (value: string) => void;
+    const active = cappedQueue.execute(
+      "active-key",
+      () =>
+        new Promise<string>((resolve) => {
+          releaseActive = resolve;
+        }),
+    );
+    const queued = cappedQueue.execute("queued-key", async () => "queued");
+
+    const joinActive = cappedQueue.execute("active-key", async () => "nope");
+    const joinQueued = cappedQueue.execute("queued-key", async () => "nope");
+    expect(joinActive).toBe(active);
+    expect(joinQueued).toBe(queued);
+
+    releaseActive("active");
+    await expect(active).resolves.toBe("active");
+    await expect(queued).resolves.toBe("queued");
+    await expect(joinActive).resolves.toBe("active");
+    await expect(joinQueued).resolves.toBe("queued");
   });
 });

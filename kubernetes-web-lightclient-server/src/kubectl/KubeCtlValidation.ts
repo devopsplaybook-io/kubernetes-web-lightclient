@@ -233,6 +233,9 @@ export interface LogsPayload {
 }
 
 const LOGS_SINCE_REGEX = /^--since=(10m|1h|24h)$/;
+// Pod logs are capped server-side so a follow/auto-refresh poll never
+// re-sends an unbounded payload (a pod can have gigabytes of history).
+const LOG_TAIL_LINES = 5000;
 
 /**
  * Rebuild a validated kubectl argument vector for POST /api/kubectl/logs.
@@ -290,6 +293,7 @@ export function BuildLogsArgs(payload: LogsPayload): ArgumentBuildResult {
       };
     }
   }
+  argv.push(`--tail=${LOG_TAIL_LINES}`);
   if (timestamps !== false) {
     argv.push("--timestamps");
   }

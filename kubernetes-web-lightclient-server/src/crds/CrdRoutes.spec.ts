@@ -1,5 +1,6 @@
 import Fastify, { FastifyInstance } from "fastify";
 import { CrdRoutes } from "./CrdRoutes";
+import { CrdScanInProgressError } from "./CrdScanner";
 import { Config } from "../Config";
 
 const mockSpan = {
@@ -169,6 +170,16 @@ describe("CrdRoutes", () => {
     });
     expect(res.statusCode).toBe(200);
     expect(mockRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  test("POST /refresh returns 429 while a scan is already in progress", async () => {
+    mockRefresh.mockRejectedValueOnce(new CrdScanInProgressError());
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/resources/refresh",
+    });
+    expect(res.statusCode).toBe(429);
+    expect(res.json()).toEqual({ error: "A CRD scan is already in progress" });
   });
 
   test("POST /refresh returns 403 for a denied admin guard without scanning", async () => {

@@ -14,6 +14,7 @@ export class Config extends ConfigBase {
   public CACHE_TTL = 30000;
   public REQUEST_QUEUE_CONCURRENCY = 2;
   public REQUEST_TIMEOUT = 20000;
+  public REQUEST_QUEUE_MAX_LENGTH = 20;
   public ALLOWED_DELETABLE_OBJECTS = "pod";
 
   // LLM Recommendations
@@ -56,6 +57,7 @@ export class Config extends ConfigBase {
     this.addConfigField({ field: "CACHE_TTL" });
     this.addConfigField({ field: "REQUEST_QUEUE_CONCURRENCY" });
     this.addConfigField({ field: "REQUEST_TIMEOUT" });
+    this.addConfigField({ field: "REQUEST_QUEUE_MAX_LENGTH" });
     this.addConfigField({ field: "ALLOWED_DELETABLE_OBJECTS" });
     this.addConfigField({ field: "LLM_RECOMMENDATIONS_ENABLED" });
     this.addConfigField({ field: "LLM_API_KEY", sensitive: true });

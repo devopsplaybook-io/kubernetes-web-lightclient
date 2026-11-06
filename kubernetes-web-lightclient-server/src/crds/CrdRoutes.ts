@@ -7,6 +7,7 @@ import {
 import { AuthGetLiveUser } from "@devopsplaybook.io/common-utils";
 import { RequireAdmin, RequireScope } from "../auth/Authorization";
 import {
+  CrdScanInProgressError,
   CrdScannerGetAvailableResources,
   CrdScannerRefresh,
   ResourceType,
@@ -145,8 +146,17 @@ export class CrdRoutes {
       if (!(await RequireAdmin(req, res))) {
         return;
       }
-      const types = this.withDeletableFlag(await CrdScannerRefresh());
-      return res.status(200).send({ types });
+      try {
+        const types = this.withDeletableFlag(await CrdScannerRefresh());
+        return res.status(200).send({ types });
+      } catch (error) {
+        if (error instanceof CrdScanInProgressError) {
+          return res
+            .status(429)
+            .send({ error: "A CRD scan is already in progress" });
+        }
+        throw error;
+      }
     });
   }
 
