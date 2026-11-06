@@ -1,5 +1,11 @@
-import { FastifyInstance, RequestGenericInterface } from "fastify";
+import {
+  FastifyInstance,
+  FastifyReply,
+  FastifyRequest,
+  RequestGenericInterface,
+} from "fastify";
 import { AuthGetLiveUser } from "@devopsplaybook.io/common-utils";
+import { RequireAdmin, RequireScope } from "../auth/Authorization";
 import {
   CrdScannerGetAvailableResources,
   CrdScannerRefresh,
@@ -31,6 +37,9 @@ export class CrdRoutes {
       if (!user) {
         return res.status(401).send({ error: "Unauthorized" });
       }
+      if (!(await RequireScope(req, res, "k8s:read"))) {
+        return;
+      }
       const types = this.withDeletableFlag(CrdScannerGetAvailableResources());
       return res.status(200).send({ types });
     });
@@ -40,6 +49,9 @@ export class CrdRoutes {
       const user = await AuthGetLiveUser(req);
       if (!user) {
         return res.status(401).send({ error: "Unauthorized" });
+      }
+      if (!(await RequireScope(req, res, "k8s:read"))) {
+        return;
       }
       if (!IsValidUserId(user.id)) {
         return res.status(400).send({ error: "Invalid user id" });
@@ -65,28 +77,35 @@ export class CrdRoutes {
         listPreferences?: unknown;
       };
     }
-    fastify.put<PutSelections>("/selections", async (req, res) => {
+    const saveSelections = async (
+      req: FastifyRequest<PutSelections>,
+      res: FastifyReply,
+    ) => {
       const user = await AuthGetLiveUser(req);
       if (!user) {
         return res.status(401).send({ error: "Unauthorized" });
       }
+      if (!(await RequireScope(req, res, "k8s:read"))) {
+        return;
+      }
       if (!IsValidUserId(user.id)) {
         return res.status(400).send({ error: "Invalid user id" });
       }
-      const hasSelectedIds = req.body.selectedIds !== undefined;
-      const hasListPreferences = req.body.listPreferences !== undefined;
+      const body = req.body ?? ({} as PutSelections["Body"]);
+      const hasSelectedIds = body.selectedIds !== undefined;
+      const hasListPreferences = body.listPreferences !== undefined;
       if (!hasSelectedIds && !hasListPreferences) {
         return res
           .status(400)
           .send({ error: "At least one of selectedIds or listPreferences is required" });
       }
       if (hasSelectedIds) {
-        if (!Array.isArray(req.body.selectedIds)) {
+        if (!Array.isArray(body.selectedIds)) {
           return res
             .status(400)
             .send({ error: "selectedIds must be an array" });
         }
-        const invalid = req.body.selectedIds.find(
+        const invalid = body.selectedIds.find(
           (id) => typeof id !== "string" || !IsAllowedResourceType(id),
         );
         if (invalid !== undefined) {
@@ -97,7 +116,7 @@ export class CrdRoutes {
       }
       let listPreferences: Record<string, ListPreference> | undefined;
       if (hasListPreferences) {
-        listPreferences = ValidateListPreferences(req.body.listPreferences);
+        listPreferences = ValidateListPreferences(body.listPreferences);
         if (listPreferences === null) {
           return res.status(400).send({
             error: "Invalid listPreferences payload",
@@ -109,17 +128,22 @@ export class CrdRoutes {
         OTelRequestSpan(req),
         this.config,
         user.id,
-        hasSelectedIds ? req.body.selectedIds : undefined,
+        hasSelectedIds ? body.selectedIds : undefined,
         hasListPreferences ? listPreferences : undefined,
       );
       return res.status(200).send({ success: true });
-    });
+    };
+    fastify.put<PutSelections>("/selections", saveSelections);
+    fastify.post<PutSelections>("/selections", saveSelections);
 
     // POST /api/resources/refresh - Trigger CRD re-scan
     fastify.post("/refresh", async (req, res) => {
       const user = await AuthGetLiveUser(req);
       if (!user) {
         return res.status(401).send({ error: "Unauthorized" });
+      }
+      if (!(await RequireAdmin(req, res))) {
+        return;
       }
       const types = this.withDeletableFlag(await CrdScannerRefresh());
       return res.status(200).send({ types });

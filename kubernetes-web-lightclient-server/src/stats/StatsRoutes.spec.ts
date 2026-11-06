@@ -3,6 +3,7 @@ import { StatsRoutes } from "./StatsRoutes";
 
 jest.mock("@devopsplaybook.io/common-utils", () => ({
   AuthGetLiveUser: jest.fn(),
+  AuthHasScope: jest.fn(async () => {}),
 }));
 
 const mockStatsDataGet = jest.fn(async () => []);

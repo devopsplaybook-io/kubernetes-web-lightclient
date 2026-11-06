@@ -73,6 +73,15 @@ See the [ConfigMap YAML](docs/deployments/kubernetes/kubernetes-web-lightclient/
 | NOTIFICATIONS_API                                      | Notifications service API endpoint (e.g. `https://notifications.example.com/api/notifications`)                       | (empty)       | Config file or environment variable |
 | NOTIFICATIONS_TOKEN                                    | Notifications service API token                                                                                       | (empty)       | Config file or environment variable |
 | API_TOKENS_MAX_PER_USER                                | Maximum number of API tokens per user                                                                                 | 100           | Config file or environment variable |
+| API_TOKENS_REVOKE_ON_PASSWORD_CHANGE                   | Revoke every API token when a user changes their password                                                              | false         | Config file or environment variable |
+| JWT_KEY                                                | Signing key for JWT sessions. Empty means database-managed: a random key is generated once and stored in `metadata.auth_token`. A non-empty value must be random, at least 32 characters and not a known weak value; keep it in a Secret. Changing it invalidates all JWT sessions. | (empty) | Config file or environment variable |
+| JWT_VALIDITY_DURATION                                  | JWT session validity, in seconds                                                                                       | 8035200 (93 days) | Config file or environment variable |
+| JWT_REVOCATION_ENABLED                                 | Reject JWTs issued before a password/role/scope change (requires the `users.tokenVersion` migration)                   | false         | Config file or environment variable |
+| PASSWORD_MIN_LENGTH                                    | Minimum password length (`0` accepts any non-empty password)                                                          | 0             | Config file or environment variable |
+| AUTH_RATE_LIMIT_LOGIN_MAX                              | Login attempts allowed per rate-limit window (`<= 0` disables)                                                        | 10            | Config file or environment variable |
+| AUTH_RATE_LIMIT_REFRESH_MAX                            | Session refreshes allowed per rate-limit window (`<= 0` disables)                                                     | 60            | Config file or environment variable |
+| AUTH_RATE_LIMIT_WINDOW_SECONDS                         | Rate-limit window, in seconds                                                                                         | 60            | Config file or environment variable |
+| CORS_POLICY_ORIGIN                                     | Comma-separated list of browser origins allowed to call the API. Empty emits no CORS headers (same-origin UI only); `*` allows any origin and is insecure | (empty) | Config file or environment variable |
 
 ## Authentication
 
@@ -90,9 +99,26 @@ API tokens are managed self-service, either in the web UI (Settings → API Toke
 Security properties:
 
 - Only the SHA-256 hash of a token is stored; plaintext tokens are never logged or persisted.
-- A token grants exactly the permissions of its owning user (role and scopes are resolved live on every request): revoking a role instantly narrows the token.
+- A token grants exactly the permissions of its owning user. The live role and scopes are resolved from the database on every request, so a role or scope change applies to existing tokens and sessions immediately.
 - Expired (`expiresAt` in the past) and revoked tokens are rejected immediately.
 - The number of tokens per user is capped by `API_TOKENS_MAX_PER_USER` (default: 100).
+
+### Roles and scopes
+
+Every application API route enforces the live role and scopes of the authenticated user and fails closed when they are missing. The `admin` role bypasses scope checks; a `user` must hold the scope required by the route. The `admin` scope grants admin-only routes to a non-admin user without granting the role itself.
+
+| Scope        | Grants                                                                                         |
+| ------------ | ---------------------------------------------------------------------------------------------- |
+| `k8s:read`   | List resources (`/api/resources/*`), read pod logs, and run `get`/`describe` kubectl commands   |
+| `k8s:write`  | `rollout restart`, `scale` and `create` kubectl commands                                       |
+| `stats:read` | Read the stats endpoints (`/api/stats/nodes`, `pod-resources`, `pod-usage`, `recommendation`)    |
+| `admin`      | Admin-only routes: `POST /api/resources/refresh`, `POST /api/stats/recommendation/regenerate`, kubectl `delete` |
+
+Users created through the web UI start with role `user` and no scopes: an admin must grant them with `PUT /api/users/:id` and body `{"scopes":["k8s:read","stats:read"]}` (add `k8s:write` where mutations are needed). Users created before the role/scope migration default to the `admin` role. Only `/api/status`, the static web UI and the user-management endpoints (admin-only, with self-service session/password/token routes) are reachable without an application scope.
+
+### CORS
+
+`CORS_POLICY_ORIGIN` is empty by default: no `Access-Control-Allow-Origin` header is emitted, so only same-origin browser clients (the bundled web UI) can call the API. For a cross-origin client, set an explicit comma-separated allowlist, e.g. `https://k8s.example.com`. A literal `*` is accepted for compatibility but allows any origin to read API responses.
 
 Example: query a pod with a machine client:
 
@@ -120,27 +146,36 @@ Payload schema:
 
 Allowed commands and their argument shape:
 
-| Command            | Argument shape                                  | Example                                     |
-| ------------------ | ----------------------------------------------- | ------------------------------------------- |
-| `get`              | `""` (list), `"-A"` (all namespaces), or a name | `"my-pod"`                                  |
-| `describe`         | an object name                                  | `"my-pod"`                                  |
-| `delete`           | an object name                                  | `"my-pod"` (subject to the delete policy)   |
-| `rollout restart`  | an object name                                  | `"my-deployment"`                           |
-| `scale`            | `<name> --replicas=<n>`                         | `"my-deployment --replicas=3"`              |
-| `create`           | `--from=cronjob/<cronjob> <jobname>` on `job`   | `"--from=cronjob/my-cron my-job"`           |
+| Command            | Argument shape                                  | Example                                     | Required scope |
+| ------------------ | ----------------------------------------------- | ------------------------------------------- | -------------- |
+| `get`              | `""` (list), `"-A"` (all namespaces), or a name | `"my-pod"`                                  | `k8s:read`     |
+| `describe`         | an object name                                  | `"my-pod"`                                  | `k8s:read`     |
+| `delete`           | an object name                                  | `"my-pod"` (subject to the delete policy)   | `admin`        |
+| `rollout restart`  | an object name                                  | `"my-deployment"`                           | `k8s:write`    |
+| `scale`            | `<name> --replicas=<n>`                         | `"my-deployment --replicas=3"`              | `k8s:write`    |
+| `create`           | `--from=cronjob/<cronjob> <jobname>` on `job`   | `"--from=cronjob/my-cron my-job"`           | `k8s:write`    |
 
 Response envelope (success): `201` with `{"result": "<gzip+base64 output>"}`.
 
 ### `POST /api/kubectl/logs`
 
-Payload schema: `namespace` (required), `pod` (required), `container` (optional), `argument` (optional string of `--previous` and/or `--since=10m|1h|24h`), `timestamps` (optional boolean, default `true`).
+Payload schema: `namespace` (required), `pod` (required), `container` (optional), `argument` (optional string of `--previous` and/or `--since=10m|1h|24h`), `timestamps` (optional boolean, default `true`). Requires the `k8s:read` scope.
+
+### Resource selections
+
+`GET /api/resources/selections` returns the user's selected resource types and list preferences. `PUT /api/resources/selections` updates them: `selectedIds` and `listPreferences` are independent, and a field omitted from the body keeps its stored value. `POST /api/resources/selections` is an alias of `PUT`. A body without either field (including no body at all) returns `400`. All three routes require the `k8s:read` scope.
 
 ### Error responses
 
 - `401` `{"error":"Unauthorized"}` — missing, expired or invalid credentials.
 - `400` `{"error":"...","field":"..."}` — the request was rejected by validation. `field` names the rejected payload field (`command`, `object`, `namespace`, `argument`, `pod`, `container` or `payload`) and `error` says why, e.g. `{"error":"unknown resource type \"secretx\"","field":"object"}` or `{"error":"invalid scale argument \"my-deployment\", expected <name> --replicas=<n>","field":"argument"}`.
+- `403` `{"error":"Access Denied","code":"FORBIDDEN"}` — the authenticated user lacks the scope required by the route.
 - `403` `{"error":"Deletion of <type> objects is not allowed"}` — the delete policy (`ALLOWED_DELETABLE_OBJECTS`) refused a `delete`.
 - `404` `{"error":"This object no longer exists — ..."}` — the object vanished between listing and the request.
+- `502` `{"error":"kubectl command failed","requestId":"..."}` / `{"error":"kubectl logs failed","requestId":"..."}` — kubectl failed; the details are logged server-side under the same request id.
+- `503` `{"error":"Failed to fetch resource data","requestId":"..."}` — the resource listing could not be fetched; the details are logged server-side.
+
+5xx responses never include internal error text. Use the `requestId` to correlate with the server logs.
 
 Worked example (success and a rejected request):
 
@@ -155,3 +190,11 @@ curl -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   https://<instance>/api/kubectl/command
 # 201 {"result":"<gzip+base64 pod manifest>"}
 ```
+
+## Upgrading from a release shipping the default JWT key
+
+- The image no longer ships a default `JWT_KEY`. When none is configured, the signing key becomes the random value stored in `metadata.auth_token` (already present in existing SQLite deployments, which therefore keep working without configuration). JWTs previously signed with the shipped `dev` literal become invalid: users must log in again. API tokens are unaffected (they are hashed, not JWTs).
+- A configured `JWT_KEY` that is empty, a known weak value (for example `dev`) or shorter than 32 characters now fails startup with a clear log message. Generate a random key with `openssl rand -hex 32` and store it in a Secret, or remove the setting to use the database-managed key.
+- Non-admin users are denied until an admin grants scopes with `PUT /api/users/:id` and body `{"scopes":[...]}`. Users created before the role/scope migration default to the `admin` role and keep full access.
+- Cross-origin browser clients must set `CORS_POLICY_ORIGIN` explicitly; the bundled same-origin UI needs no configuration.
+- If a Postgres deployment is used, `metadata.value` must be `TEXT` (not `INTEGER`) before relying on the database-managed key; otherwise keep an explicit strong `JWT_KEY`.

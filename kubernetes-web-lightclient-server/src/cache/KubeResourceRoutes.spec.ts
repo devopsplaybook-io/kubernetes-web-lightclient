@@ -5,19 +5,28 @@ import * as path from "path";
 import { KubeResourceRoutes } from "./KubeResourceRoutes";
 import { KubeCache } from "./KubeCache";
 
-jest.mock("../OTelContext", () => ({
-  OTelTracer: () => ({
-    startSpan: () => ({ setAttribute: jest.fn(), end: jest.fn() }),
-  }),
-  OTelLogger: () => ({
-    createModuleLogger: () => ({
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-      debug: jest.fn(),
+jest.mock("../OTelContext", () => {
+  const logger = {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+  };
+  return {
+    OTelTracer: () => ({
+      startSpan: () => ({ setAttribute: jest.fn(), end: jest.fn() }),
     }),
-  }),
-}));
+    OTelLogger: () => ({
+      createModuleLogger: () => logger,
+    }),
+  };
+});
+
+import { OTelLogger } from "../OTelContext";
+
+const mockLogger = OTelLogger().createModuleLogger("test") as unknown as {
+  error: jest.Mock;
+};
 
 const mockExecuteGetRequest = jest.fn();
 
@@ -30,6 +39,7 @@ jest.mock("../kubectl/KubeCtlExecutor", () => ({
 
 jest.mock("@devopsplaybook.io/common-utils", () => ({
   AuthGetLiveUser: jest.fn(),
+  AuthHasScope: jest.fn(async () => {}),
 }));
 
 import { AuthGetLiveUser } from "@devopsplaybook.io/common-utils";
@@ -145,13 +155,23 @@ describe("KubeResourceRoutes", () => {
     expect(entry?.data).toBe("COMPRESSED_DATA");
   });
 
-  test("returns 503 when the kubectl fetch fails", async () => {
-    mockExecuteGetRequest.mockRejectedValue(new Error("kubectl failed"));
+  test("returns a sanitized 503 when the kubectl fetch fails", async () => {
+    mockExecuteGetRequest.mockRejectedValue(
+      new Error("kubectl failed: secret-token-value"),
+    );
     const res = await app.inject({
       method: "GET",
       url: "/api/resources/data/pod",
     });
     expect(res.statusCode).toBe(503);
+    expect(res.json()).toEqual({
+      error: "Failed to fetch resource data",
+      requestId: expect.any(String),
+    });
+    expect(JSON.stringify(res.json())).not.toContain("secret-token-value");
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      expect.stringContaining("secret-token-value"),
+    );
   });
 
   test("serves events through the cached pipeline", async () => {

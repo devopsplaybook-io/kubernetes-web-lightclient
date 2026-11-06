@@ -1,5 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { AuthGetLiveUser } from "@devopsplaybook.io/common-utils";
+import { RequireAdmin, RequireScope } from "../auth/Authorization";
 import { StatsDataGet, PodResourcesGet, PodUsageStatsGet } from "./StatsData";
 import {
   RecommendationGenerate,
@@ -17,6 +18,9 @@ export class StatsRoutes {
       if (!user) {
         return res.status(401).send({ error: "Unauthorized" });
       }
+      if (!(await RequireScope(req, res, "stats:read"))) {
+        return;
+      }
       return res.status(200).send({ stats: await StatsDataGet() });
     });
 
@@ -24,6 +28,9 @@ export class StatsRoutes {
       const user = await AuthGetLiveUser(req);
       if (!user) {
         return res.status(401).send({ error: "Unauthorized" });
+      }
+      if (!(await RequireScope(req, res, "stats:read"))) {
+        return;
       }
       return res.status(200).send({ podResources: await PodResourcesGet() });
     });
@@ -33,6 +40,9 @@ export class StatsRoutes {
       if (!user) {
         return res.status(401).send({ error: "Unauthorized" });
       }
+      if (!(await RequireScope(req, res, "stats:read"))) {
+        return;
+      }
       return res.status(200).send({ podUsageStats: await PodUsageStatsGet() });
     });
 
@@ -40,6 +50,9 @@ export class StatsRoutes {
       const user = await AuthGetLiveUser(req);
       if (!user) {
         return res.status(401).send({ error: "Unauthorized" });
+      }
+      if (!(await RequireScope(req, res, "stats:read"))) {
+        return;
       }
       return res.status(200).send({
         enabled: RecommendationIsEnabled(),
@@ -51,6 +64,9 @@ export class StatsRoutes {
       const user = await AuthGetLiveUser(req);
       if (!user) {
         return res.status(401).send({ error: "Unauthorized" });
+      }
+      if (!(await RequireAdmin(req, res))) {
+        return;
       }
       if (!RecommendationIsEnabled()) {
         return res
