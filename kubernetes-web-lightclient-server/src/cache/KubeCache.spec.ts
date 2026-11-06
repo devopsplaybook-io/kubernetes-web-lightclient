@@ -123,4 +123,40 @@ describe("KubeCache", () => {
     // ...but still fresh with an explicit longer TTL
     expect(cache.isStaleEntry(entry, 60000)).toBe(false);
   });
+
+  test("should never serve a legacy secret file without the redaction marker", async () => {
+    await fse.writeJson(path.join(cache.getCacheDir(), "secret.json"), {
+      data: "dW5yZWRhY3RlZA==",
+      cachedAt: new Date().toISOString(),
+      type: "secret",
+    });
+
+    expect(await cache.get("secret")).toBeNull();
+  });
+
+  test("should mark secret entries as redacted and roundtrip them", async () => {
+    await cache.set("secret", "cmVkYWN0ZWQ=");
+
+    const entry = await cache.get("secret");
+    expect(entry).not.toBeNull();
+    expect(entry!.secretsRedacted).toBe(true);
+    expect(entry!.data).toBe("cmVkYWN0ZWQ=");
+  });
+
+  test("should purge only the legacy secret cache file", async () => {
+    await cache.set("pods", "cG9kcw==");
+    const legacySecret = path.join(cache.getCacheDir(), "secret.json");
+    await fse.writeJson(legacySecret, {
+      data: "dW5yZWRhY3RlZA==",
+      cachedAt: new Date().toISOString(),
+      type: "secret",
+    });
+
+    await cache.purgeLegacySecretCache();
+
+    expect(await fse.pathExists(legacySecret)).toBe(false);
+    expect(
+      await fse.pathExists(path.join(cache.getCacheDir(), "pods.json")),
+    ).toBe(true);
+  });
 });

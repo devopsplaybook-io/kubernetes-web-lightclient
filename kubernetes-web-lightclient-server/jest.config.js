@@ -34,6 +34,19 @@ module.exports = {
       functions: 90,
       lines: 90,
     },
+    // Stats modules build the CPU/memory history served by the Stats page.
+    "./src/stats/StatsData.ts": {
+      statements: 95,
+      branches: 90,
+      functions: 95,
+      lines: 95,
+    },
+    "./src/stats/StatsDataPodUsage.ts": {
+      statements: 90,
+      branches: 75,
+      functions: 90,
+      lines: 90,
+    },
   },
   testMatch: ["/**/src/**/*.spec.(ts|js)"],
   testEnvironment: "node",

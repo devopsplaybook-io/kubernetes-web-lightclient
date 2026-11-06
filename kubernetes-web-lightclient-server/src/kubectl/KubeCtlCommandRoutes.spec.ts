@@ -27,8 +27,18 @@ jest.mock("../OTelContext", () => {
 import { OTelLogger } from "../OTelContext";
 
 const mockLogger = OTelLogger().createModuleLogger("test") as unknown as {
+  info: jest.Mock;
+  warn: jest.Mock;
   error: jest.Mock;
 };
+
+const ACTOR_ID = "11111111-1111-4111-8111-111111111111";
+
+function auditLines(): string[] {
+  return [...mockLogger.info.mock.calls, ...mockLogger.warn.mock.calls]
+    .map((call) => call[0] as string)
+    .filter((line) => line.startsWith("kubectl."));
+}
 
 const mockExecuteCommand = jest.fn();
 
@@ -77,7 +87,11 @@ describe("KubeCtlCommandRoutes", () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    authMock.mockResolvedValue({ id: "11111111-1111-4111-8111-111111111111" });
+    authMock.mockResolvedValue({
+      id: ACTOR_ID,
+      name: "alice",
+      role: "admin",
+    });
     mockExecuteCommand.mockResolvedValue("COMPRESSED_OUTPUT");
     app = buildApp();
     await app.ready();
@@ -217,6 +231,17 @@ describe("KubeCtlCommandRoutes", () => {
       ["delete", "deployment", "my-deployment", "-n", "default"],
       20000,
     );
+    const lines = auditLines();
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain("kubectl.delete outcome=success");
+    expect(lines[0]).toContain("actor=alice");
+    expect(lines[0]).toContain(`actorId=${ACTOR_ID}`);
+    expect(lines[0]).toContain("route=POST /api/kubectl/command");
+    expect(lines[0]).toContain("object=deployment");
+    expect(lines[0]).toContain("namespace=default");
+    expect(lines[0]).toContain("target=my-deployment");
+    expect(lines[0]).toContain("requestId=");
+    expect(lines[0]).not.toContain("COMPRESSED_OUTPUT");
   });
 
   test("executes a validated scale with a re-serialized replica count", async () => {
@@ -236,6 +261,34 @@ describe("KubeCtlCommandRoutes", () => {
       ["scale", "deployment", "my-deployment", "--replicas=3", "-n", "default"],
       20000,
     );
+    const lines = auditLines();
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain("kubectl.scale outcome=success");
+    expect(lines[0]).toContain("target=my-deployment");
+    expect(lines[0]).toContain("replicas=3");
+  });
+
+  test("executes a validated rollout restart and audits it", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/kubectl/command/",
+      payload: {
+        object: "deployment",
+        command: "rollout restart",
+        namespace: "default",
+        argument: "my-deployment",
+        noJson: true,
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(mockExecuteCommand).toHaveBeenCalledWith(
+      ["rollout", "restart", "deployment", "my-deployment", "-n", "default"],
+      20000,
+    );
+    const lines = auditLines();
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain("kubectl.rollout-restart outcome=success");
+    expect(lines[0]).toContain("target=my-deployment");
   });
 
   test("executes a validated job creation from a cronjob", async () => {
@@ -255,6 +308,11 @@ describe("KubeCtlCommandRoutes", () => {
       ["create", "job", "my-job", "--from=cronjob/my-cron", "-n", "default"],
       20000,
     );
+    const lines = auditLines();
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain("kubectl.create-job outcome=success");
+    expect(lines[0]).toContain("target=my-job");
+    expect(lines[0]).toContain("source=cronjob/my-cron");
   });
 
   test("executes a validated get with json output", async () => {
@@ -273,6 +331,7 @@ describe("KubeCtlCommandRoutes", () => {
       ["get", "pod", "my-pod", "-n", "default", "-o", "json"],
       20000,
     );
+    expect(auditLines()).toEqual([]);
   });
 
   test("refuses deletion of non-deletable object types with 403", async () => {
@@ -399,5 +458,81 @@ describe("KubeCtlCommandRoutes", () => {
       "This object no longer exists — it may have been deleted since the list was loaded",
     );
     expect(mockSpan.end).toHaveBeenCalledTimes(1);
+  });
+
+  test("audits a delete skipped because the request queue is full", async () => {
+    mockExecuteCommand.mockRejectedValue(
+      Object.assign(new Error("Request queue is full"), {
+        code: "REQUEST_QUEUE_FULL",
+      }),
+    );
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/kubectl/command/",
+      payload: {
+        object: "pod",
+        command: "delete",
+        namespace: "default",
+        argument: "my-pod",
+        noJson: true,
+      },
+    });
+    expect(res.statusCode).toBe(429);
+    const lines = auditLines();
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain("kubectl.delete outcome=failure");
+    expect(lines[0]).toContain("reason=queue_full");
+    expect(lines[0]).toContain("target=my-pod");
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      expect.stringContaining("reason=queue_full"),
+    );
+  });
+
+  test("audits a delete of an object that no longer exists", async () => {
+    mockExecuteCommand.mockRejectedValue(
+      Object.assign(new Error("Command failed"), {
+        stderr: 'Error from server (NotFound): pods "my-pod" not found',
+      }),
+    );
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/kubectl/command/",
+      payload: {
+        object: "pod",
+        command: "delete",
+        namespace: "default",
+        argument: "my-pod",
+        noJson: true,
+      },
+    });
+    expect(res.statusCode).toBe(404);
+    const lines = auditLines();
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain("kubectl.delete outcome=failure");
+    expect(lines[0]).toContain("reason=not_found");
+  });
+
+  test("audits a generic delete failure without leaking the error detail", async () => {
+    mockExecuteCommand.mockRejectedValue(
+      new Error("kubectl failed with token=super-secret"),
+    );
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/kubectl/command/",
+      payload: {
+        object: "pod",
+        command: "delete",
+        namespace: "default",
+        argument: "my-pod",
+        noJson: true,
+      },
+    });
+    expect(res.statusCode).toBe(502);
+    const lines = auditLines();
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain("kubectl.delete outcome=failure");
+    expect(lines[0]).toContain("reason=error");
+    expect(lines[0]).not.toContain("super-secret");
+    expect(lines[0]).not.toContain("COMPRESSED_OUTPUT");
   });
 });

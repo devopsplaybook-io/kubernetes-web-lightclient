@@ -15,6 +15,47 @@ export async function CompressOutput(stdout: string): Promise<string> {
   return compressed.toString("base64");
 }
 
+const LAST_APPLIED_ANNOTATION =
+  "kubectl.kubernetes.io/last-applied-configuration";
+
+function RedactSecretObject(value: unknown): void {
+  if (!value || typeof value !== "object") {
+    return;
+  }
+  const secret = value as {
+    data?: unknown;
+    stringData?: unknown;
+    metadata?: { annotations?: Record<string, unknown> };
+  };
+  delete secret.data;
+  delete secret.stringData;
+  if (secret.metadata?.annotations) {
+    delete secret.metadata.annotations[LAST_APPLIED_ANNOTATION];
+  }
+}
+
+/**
+ * Removes Secret payloads from a `kubectl get -o json` list before it is
+ * cached at rest. Names, namespaces, labels and types are kept so the list
+ * view still works; `data`, `stringData` and the last-applied configuration
+ * annotation are dropped. Invalid JSON throws instead of returning the raw
+ * payload, so an unexpected shape can never be written unredacted.
+ */
+export function RedactSecretList(stdout: string): string {
+  const parsed: unknown = JSON.parse(stdout);
+  if (!parsed || typeof parsed !== "object") {
+    throw new Error("Secret list payload is not a JSON object");
+  }
+  RedactSecretObject(parsed);
+  const items = (parsed as { items?: unknown }).items;
+  if (Array.isArray(items)) {
+    for (const item of items) {
+      RedactSecretObject(item);
+    }
+  }
+  return JSON.stringify(parsed);
+}
+
 /**
  * Deduplication key for a kubectl argument vector. Only read-only commands
  * are coalesced; side-effect commands (delete, scale, create, ...) must
@@ -78,9 +119,12 @@ export class KubeCtlExecutor {
   ): Promise<string> {
     // Always fetch all namespaces - filtering is done on the client side
     const args = ["get", objectType, "-A", "-o", "json"];
-    return this.enqueue(args, timeout, `get:${objectType}`).then(
-      CompressOutput,
-    );
+    const isSecretList = objectType === "secret" || objectType === "secrets";
+    return this.enqueue(args, timeout, `get:${objectType}`)
+      .then((stdout) =>
+        isSecretList ? RedactSecretList(stdout) : stdout,
+      )
+      .then(CompressOutput);
   }
 
   /**

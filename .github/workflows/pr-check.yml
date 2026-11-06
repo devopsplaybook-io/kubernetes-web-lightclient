@@ -15,6 +15,7 @@ jobs:
     uses: devopsplaybook-io/common-utils/.github/workflows/reusable-pr-verify.yml@main
     with:
       node_app_directories: '["kubernetes-web-lightclient-server","kubernetes-web-lightclient-web"]'
+      audit_enabled: true
     secrets:
       DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
       DOCKER_HUB_ACCESS_TOKEN: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
@@ -27,6 +28,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+
+      - name: Check the example overlay tag matches the package version
+        run: |
+          VERSION=$(jq -r .version package.json)
+          TAG=$(awk '/newTag:/ {print $2; exit}' docs/deployments/kubernetes/kubernetes-web-lightclient/kustomization.yaml)
+          echo "package version: ${VERSION}, overlay tag: ${TAG}"
+          test "${TAG}" = "${VERSION}"
 
       - name: Render kustomize overlays
         run: |

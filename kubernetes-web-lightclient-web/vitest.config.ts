@@ -13,5 +13,8 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     clearMocks: true,
+    // The default forks pool leaves "Timeout terminating forks worker"
+    // teardown warnings after an otherwise passing run.
+    pool: "threads",
   },
 });

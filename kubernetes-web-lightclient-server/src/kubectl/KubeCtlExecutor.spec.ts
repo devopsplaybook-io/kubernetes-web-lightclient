@@ -22,6 +22,7 @@ import {
   IsKubeObjectNotFoundError,
   KubeCtlExecutor,
   KubeCtlExecutorGetInstance,
+  RedactSecretList,
 } from "./KubeCtlExecutor";
 import { RequestQueueInit } from "../queue/RequestQueue";
 
@@ -205,6 +206,101 @@ describe("KubeCtlExecutor", () => {
     const pending = executor.executeCommand(["get", "pods", "-A", "-o", "json"]);
     await expect(pending).rejects.toThrow("Request timed out after 20ms");
     expect(killMock).toHaveBeenCalledWith("SIGTERM");
+  });
+
+  test("redacts Secret payloads from a cached list read", async () => {
+    const pending = executor.executeGetRequest("secret");
+    callbacks[0](
+      null,
+      JSON.stringify({
+        apiVersion: "v1",
+        kind: "List",
+        items: [
+          {
+            metadata: {
+              name: "my-secret",
+              namespace: "default",
+              annotations: {
+                "kubectl.kubernetes.io/last-applied-configuration": "{}",
+                "keep.example.com/owner": "team-a",
+              },
+            },
+            type: "Opaque",
+            data: { password: "c3VwZXItc2VjcmV0" },
+            stringData: { user: "admin" },
+          },
+        ],
+      }),
+    );
+
+    const decoded = decode(await pending);
+    expect(decoded).not.toContain("c3VwZXItc2VjcmV0");
+    const list = JSON.parse(decoded);
+    expect(list.items[0].metadata.name).toBe("my-secret");
+    expect(list.items[0].type).toBe("Opaque");
+    expect(list.items[0].data).toBeUndefined();
+    expect(list.items[0].stringData).toBeUndefined();
+    expect(
+      list.items[0].metadata.annotations[
+        "kubectl.kubernetes.io/last-applied-configuration"
+      ],
+    ).toBeUndefined();
+    expect(
+      list.items[0].metadata.annotations["keep.example.com/owner"],
+    ).toBe("team-a");
+  });
+
+  test("keeps non-secret list payloads unchanged", async () => {
+    const payload = JSON.stringify({
+      items: [{ metadata: { name: "my-config" }, data: { key: "value" } }],
+    });
+    const pending = executor.executeGetRequest("configmap");
+    callbacks[0](null, payload);
+    expect(decode(await pending)).toBe(payload);
+  });
+
+  test("rejects a Secret list that is not valid JSON instead of caching it", async () => {
+    const pending = executor.executeGetRequest("secret");
+    callbacks[0](null, "not-json");
+    await expect(pending).rejects.toThrow();
+  });
+});
+
+describe("RedactSecretList", () => {
+  test("removes Secret data, stringData and the last-applied annotation", () => {
+    const redacted = JSON.parse(
+      RedactSecretList(
+        JSON.stringify({
+          items: [
+            {
+              metadata: {
+                name: "my-secret",
+                annotations: {
+                  "kubectl.kubernetes.io/last-applied-configuration": "{}",
+                },
+              },
+              data: { password: "c2VjcmV0" },
+              stringData: { user: "admin" },
+            },
+          ],
+        }),
+      ),
+    );
+    expect(redacted.items[0].metadata.name).toBe("my-secret");
+    expect(redacted.items[0].data).toBeUndefined();
+    expect(redacted.items[0].stringData).toBeUndefined();
+    expect(
+      redacted.items[0].metadata.annotations[
+        "kubectl.kubernetes.io/last-applied-configuration"
+      ],
+    ).toBeUndefined();
+  });
+
+  test("throws on invalid JSON so the raw payload can never be cached", () => {
+    expect(() => RedactSecretList("{not-json")).toThrow();
+    expect(() => RedactSecretList("null")).toThrow(
+      "Secret list payload is not a JSON object",
+    );
   });
 });
 
