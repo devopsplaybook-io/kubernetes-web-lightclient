@@ -1,13 +1,21 @@
 import { FastifyInstance } from "fastify";
 import { AuthGetLiveUser } from "@devopsplaybook.io/common-utils";
 import { RequireAdmin, RequireScope } from "../auth/Authorization";
-import { StatsDataGet, PodResourcesGet, PodUsageStatsGet } from "./StatsData";
+import {
+  StatsDataGet,
+  StatsDataGetEtag,
+  PodResourcesGet,
+  PodResourcesGetEtag,
+  PodUsageStatsGet,
+  PodUsageStatsGetEtag,
+} from "./StatsData";
 import {
   RecommendationGenerate,
   RecommendationGetCached,
   RecommendationIsEnabled,
   RecommendationIsGenerating,
 } from "./StatsDataRecommendation";
+import { BuildEtag, SendConditionalJson } from "./StatsEtag";
 
 export class StatsRoutes {
   //
@@ -21,7 +29,9 @@ export class StatsRoutes {
       if (!(await RequireScope(req, res, "stats:read"))) {
         return;
       }
-      return res.status(200).send({ stats: await StatsDataGet() });
+      return SendConditionalJson(req, res, StatsDataGetEtag(), async () => ({
+        stats: await StatsDataGet(),
+      }));
     });
 
     fastify.get("/pod-resources", async (req, res) => {
@@ -32,7 +42,9 @@ export class StatsRoutes {
       if (!(await RequireScope(req, res, "stats:read"))) {
         return;
       }
-      return res.status(200).send({ podResources: await PodResourcesGet() });
+      return SendConditionalJson(req, res, PodResourcesGetEtag(), async () => ({
+        podResources: await PodResourcesGet(),
+      }));
     });
 
     fastify.get("/pod-usage", async (req, res) => {
@@ -43,7 +55,9 @@ export class StatsRoutes {
       if (!(await RequireScope(req, res, "stats:read"))) {
         return;
       }
-      return res.status(200).send({ podUsageStats: await PodUsageStatsGet() });
+      return SendConditionalJson(req, res, PodUsageStatsGetEtag(), async () => ({
+        podUsageStats: await PodUsageStatsGet(),
+      }));
     });
 
     fastify.get("/recommendation", async (req, res) => {
@@ -54,10 +68,16 @@ export class StatsRoutes {
       if (!(await RequireScope(req, res, "stats:read"))) {
         return;
       }
-      return res.status(200).send({
-        enabled: RecommendationIsEnabled(),
-        recommendation: await RecommendationGetCached(),
-      });
+      const recommendation = await RecommendationGetCached();
+      const enabled = RecommendationIsEnabled();
+      const etag = BuildEtag(
+        "recommendation",
+        `${enabled ? "on" : "off"}-${recommendation?.generatedAt ?? "none"}`,
+      );
+      return SendConditionalJson(req, res, etag, () => ({
+        enabled,
+        recommendation,
+      }));
     });
 
     fastify.post("/recommendation/regenerate", async (req, res) => {

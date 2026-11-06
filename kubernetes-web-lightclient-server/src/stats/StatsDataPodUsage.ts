@@ -1,9 +1,11 @@
 import * as fse from "fs-extra";
+import { randomUUID } from "node:crypto";
 import * as path from "path";
 import { Config } from "../Config";
 import { PodResourceMeasurement } from "../model/PodResourceMeasurement";
 import { PodUsageStats } from "../model/PodUsageStats";
 import { OTelLogger, OTelTracer } from "../OTelContext";
+import { BuildEtag } from "./StatsEtag";
 import { kubernetesCommand } from "./StatsDataUtils";
 
 let podResources: PodResourceMeasurement[] = [];
@@ -12,6 +14,10 @@ let running = false;
 let intervalHandle: NodeJS.Timeout | null = null;
 const logger = OTelLogger().createModuleLogger("StatsDataPodUsage");
 const POD_USAGE_STATS_FILE = "pod-usage-stats.json";
+
+// Both payloads are produced by the same capture, so they share one version.
+const instanceId = randomUUID();
+let captureVersion = 0;
 
 /**
  * Prepare state and arm the capture interval. The initial capture is run
@@ -59,6 +65,7 @@ async function executePodResourcesCapture(config: Config): Promise<void> {
   const span = OTelTracer().startSpan("StatsDataPodUsage-Loop");
   try {
     await PodResourcesCapture(config);
+    captureVersion += 1;
   } catch (error) {
     logger.error(`Error capturing pod resources`, error, span);
   } finally {
@@ -73,6 +80,17 @@ export async function PodResourcesGet(): Promise<PodResourceMeasurement[]> {
 
 export async function PodUsageStatsGet(): Promise<PodUsageStats[]> {
   return Array.from(podUsageStats.values());
+}
+
+/**
+ * Entity tags of the two payloads produced by the pod resources capture.
+ */
+export function PodResourcesGetEtag(): string {
+  return BuildEtag("pod-resources", `${instanceId}-${captureVersion}`);
+}
+
+export function PodUsageStatsGetEtag(): string {
+  return BuildEtag("pod-usage", `${instanceId}-${captureVersion}`);
 }
 
 // Private Functions

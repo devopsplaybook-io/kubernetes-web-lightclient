@@ -88,6 +88,12 @@ Changes to the configuration file are applied without restarting the process: st
 
 `GET /api/ready` is a public readiness endpoint: it returns `200 {"ready":true}` once the first stats capture has completed (or its 5-second deadline expired) and `503 {"ready":false}` before that. `GET /api/status` keeps returning `{"started":true}` as soon as the listener is up.
 
+## Stats API
+
+The stats endpoints (`/api/stats/nodes`, `/api/stats/pod-resources`, `/api/stats/pod-usage`, `/api/stats/recommendation`) support conditional GETs: every `200` response carries an `ETag` and `Cache-Control: private, no-cache`, and a request with a matching `If-None-Match` header is answered with an empty `304 Not Modified` without rebuilding the payload. The web UI polls `/stats/nodes` and `/stats/pod-usage` at the user refresh interval, `/stats/pod-resources` at the `POD_RESOURCES_FETCH_FREQUENCY` cadence (30 minutes) and fetches the LLM recommendation on demand only.
+
+The node stats history is downsampled server-side to at most 360 measurements per node, so the payload does not grow with `STATS_RETENTION`. No additional configuration parameter is required.
+
 ## Authentication
 
 Two authentication methods are supported on all `/api/*` routes:

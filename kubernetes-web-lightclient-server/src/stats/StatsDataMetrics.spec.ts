@@ -30,6 +30,7 @@ jest.mock("./StatsDataUtils", () => ({
 
 import {
   StatsDataGet,
+  StatsDataGetEtag,
   StatsDataMetricsRunCapture,
   StatsDataMetricsSetup,
 } from "./StatsDataMetrics";
@@ -207,5 +208,58 @@ describe("StatsDataMetrics", () => {
     expect((await StatsDataGet()).some((s) => s.node === "node-after-error")).toBe(
       true,
     );
+  });
+
+  test("etag changes after a successful capture only", async () => {
+    mockKubernetesCommand.mockImplementation(async (args: string[]) => {
+      if (args[0] === "get" && args[1] === "nodes") {
+        return JSON.stringify({
+          items: [{ metadata: { name: "node-etag" } }],
+        });
+      }
+      if (args[0] === "get" && args[1] === "pods") {
+        return JSON.stringify({ items: [] });
+      }
+      if (args[0] === "top") {
+        return "";
+      }
+      throw new Error(`Unexpected kubectl command: ${args.join(" ")}`);
+    });
+
+    StatsDataMetricsSetup(config);
+    const beforeSuccess = StatsDataGetEtag();
+    await StatsDataMetricsRunCapture(config);
+    const afterSuccess = StatsDataGetEtag();
+    expect(afterSuccess).not.toBe(beforeSuccess);
+
+    mockKubernetesCommand.mockRejectedValue(new Error("kubectl boom"));
+    await StatsDataMetricsRunCapture(config);
+    expect(StatsDataGetEtag()).toBe(afterSuccess);
+  });
+
+  test("returns a downsampled view of the captured stats", async () => {
+    const items = Array.from({ length: 400 }, () => ({
+      metadata: { name: "node-downsample" },
+    }));
+    mockKubernetesCommand.mockImplementation(async (args: string[]) => {
+      if (args[0] === "get" && args[1] === "nodes") {
+        return JSON.stringify({ items });
+      }
+      if (args[0] === "get" && args[1] === "pods") {
+        return JSON.stringify({ items: [] });
+      }
+      if (args[0] === "top") {
+        return "";
+      }
+      throw new Error(`Unexpected kubectl command: ${args.join(" ")}`);
+    });
+
+    StatsDataMetricsSetup(config);
+    await StatsDataMetricsRunCapture(config);
+
+    const stats = await StatsDataGet();
+    const downsampleNode = stats.filter((s) => s.node === "node-downsample");
+    expect(downsampleNode.length).toBeLessThanOrEqual(360);
+    expect(downsampleNode.length).toBe(2);
   });
 });

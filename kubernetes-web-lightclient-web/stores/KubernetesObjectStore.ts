@@ -1,6 +1,9 @@
+import { defineStore, acceptHMRUpdate } from "pinia";
 import { AuthService } from "~~/services/AuthService";
 import Config from "~~/services/Config";
 import { ResourceService } from "~~/services/ResourceService";
+import { handleStaleObjectError } from "~~/services/KubernetesUtils";
+import { FilterKubernetesItems, ParseKeywords } from "~~/services/KeywordFilter";
 import axios from "axios";
 import { UtilsDecompressData } from "~/services/Utils";
 
@@ -362,30 +365,11 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
         });
     },
     async applyFilter(type: string) {
-      const itemsFull = this.dataFull[type] || [];
-      const items: any[] = [];
-      for (const item of itemsFull) {
-        if (
-          this.filter.namespace &&
-          item.metadata.namespace !== this.filter.namespace
-        ) {
-          continue;
-        }
-        if (!this.filter.keyword?.trim()) {
-          items.push(item);
-          continue;
-        }
-        const keywords = this.filter.keyword
-          .toLowerCase()
-          .trim()
-          .replace(/\s+/g, " ")
-          .split(" ");
-        const itemString = JSON.stringify(item).trim().toLowerCase();
-        if (keywords.every((keyword) => itemString.includes(keyword))) {
-          items.push(item);
-          continue;
-        }
-      }
+      const items = FilterKubernetesItems(
+        this.dataFull[type] || [],
+        this.filter.namespace,
+        ParseKeywords(this.filter.keyword),
+      );
       this.data[type] = items;
       // Also set old-style data key for backward compatibility with original components
       const oldKey = TYPE_TO_OLD_KEY[type];

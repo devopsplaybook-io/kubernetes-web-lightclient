@@ -46,28 +46,20 @@
       </thead>
       <tbody>
         <tr
-          v-for="kubeObject of visibleItems"
-          v-bind:key="kubeObject.metadata.uid || kubeObject.metadata.name"
+          v-for="row of podRows"
+          v-bind:key="row.pod.metadata.uid || row.pod.metadata.name"
         >
-          <td>{{ kubeObject.metadata.namespace }}</td>
-          <td>{{ kubeObject.metadata.name }}</td>
-          <td :class="podStatusClass(getPodStatus(kubeObject))">
-            {{ getPodStatus(kubeObject) }}
-          </td>
+          <td>{{ row.pod.metadata.namespace }}</td>
+          <td>{{ row.pod.metadata.name }}</td>
+          <td :class="row.statusClass">{{ row.status }}</td>
           <td>
-            {{ UtilsRelativeTime(kubeObject.metadata.creationTimestamp) }}
+            {{ UtilsRelativeTime(row.pod.metadata.creationTimestamp) }}
           </td>
+          <td>{{ row.ready }}/{{ row.total }}</td>
           <td>
-            {{ getPodReadyCount(kubeObject).ready }}/{{
-              getPodReadyCount(kubeObject).total
-            }}
-          </td>
-          <td>
-            {{ getPodRestartCount(kubeObject) }}
+            {{ row.restartCount }}
             ({{
-              getPodLastRestartAt(kubeObject)
-                ? UtilsRelativeTime(getPodLastRestartAt(kubeObject))
-                : "-"
+              row.lastRestartAt ? UtilsRelativeTime(row.lastRestartAt) : "-"
             }})
           </td>
           <td>
@@ -75,8 +67,8 @@
               class="bi bi-eye-fill"
               v-on:click="
                 showDetails(
-                  kubeObject.metadata.namespace,
-                  kubeObject.metadata.name,
+                  row.pod.metadata.namespace,
+                  row.pod.metadata.name,
                 )
               "
             ></i>
@@ -86,8 +78,8 @@
               class="bi bi-file-text-fill"
               v-on:click="
                 showLogs(
-                  kubeObject.metadata.namespace,
-                  kubeObject.metadata.name,
+                  row.pod.metadata.namespace,
+                  row.pod.metadata.name,
                 )
               "
             ></i>
@@ -97,8 +89,8 @@
               class="bi bi-x-circle-fill"
               v-on:click="
                 podDelete(
-                  kubeObject.metadata.namespace,
-                  kubeObject.metadata.name,
+                  row.pod.metadata.namespace,
+                  row.pod.metadata.name,
                 )
               "
             ></i>
@@ -131,13 +123,10 @@
 </template>
 
 <script setup>
+import { computed } from "vue";
 import { UtilsRelativeTime } from "~~/services/Utils";
 import {
-  getPodLastRestartAt,
-  getPodReadyCount,
-  getPodRestartCount,
-  getPodStatus,
-  podStatusClass,
+  getPodDisplayRow,
   staleAwareHandler,
 } from "~~/services/KubernetesUtils";
 import { createPodFilters } from "~~/services/ListTriage";
@@ -153,17 +142,18 @@ const { visibleItems, onSortToggle, availableFilters, activeFilters, toggleFilte
     accessors: {
       namespace: (pod) => pod.metadata.namespace || "",
       name: (pod) => pod.metadata.name || "",
-      status: (pod) => getPodStatus(pod),
+      status: (pod) => getPodDisplayRow(pod).status,
       age: (pod) => pod.metadata.creationTimestamp || "",
-      ready: (pod) => {
-        const counts = getPodReadyCount(pod);
-        return counts.total === 0 ? -1 : counts.ready / counts.total;
-      },
-      restarts: (pod) => getPodRestartCount(pod),
+      ready: (pod) => getPodDisplayRow(pod).readyRatio,
+      restarts: (pod) => getPodDisplayRow(pod).restartCount,
     },
     filterDefs: createPodFilters(),
     defaultSortDirections: { restarts: "desc" },
   },
+);
+
+const podRows = computed(() =>
+  visibleItems.value.map((pod) => getPodDisplayRow(pod)),
 );
 </script>
 

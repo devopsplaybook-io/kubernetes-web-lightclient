@@ -20,6 +20,7 @@ jest.mock("./StatsDataMetrics", () => ({
   StatsDataMetricsReconfigure: (...args: unknown[]) =>
     mockMetricsReconfigure(...args),
   StatsDataGet: jest.fn(async () => []),
+  StatsDataGetEtag: jest.fn(() => '"stats-mock"'),
 }));
 
 jest.mock("./StatsDataPodUsage", () => ({
@@ -28,10 +29,16 @@ jest.mock("./StatsDataPodUsage", () => ({
   StatsDataPodUsageReconfigure: (...args: unknown[]) =>
     mockPodUsageReconfigure(...args),
   PodResourcesGet: jest.fn(async () => []),
+  PodResourcesGetEtag: jest.fn(() => '"pod-resources-mock"'),
   PodUsageStatsGet: jest.fn(async () => []),
+  PodUsageStatsGetEtag: jest.fn(() => '"pod-usage-mock"'),
 }));
 
 import {
+  StatsDataGet,
+  StatsDataGetEtag,
+  PodResourcesGetEtag,
+  PodUsageStatsGetEtag,
   StatsDataInit,
   StatsDataIsReady,
   StatsDataReconfigure,
@@ -106,5 +113,12 @@ describe("StatsData", () => {
     expect(mockUtilsInit.mock.invocationCallOrder[1]).toBeLessThan(
       mockMetricsReconfigure.mock.invocationCallOrder[0],
     );
+  });
+
+  test("re-exports the data getters and their etag getters", async () => {
+    expect(await StatsDataGet()).toEqual([]);
+    expect(StatsDataGetEtag()).toBe('"stats-mock"');
+    expect(PodResourcesGetEtag()).toBe('"pod-resources-mock"');
+    expect(PodUsageStatsGetEtag()).toBe('"pod-usage-mock"');
   });
 });

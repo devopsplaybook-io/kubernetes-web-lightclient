@@ -40,6 +40,7 @@
         ></i
       ></span>
     </div>
+    <ListPager :type-id="objectType" />
     <div
       id="object-list"
       :class="{
@@ -163,6 +164,8 @@ import { RefreshIntervalService } from "~~/services/RefreshIntervalService";
 import { ResourceService } from "~~/services/ResourceService";
 import { EventBus, EventTypes } from "~~/services/EventBus";
 import { clearDialogRoute } from "~~/services/DialogDeepLink";
+import { ListPaginationService } from "~~/services/ListPagination";
+import ListPager from "~~/components/ListPager.vue";
 import KubernetesPodList from "~~/components/KubernetesPodList.vue";
 import KubernetesEventList from "~~/components/KubernetesEventList.vue";
 import KubernetesDeploymentList from "~~/components/KubernetesDeploymentList.vue";
@@ -331,23 +334,6 @@ export default {
       // Force a fresh fetch when switching object type
       KubernetesObjectStore().invalidateAndRefresh(newType);
     },
-    searchFilter(newFilter) {
-      const router = useRouter();
-      const route = useRoute();
-      const query = { ...route.query, objectType: this.objectType };
-      if (newFilter) {
-        query.search = newFilter;
-      } else {
-        delete query.search;
-      }
-      if (this.isCurrentTypeNamespaced && this.selectedNamespace !== "*") {
-        query.namespace = this.selectedNamespace;
-      }
-      router.replace({
-        path: route.path,
-        query,
-      });
-    },
   },
   methods: {
     async onObjectTypeChange(event) {
@@ -360,15 +346,37 @@ export default {
       } finally {
         this.objectType = newType;
       }
+      ListPaginationService.reset(newType);
     },
     refreshObject() {
       KubernetesObjectStore().refreshLast();
     },
     onKeywordChanged: debounce(async function (e) {
       KubernetesObjectStore().setFilterKeyword(this.searchFilter);
+      this.syncSearchToRoute();
+      ListPaginationService.reset(this.objectType);
     }, 500),
     isTypeEnabled(featureId) {
       return KubernetesObjectStore().selectedTypes.includes(featureId);
+    },
+    // Keeps the URL shareable without writing to it on every keystroke: this
+    // only runs from the debounced keyword handler (and never per input event).
+    syncSearchToRoute() {
+      const router = useRouter();
+      const route = useRoute();
+      const query = { ...route.query, objectType: this.objectType };
+      if (this.searchFilter) {
+        query.search = this.searchFilter;
+      } else {
+        delete query.search;
+      }
+      if (this.isCurrentTypeNamespaced && this.selectedNamespace !== "*") {
+        query.namespace = this.selectedNamespace;
+      }
+      router.replace({
+        path: route.path,
+        query,
+      });
     },
     onNamespaceChange() {
       KubernetesObjectStore().setFilterNamespace(
@@ -376,6 +384,7 @@ export default {
           ? this.selectedNamespace
           : "",
       );
+      ListPaginationService.reset(this.objectType);
       const router = useRouter();
       const route = useRoute();
       const query = { ...route.query };
@@ -402,7 +411,7 @@ select {
   display: grid;
   max-height: 100%;
   height: auto;
-  grid-template-rows: auto auto 1fr;
+  grid-template-rows: auto auto auto 1fr;
 }
 #object-actions {
   display: grid;

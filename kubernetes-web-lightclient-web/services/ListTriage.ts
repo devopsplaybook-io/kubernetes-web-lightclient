@@ -3,7 +3,7 @@
  * top of the store's keyword/namespace filtering. No side effects, no server
  * calls — everything here is unit-testable in isolation.
  */
-import { getPodRestartCount } from "~~/services/KubernetesUtils";
+import { getPodDisplayRow } from "~~/services/KubernetesUtils";
 
 export interface ListSortState {
   sortBy: string;
@@ -70,28 +70,17 @@ export function applyListFilters<T>(
   return items.filter((item) => active.every((def) => def.predicate(item)));
 }
 
-function isPodFullyReady(pod: any): boolean {
-  const statuses = pod.status?.containerStatuses || [];
-  if (statuses.length === 0) {
-    // Pods without container statuses (e.g. pending scheduling) are only
-    // considered fine once they reached a terminal/running phase
-    const phase = pod.status?.phase || "";
-    return phase === "Running" || phase === "Succeeded";
-  }
-  return statuses.every((s) => s.ready);
-}
-
 export function createPodFilters(): ListFilterDef[] {
   return [
     {
       id: "not-ready",
       label: "Not ready",
-      predicate: (pod: any) => !isPodFullyReady(pod),
+      predicate: (pod: any) => !getPodDisplayRow(pod).fullyReady,
     },
     {
       id: "restarts",
       label: "Restarts > 0",
-      predicate: (pod: any) => getPodRestartCount(pod) > 0,
+      predicate: (pod: any) => getPodDisplayRow(pod).restartCount > 0,
     },
   ];
 }
