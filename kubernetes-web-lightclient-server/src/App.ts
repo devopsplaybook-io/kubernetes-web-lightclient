@@ -4,11 +4,16 @@ import Fastify from "fastify";
 import { watchFile } from "fs-extra";
 import * as path from "path";
 import { Config } from "./Config";
+import { APP_SCOPES } from "./auth/Authorization";
+import { CreateAuthAuditHandler } from "./auth/AuthAuditLogger";
+import { ValidateJwtKey } from "./auth/JwtKeyValidation";
 import { KubeCache } from "./cache/KubeCache";
 import { KubeResourceRoutes } from "./cache/KubeResourceRoutes";
+import { CorsRegister } from "./Cors";
 import { CrdRoutes } from "./crds/CrdRoutes";
 import { CrdScannerInit } from "./crds/CrdScanner";
 import { UserSelectionsDataInit } from "./crds/UserResourceSelections";
+import { FastifyErrorHandlerRegister, NormalizeError } from "./ErrorHandling";
 import { KubeCtlCommandRoutes } from "./kubectl/KubeCtlCommandRoutes";
 import { KubeCtlLogsRoutes } from "./kubectl/KubeCtlLogsRoutes";
 import {
@@ -23,6 +28,7 @@ import { StatsDataRecommendationInit } from "./stats/StatsDataRecommendation";
 import { StatsRoutes } from "./stats/StatsRoutes";
 import {
   AuthInit,
+  AuthSetAuditHandler,
   AuthSetOTel,
   DbUtilsInit,
   DbUtilsSetOTel,
@@ -60,7 +66,17 @@ Promise.resolve().then(async () => {
   AuthSetOTel(OTelTracer());
   UsersDataSetOTel(OTelTracer());
   UsersApiTokensDataSetOTel(OTelTracer());
-  await AuthInit(span, config, []);
+  const jwtKeyWasConfigured = config.JWT_KEY !== "";
+  await AuthInit(span, config, APP_SCOPES);
+  ValidateJwtKey(config.JWT_KEY);
+  logger.info(
+    `JWT signing key: ${
+      jwtKeyWasConfigured ? "operator-provided" : "database-managed"
+    }`,
+  );
+  AuthSetAuditHandler(
+    CreateAuthAuditHandler(OTelLogger().createModuleLogger("auth")),
+  );
   await UserSelectionsDataInit(config);
   await StatsDataInit(span, config);
   await StatsDataRecommendationInit(span, config);
@@ -81,14 +97,9 @@ Promise.resolve().then(async () => {
     // carried by the OTel pipeline configured above.
     logger: false,
   });
+  FastifyErrorHandlerRegister(fastify);
 
-  if (config.CORS_POLICY_ORIGIN) {
-    /* eslint-disable-next-line */
-    fastify.register(require("@fastify/cors"), {
-      origin: config.CORS_POLICY_ORIGIN,
-      methods: "GET,PUT,POST,DELETE",
-    });
-  }
+  CorsRegister(fastify, config.CORS_POLICY_ORIGIN);
   /* eslint-disable-next-line */
   fastify.register(require("@fastify/multipart"));
 
@@ -146,4 +157,8 @@ Promise.resolve().then(async () => {
     }
     logger.info("API Listening");
   });
+}).catch((error) => {
+  const normalized = NormalizeError(error);
+  logger.error(`Startup failed: ${normalized.stack ?? normalized.message}`);
+  process.exit(1);
 });

@@ -7,19 +7,28 @@ const mockSpan = {
   end: jest.fn(),
 };
 
-jest.mock("../OTelContext", () => ({
-  OTelTracer: () => ({
-    startSpan: () => mockSpan,
-  }),
-  OTelLogger: () => ({
-    createModuleLogger: () => ({
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-      debug: jest.fn(),
+jest.mock("../OTelContext", () => {
+  const logger = {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+  };
+  return {
+    OTelTracer: () => ({
+      startSpan: () => mockSpan,
     }),
-  }),
-}));
+    OTelLogger: () => ({
+      createModuleLogger: () => logger,
+    }),
+  };
+});
+
+import { OTelLogger } from "../OTelContext";
+
+const mockLogger = OTelLogger().createModuleLogger("test") as unknown as {
+  error: jest.Mock;
+};
 
 const mockExecuteCommand = jest.fn();
 
@@ -34,6 +43,7 @@ jest.mock("./KubeCtlExecutor", () => ({
 
 jest.mock("@devopsplaybook.io/common-utils", () => ({
   AuthGetLiveUser: jest.fn(),
+  AuthHasScope: jest.fn(async () => {}),
 }));
 
 import { AuthGetLiveUser } from "@devopsplaybook.io/common-utils";
@@ -281,8 +291,10 @@ describe("KubeCtlCommandRoutes", () => {
     expect(mockExecuteCommand).not.toHaveBeenCalled();
   });
 
-  test("ends the tracing span when the executor fails", async () => {
-    mockExecuteCommand.mockRejectedValue(new Error("kubectl failed"));
+  test("returns a sanitized 502 and ends the span when the executor fails", async () => {
+    mockExecuteCommand.mockRejectedValue(
+      new Error("kubectl failed with token=super-secret"),
+    );
     const res = await app.inject({
       method: "POST",
       url: "/api/kubectl/command/",
@@ -294,8 +306,50 @@ describe("KubeCtlCommandRoutes", () => {
         noJson: true,
       },
     });
-    expect(res.statusCode).toBe(500);
+    expect(res.statusCode).toBe(502);
+    expect(res.json()).toEqual({
+      error: "kubectl command failed",
+      requestId: expect.any(String),
+    });
+    expect(JSON.stringify(res.json())).not.toContain("super-secret");
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      expect.stringContaining("super-secret"),
+    );
     expect(mockSpan.end).toHaveBeenCalledTimes(1);
+  });
+
+  test("records allowlisted span attributes without the payload", async () => {
+    await app.inject({
+      method: "POST",
+      url: "/api/kubectl/command/",
+      payload: {
+        object: "pod",
+        command: "describe",
+        namespace: "default",
+        argument: "my-pod",
+        noJson: true,
+      },
+    });
+    expect(mockSpan.setAttribute).toHaveBeenCalledWith(
+      "kubectl.command",
+      "describe",
+    );
+    expect(mockSpan.setAttribute).toHaveBeenCalledWith(
+      "kubectl.object",
+      "pod",
+    );
+    expect(mockSpan.setAttribute).toHaveBeenCalledWith(
+      "kubectl.namespace",
+      "default",
+    );
+    expect(mockSpan.setAttribute).not.toHaveBeenCalledWith(
+      "parameters",
+      expect.anything(),
+    );
+    const serializedAttributes = JSON.stringify(
+      mockSpan.setAttribute.mock.calls,
+    );
+    expect(serializedAttributes).not.toContain("my-pod");
   });
 
   test("returns a clean 404 when the object no longer exists", async () => {

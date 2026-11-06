@@ -1,8 +1,12 @@
 import { FastifyInstance, RequestGenericInterface } from "fastify";
 import { AuthGetLiveUser } from "@devopsplaybook.io/common-utils";
-import { OTelTracer } from "../OTelContext";
+import { RequireScope } from "../auth/Authorization";
+import { NormalizeError } from "../ErrorHandling";
+import { OTelLogger, OTelTracer } from "../OTelContext";
 import { IsKubeObjectNotFoundError, KubeCtlExecutorGetInstance } from "./KubeCtlExecutor";
 import { BuildLogsArgs } from "./KubeCtlValidation";
+
+const logger = OTelLogger().createModuleLogger("KubeCtlLogsRoutes");
 
 export class KubeCtlLogsRoutes {
   //
@@ -31,8 +35,16 @@ export class KubeCtlLogsRoutes {
           .send({ error: buildResult.error, field: buildResult.field });
       }
 
+      if (!(await RequireScope(req, res, "k8s:read"))) {
+        return;
+      }
+
       const span = OTelTracer().startSpan("KubeCtlLogs");
-      span.setAttribute("parameters", JSON.stringify(payload));
+      span.setAttribute("kubectl.command", "logs");
+      span.setAttribute("kubectl.object", "pod");
+      if (payload.namespace) {
+        span.setAttribute("kubectl.namespace", payload.namespace);
+      }
 
       try {
         const executor = KubeCtlExecutorGetInstance();
@@ -48,7 +60,16 @@ export class KubeCtlLogsRoutes {
               "This object no longer exists — it may have been deleted since the list was loaded",
           });
         }
-        throw error;
+        const normalized = NormalizeError(error);
+        logger.error(
+          `[${req.id}] kubectl logs failed: ${
+            normalized.stack ?? normalized.message
+          }`,
+        );
+        return res.status(502).send({
+          error: "kubectl logs failed",
+          requestId: req.id,
+        });
       } finally {
         span.end();
       }

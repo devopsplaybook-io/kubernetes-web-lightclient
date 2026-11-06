@@ -6,6 +6,7 @@ jest.mock("uuid", () => {
   return { v4: () => `mock-uuid-${++counter}` };
 });
 
+import * as crypto from "crypto";
 import * as nodeFs from "fs";
 import * as os from "os";
 import * as path from "path";
@@ -22,6 +23,7 @@ import {
   UsersDataSetOTel,
   UsersRoutes,
 } from "@devopsplaybook.io/common-utils";
+import { APP_SCOPES } from "./Authorization";
 import { Config } from "../Config";
 import { KubeCtlCommandRoutes } from "../kubectl/KubeCtlCommandRoutes";
 import { StatsRoutes } from "../stats/StatsRoutes";
@@ -87,6 +89,7 @@ const mockStandardLogger = {
 let baseDir: string;
 let dataDir: string;
 let app: FastifyInstance;
+let authConfig: { JWT_KEY: string; JWT_VALIDITY_DURATION: number; DATABASE_TYPE: string };
 
 function auth(token: string) {
   return { authorization: `Bearer ${token}` };
@@ -113,14 +116,33 @@ async function login(name: string, password: string): Promise<string> {
   return res.json().token as string;
 }
 
-async function bootstrapAdmin(name = "root", password = "root-pass") {
+async function bootstrapAdminUser(name = "root", password = "root-pass") {
   const created = await app.inject({
     method: "POST",
     url: "/api/users/",
     payload: { name, password },
   });
   expect(created.statusCode).toBe(201);
-  return login(name, password);
+  return {
+    token: await login(name, password),
+    userId: created.json().user.id as string,
+  };
+}
+
+async function bootstrapAdmin(name = "root", password = "root-pass") {
+  return (await bootstrapAdminUser(name, password)).token;
+}
+
+function signHs256(payload: Record<string, unknown>, secret: string): string {
+  const header = Buffer.from(
+    JSON.stringify({ alg: "HS256", typ: "JWT" }),
+  ).toString("base64url");
+  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const signature = crypto
+    .createHmac("sha256", secret)
+    .update(`${header}.${body}`)
+    .digest("base64url");
+  return `${header}.${body}.${signature}`;
 }
 
 async function createApiToken(
@@ -157,15 +179,12 @@ beforeEach(async () => {
     { DATABASE_TYPE: "sqlite", DATA_DIR: dataDir } as never,
     path.resolve(__dirname, "../../sql"),
   );
-  await AuthInit(
-    undefined as never,
-    {
-      JWT_KEY: "",
-      JWT_VALIDITY_DURATION: 3600,
-      DATABASE_TYPE: "sqlite",
-    } as never,
-    [],
-  );
+  authConfig = {
+    JWT_KEY: "",
+    JWT_VALIDITY_DURATION: 3600,
+    DATABASE_TYPE: "sqlite",
+  };
+  await AuthInit(undefined as never, authConfig as never, APP_SCOPES);
 
   mockExecuteCommand.mockResolvedValue("COMPRESSED_OUTPUT");
 
@@ -233,6 +252,40 @@ describe("API token authentication on lightclient routes", () => {
     expect(missing.statusCode).toBe(401);
 
     expect(mockExecuteCommand).not.toHaveBeenCalled();
+  });
+
+  test("rejects a token forged with the old default JWT key 'dev'", async () => {
+    const { userId } = await bootstrapAdminUser();
+    const exp = Math.floor(Date.now() / 1000) + 3600;
+
+    const forged = signHs256(
+      {
+        exp,
+        userId,
+        userName: "root",
+        role: "admin",
+        scopes: [],
+        tokenVersion: 0,
+      },
+      "dev",
+    );
+    const rejected = await app.inject({
+      method: "POST",
+      url: "/api/kubectl/command/",
+      payload: { object: "pod", command: "get", argument: "my-pod" },
+      headers: auth(forged),
+    });
+    expect(rejected.statusCode).toBe(401);
+    expect(mockExecuteCommand).not.toHaveBeenCalled();
+
+    const signedWithConfiguredKey = signHs256({ exp, userId }, authConfig.JWT_KEY);
+    const accepted = await app.inject({
+      method: "POST",
+      url: "/api/kubectl/command/",
+      payload: { object: "pod", command: "get", argument: "my-pod" },
+      headers: auth(signedWithConfiguredKey),
+    });
+    expect(accepted.statusCode).toBe(201);
   });
 
   test("supports the full token lifecycle: use, list, revoke, immediate rejection", async () => {

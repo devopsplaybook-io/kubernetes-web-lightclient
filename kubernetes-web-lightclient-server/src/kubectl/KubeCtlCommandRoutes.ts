@@ -1,6 +1,11 @@
 import { FastifyInstance, RequestGenericInterface } from "fastify";
 import { AuthGetLiveUser } from "@devopsplaybook.io/common-utils";
-import { OTelTracer } from "../OTelContext";
+import {
+  RequireScope,
+  ScopeForKubectlCommand,
+} from "../auth/Authorization";
+import { NormalizeError } from "../ErrorHandling";
+import { OTelLogger, OTelTracer } from "../OTelContext";
 import { Config } from "../Config";
 import { DeletePolicy } from "./DeletePolicy";
 import {
@@ -8,6 +13,8 @@ import {
   KubeCtlExecutorGetInstance,
 } from "./KubeCtlExecutor";
 import { BuildCommandArgs } from "./KubeCtlValidation";
+
+const logger = OTelLogger().createModuleLogger("KubeCtlCommandRoutes");
 
 export class KubeCtlCommandRoutes {
   //
@@ -41,6 +48,9 @@ export class KubeCtlCommandRoutes {
           .status(400)
           .send({ error: buildResult.error, field: buildResult.field });
       }
+      if (!(await RequireScope(req, res, ScopeForKubectlCommand(payload.command)))) {
+        return;
+      }
       if (payload.command === "delete") {
         const deletePolicy = new DeletePolicy(
           this.config.ALLOWED_DELETABLE_OBJECTS,
@@ -53,7 +63,11 @@ export class KubeCtlCommandRoutes {
       }
 
       const span = OTelTracer().startSpan("KubeCtlCommand");
-      span.setAttribute("parameters", JSON.stringify(payload));
+      span.setAttribute("kubectl.command", payload.command);
+      span.setAttribute("kubectl.object", payload.object);
+      if (payload.namespace) {
+        span.setAttribute("kubectl.namespace", payload.namespace);
+      }
 
       try {
         const executor = KubeCtlExecutorGetInstance();
@@ -69,7 +83,16 @@ export class KubeCtlCommandRoutes {
               "This object no longer exists — it may have been deleted since the list was loaded",
           });
         }
-        throw error;
+        const normalized = NormalizeError(error);
+        logger.error(
+          `[${req.id}] kubectl ${payload.command} ${payload.object} failed: ${
+            normalized.stack ?? normalized.message
+          }`,
+        );
+        return res.status(502).send({
+          error: "kubectl command failed",
+          requestId: req.id,
+        });
       } finally {
         span.end();
       }

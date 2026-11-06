@@ -1,5 +1,7 @@
 import { FastifyInstance, RequestGenericInterface } from "fastify";
 import { AuthGetLiveUser } from "@devopsplaybook.io/common-utils";
+import { RequireScope } from "../auth/Authorization";
+import { NormalizeError } from "../ErrorHandling";
 import { OTelLogger } from "../OTelContext";
 import { KubeCache } from "./KubeCache";
 import { KubeCtlExecutorGetInstance } from "../kubectl/KubeCtlExecutor";
@@ -31,6 +33,9 @@ export class KubeResourceRoutes {
       if (!user) {
         return res.status(401).send({ error: "Unauthorized" });
       }
+      if (!(await RequireScope(req, res, "k8s:read"))) {
+        return;
+      }
 
       const { type } = req.params;
       const force = req.query.force === "true";
@@ -61,9 +66,11 @@ export class KubeResourceRoutes {
 
           // Fire-and-forget background refresh
           this.refreshInBackground(type).catch((error) => {
+            const normalized = NormalizeError(error);
             logger.error(
-              `Background refresh failed for ${type}: ${error.message}`,
-              error,
+              `Background refresh failed for ${type}: ${
+                normalized.stack ?? normalized.message
+              }`,
             );
           });
 
@@ -98,12 +105,15 @@ export class KubeResourceRoutes {
           status: "fresh",
         });
       } catch (error) {
+        const normalized = NormalizeError(error);
         logger.error(
-          `Failed to fetch data for ${type}: ${error.message}`,
-          error,
+          `[${req.id}] Failed to fetch data for ${type}: ${
+            normalized.stack ?? normalized.message
+          }`,
         );
         return res.status(503).send({
-          error: `Failed to fetch resource data: ${error.message}`,
+          error: "Failed to fetch resource data",
+          requestId: req.id,
         });
       }
     });
@@ -116,7 +126,10 @@ export class KubeResourceRoutes {
       await this.cache.set(type, result);
       logger.info(`Background refresh completed for ${type}`);
     } catch (error) {
-      logger.warn(`Background refresh failed for ${type}: ${error.message}`);
+      const normalized = NormalizeError(error);
+      logger.warn(
+        `Background refresh failed for ${type}: ${normalized.message}`,
+      );
       // Don't throw - this is a background task, failure is non-critical
     }
   }
