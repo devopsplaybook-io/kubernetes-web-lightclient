@@ -1,12 +1,25 @@
+import { randomUUID } from "node:crypto";
 import { Config } from "../Config";
 import { StatsNodeMesurement } from "../model/StatsNodeMesurement";
 import { OTelLogger, OTelMeter, OTelTracer } from "../OTelContext";
+import {
+  DownsampleStatsPerNode,
+  STATS_MAX_POINTS_PER_NODE,
+} from "./StatsDataDownsample";
+import { BuildEtag } from "./StatsEtag";
 import { kubernetesCommand } from "./StatsDataUtils";
 
 let stats: StatsNodeMesurement[] = [];
 let running = false;
 let intervalHandle: NodeJS.Timeout | null = null;
 const logger = OTelLogger().createModuleLogger("StatsDataMetrics");
+
+// The etag must differ across restarts even when the version counters restart
+// from zero, so every process gets its own nonce.
+const instanceId = randomUUID();
+let statsVersion = 0;
+let downsampled: StatsNodeMesurement[] | null = null;
+let downsampledVersion = -1;
 
 /**
  * Register the observable gauges and arm the capture interval. The initial
@@ -83,7 +96,19 @@ export async function StatsDataMetricsRunCapture(config: Config): Promise<void> 
 }
 
 export async function StatsDataGet(): Promise<StatsNodeMesurement[]> {
-  return stats;
+  if (downsampledVersion !== statsVersion || !downsampled) {
+    downsampled = DownsampleStatsPerNode(stats, STATS_MAX_POINTS_PER_NODE);
+    downsampledVersion = statsVersion;
+  }
+  return downsampled;
+}
+
+/**
+ * Entity tag of the current stats payload. It only changes when a capture
+ * actually updated the data, so unchanged polls can be answered with 304.
+ */
+export function StatsDataGetEtag(): string {
+  return BuildEtag("stats", `${instanceId}-${statsVersion}`);
 }
 
 // Private Functions
@@ -99,6 +124,7 @@ async function executeStatsCapture(config: Config): Promise<void> {
     await StatsDataCapture();
     const cutoffTime = new Date(Date.now() - config.STATS_RETENTION * 1000);
     stats = stats.filter((stat) => stat.timestamp > cutoffTime);
+    statsVersion += 1;
   } catch (error) {
     logger.error(`Error capturing stats`, error, span);
   } finally {

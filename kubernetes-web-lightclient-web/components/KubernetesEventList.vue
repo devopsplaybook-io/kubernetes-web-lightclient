@@ -6,7 +6,7 @@
       @toggle="toggleFilter"
       @clear="clearAll"
     />
-    <table class="striped" v-if="displayedEvents.length > 0">
+    <table class="striped" v-if="sortedFilteredEvents.length > 0">
       <thead>
         <tr>
           <th
@@ -36,7 +36,7 @@
       </thead>
       <tbody>
         <tr
-          v-for="event of displayedEvents"
+          v-for="event of sortedFilteredEvents"
           v-bind:key="eventKey(event)"
         >
           <td :class="event.type === 'Warning' ? 'status-error' : 'status-neutral'">
@@ -62,9 +62,6 @@
         </tr>
       </tbody>
     </table>
-    <p v-if="isTruncated" class="events-truncated">
-      Showing latest {{ maxEvents }} of {{ sortedFilteredEvents.length }} events
-    </p>
     <DialogLogs
       v-if="dialogLogs.enable"
       :podname="dialogLogs.podname"
@@ -75,7 +72,6 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
 import { UtilsRelativeTime } from "~~/services/Utils";
 import { PreferencesService } from "~~/services/PreferencesService";
 import { createEventFilters } from "~~/services/ListTriage";
@@ -144,14 +140,6 @@ const {
   defaultSortDirections: { count: "desc" },
   initialFilters: warningsOnlyStored ? ["warnings"] : [],
 });
-
-const maxEvents = 200;
-const displayedEvents = computed(() =>
-  sortedFilteredEvents.value.slice(0, maxEvents),
-);
-const isTruncated = computed(
-  () => sortedFilteredEvents.value.length > maxEvents,
-);
 </script>
 
 <script>
@@ -204,10 +192,5 @@ export default {
   white-space: normal;
   word-break: break-word;
   max-width: 32rem;
-}
-.events-truncated {
-  font-size: 0.85em;
-  opacity: 0.6;
-  margin: 0.5rem 0 0 0;
 }
 </style>

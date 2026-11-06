@@ -125,3 +125,51 @@ export function getPodLastRestartAt(pod: any): string {
       .reverse()[0] || ""
   );
 }
+
+export interface PodDisplayRow {
+  pod: any;
+  status: string;
+  statusClass: string;
+  ready: number;
+  total: number;
+  readyRatio: number;
+  restartCount: number;
+  lastRestartAt: string;
+  fullyReady: boolean;
+}
+
+// Computed once per pod object: a refreshed list contains new objects, so
+// stale entries fall out of the cache with their pod.
+const podDisplayRowCache = new WeakMap<object, PodDisplayRow>();
+
+/**
+ * Precomputed display fields of a pod, shared by the list row rendering and
+ * the triage accessors/filters so each field is only derived once per refresh.
+ */
+export function getPodDisplayRow(pod: any): PodDisplayRow {
+  const cached = podDisplayRowCache.get(pod);
+  if (cached) {
+    return cached;
+  }
+  const status = getPodStatus(pod);
+  const { ready, total } = getPodReadyCount(pod);
+  const phase = pod.status?.phase || "";
+  const statuses = pod.status?.containerStatuses || [];
+  const fullyReady =
+    statuses.length === 0
+      ? phase === "Running" || phase === "Succeeded"
+      : statuses.every((s) => s.ready);
+  const row: PodDisplayRow = {
+    pod,
+    status,
+    statusClass: podStatusClass(status),
+    ready,
+    total,
+    readyRatio: total === 0 ? -1 : ready / total,
+    restartCount: getPodRestartCount(pod),
+    lastRestartAt: getPodLastRestartAt(pod),
+    fullyReady,
+  };
+  podDisplayRowCache.set(pod, row);
+  return row;
+}

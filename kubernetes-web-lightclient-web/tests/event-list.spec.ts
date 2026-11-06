@@ -1,6 +1,7 @@
 import { mount, flushPromises } from "@vue/test-utils";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import KubernetesEventList from "../components/KubernetesEventList.vue";
+import { ListPaginationService } from "~~/services/ListPagination";
 
 vi.mock("~~/services/ListPreferencesService", () => ({
   ListPreferencesService: {
@@ -56,6 +57,10 @@ function warningsChip(wrapper: any) {
   expect(chip, "Warnings only chip should exist").toBeDefined();
   return chip;
 }
+
+beforeEach(() => {
+  ListPaginationService.resetAll();
+});
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -213,15 +218,15 @@ describe("KubernetesEventList", () => {
     wrapper.unmount();
   });
 
-  it("renders a truncation note when more than 200 events match", async () => {
+  it("paginates more than 100 events without a truncation note", async () => {
     const events = Array.from({ length: 205 }, (_, i) =>
       makeEvent({ metadata: { uid: `uid-${i}` } }),
     );
     const { wrapper } = mountWithEvents(events);
     await flushPromises();
 
-    expect(wrapper.findAll("tbody tr")).toHaveLength(200);
-    expect(wrapper.text()).toContain("Showing latest 200 of 205 events");
+    expect(wrapper.findAll("tbody tr")).toHaveLength(100);
+    expect(wrapper.text()).not.toContain("Showing latest");
     wrapper.unmount();
   });
 });

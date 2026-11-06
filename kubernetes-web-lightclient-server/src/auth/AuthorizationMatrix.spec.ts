@@ -84,6 +84,9 @@ jest.mock("../stats/StatsData", () => ({
   StatsDataGet: jest.fn(async () => []),
   PodResourcesGet: jest.fn(async () => []),
   PodUsageStatsGet: jest.fn(async () => []),
+  StatsDataGetEtag: jest.fn(() => '"stats"'),
+  PodResourcesGetEtag: jest.fn(() => '"pod-resources"'),
+  PodUsageStatsGetEtag: jest.fn(() => '"pod-usage"'),
 }));
 
 const mockRecommendationGenerate = jest.fn(async () => {});

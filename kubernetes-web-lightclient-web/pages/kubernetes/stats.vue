@@ -30,6 +30,14 @@
           <i class="bi bi-robot"></i> LLM Recommendation
         </h3>
         <button
+          class="outline rec-refresh"
+          type="button"
+          @click="refreshRecommendation"
+        >
+          <i class="bi bi-arrow-clockwise"></i>
+          Refresh
+        </button>
+        <button
           class="outline rec-regenerate"
           type="button"
           :disabled="regenerating"
@@ -171,11 +179,13 @@
 
 <script>
 import { RefreshIntervalService } from "~~/services/RefreshIntervalService";
-import { AuthService } from "~~/services/AuthService";
 import { handleError } from "~~/services/EventBus";
-import axios from "axios";
+import {
+  BuildStatsFingerprint,
+  POD_RESOURCES_REFRESH_INTERVAL_MS,
+  StatsApi,
+} from "~~/services/StatsApi";
 import { renderSafeMarkdown } from "~~/services/MarkdownService";
-import Config from "~~/services/Config.ts";
 import VueApexCharts from "vue3-apexcharts";
 import { buildLineChartOptions } from "~~/services/ChartOptions";
 
@@ -193,8 +203,14 @@ export default {
       recommendation: null,
       regenerating: false,
       refreshIntervalId: null,
+      podResourcesIntervalId: null,
       refreshIntervalValue: RefreshIntervalService.get(),
       themeMode: "light",
+      statsEtag: null,
+      podResourcesEtag: null,
+      podUsageEtag: null,
+      recommendationEtag: null,
+      statsFingerprint: "",
       cpuChartSeries: [],
       memoryChartSeries: [],
       podsChartSeries: [],
@@ -326,89 +342,115 @@ export default {
       attributes: true,
       attributeFilter: ["data-theme"],
     });
-    const interval = parseInt(this.refreshIntervalValue, 10);
-    if (interval > 0) {
-      this.refreshIntervalId = setInterval(() => {
-        this.refreshStats();
-        this.refreshPodResources();
-        this.refreshPodUsageStats();
-        this.refreshRecommendation();
-      }, interval);
-    }
+    this.startPolling();
   },
   beforeUnmount() {
     if (this.themeObserver) {
       this.themeObserver.disconnect();
     }
-    if (this.refreshIntervalId) {
-      clearInterval(this.refreshIntervalId);
-    }
+    this.stopPolling();
   },
   methods: {
+    startPolling() {
+      const interval = parseInt(this.refreshIntervalValue, 10);
+      if (!(interval > 0)) {
+        return;
+      }
+      // Live data: node usage and per-pod usage ranges
+      this.refreshIntervalId = setInterval(() => {
+        this.refreshStats();
+        this.refreshPodUsageStats();
+      }, interval);
+      // Slow-changing data: pod requests/limits are captured by the server
+      // every 30 minutes, so polling them at the live cadence is pointless
+      this.podResourcesIntervalId = setInterval(() => {
+        this.refreshPodResources();
+      }, POD_RESOURCES_REFRESH_INTERVAL_MS);
+    },
+    stopPolling() {
+      if (this.refreshIntervalId) {
+        clearInterval(this.refreshIntervalId);
+        this.refreshIntervalId = null;
+      }
+      if (this.podResourcesIntervalId) {
+        clearInterval(this.podResourcesIntervalId);
+        this.podResourcesIntervalId = null;
+      }
+    },
     async refreshStats() {
-      await axios
-        .get(
-          `${(await Config.get()).SERVER_URL}/stats/nodes`,
-          await AuthService.getAuthHeader(),
-        )
-        .then(async (res) => {
-          this.stats = res.data.stats;
-          this.updateCharts();
-        })
-        .catch(handleError);
+      try {
+        const result = await StatsApi.getNodes(this.statsEtag);
+        this.statsEtag = result.etag || this.statsEtag;
+        if (result.notModified) {
+          return;
+        }
+        const stats = result.data?.stats || [];
+        const fingerprint = BuildStatsFingerprint(stats);
+        if (fingerprint === this.statsFingerprint) {
+          return;
+        }
+        this.stats = stats;
+        this.statsFingerprint = fingerprint;
+        this.updateCharts();
+      } catch (error) {
+        handleError(error);
+      }
     },
     async refreshPodResources() {
-      await axios
-        .get(
-          `${(await Config.get()).SERVER_URL}/stats/pod-resources`,
-          await AuthService.getAuthHeader(),
-        )
-        .then((res) => {
-          this.podResources = res.data.podResources;
-          if (this.podResources.length > 0) {
-            this.podResourcesTimestamp = this.podResources[0].timestamp;
-          }
-        })
-        .catch(handleError);
+      try {
+        const result = await StatsApi.getPodResources(this.podResourcesEtag);
+        this.podResourcesEtag = result.etag || this.podResourcesEtag;
+        if (result.notModified) {
+          return;
+        }
+        this.podResources = result.data?.podResources || [];
+        if (this.podResources.length > 0) {
+          this.podResourcesTimestamp = this.podResources[0].timestamp;
+        }
+      } catch (error) {
+        handleError(error);
+      }
     },
     async refreshPodUsageStats() {
-      await axios
-        .get(
-          `${(await Config.get()).SERVER_URL}/stats/pod-usage`,
-          await AuthService.getAuthHeader(),
-        )
-        .then((res) => {
-          this.podUsageStats = res.data.podUsageStats;
-        })
-        .catch(handleError);
+      try {
+        const result = await StatsApi.getPodUsage(this.podUsageEtag);
+        this.podUsageEtag = result.etag || this.podUsageEtag;
+        if (result.notModified) {
+          return;
+        }
+        this.podUsageStats = result.data?.podUsageStats || [];
+      } catch (error) {
+        handleError(error);
+      }
     },
     async refreshRecommendation() {
-      await axios
-        .get(
-          `${(await Config.get()).SERVER_URL}/stats/recommendation`,
-          await AuthService.getAuthHeader(),
-        )
-        .then((res) => {
-          this.recommendationEnabled = res.data.enabled === true;
-          this.recommendation = res.data.recommendation || null;
-        })
-        .catch(handleError);
+      try {
+        const result = await StatsApi.getRecommendation(
+          this.recommendationEtag,
+        );
+        this.recommendationEtag = result.etag || this.recommendationEtag;
+        if (result.notModified) {
+          return;
+        }
+        this.recommendationEnabled = result.data?.enabled === true;
+        this.recommendation = result.data?.recommendation || null;
+      } catch (error) {
+        handleError(error);
+      }
     },
     async regenerateRecommendation() {
       this.regenerating = true;
-      await axios
-        .post(
-          `${(await Config.get()).SERVER_URL}/stats/recommendation/regenerate`,
-          {},
-          await AuthService.getAuthHeader(),
-        )
-        .then((res) => {
-          this.recommendation = res.data.recommendation || null;
-        })
-        .catch(handleError)
-        .finally(() => {
-          this.regenerating = false;
-        });
+      try {
+        const data = await StatsApi.regenerateRecommendation();
+        this.recommendation = data?.recommendation || null;
+        // The cached recommendation changed: drop the etag so the next GET
+        // fetches the new payload instead of answering 304.
+        this.recommendationEtag = null;
+      } catch (error) {
+        handleError(error);
+      } finally {
+        this.regenerating = false;
+      }
     },
     renderMarkdown(text) {
       return renderSafeMarkdown(text);
@@ -641,7 +683,7 @@ export default {
 
 .recommendation-header {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr auto auto;
   align-items: center;
   gap: 1em;
 }
@@ -654,7 +696,8 @@ export default {
   margin-right: 0.3em;
 }
 
-.rec-regenerate {
+.rec-regenerate,
+.rec-refresh {
   margin-bottom: 0;
   width: auto;
   font-size: 0.8em;

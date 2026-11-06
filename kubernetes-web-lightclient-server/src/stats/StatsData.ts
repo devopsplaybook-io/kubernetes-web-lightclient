@@ -5,17 +5,28 @@ import {
   StatsDataMetricsSetup,
   StatsDataMetricsReconfigure,
   StatsDataGet,
+  StatsDataGetEtag,
 } from "./StatsDataMetrics";
 import {
   StatsDataPodUsageRunCapture,
   StatsDataPodUsageSetup,
   StatsDataPodUsageReconfigure,
   PodResourcesGet,
+  PodResourcesGetEtag,
   PodUsageStatsGet,
+  PodUsageStatsGetEtag,
 } from "./StatsDataPodUsage";
 import { StatsDataUtilsInit, kubernetesCommand } from "./StatsDataUtils";
 
-export { StatsDataGet, PodResourcesGet, PodUsageStatsGet, kubernetesCommand };
+export {
+  StatsDataGet,
+  StatsDataGetEtag,
+  PodResourcesGet,
+  PodResourcesGetEtag,
+  PodUsageStatsGet,
+  PodUsageStatsGetEtag,
+  kubernetesCommand,
+};
 
 const STATS_INITIAL_CAPTURE_DEADLINE_MS = 5000;
 

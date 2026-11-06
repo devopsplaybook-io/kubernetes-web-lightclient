@@ -1,5 +1,6 @@
-import { computed, ref, watch } from "vue";
+import { computed, ref, watch, watchEffect } from "vue";
 import { ListPreferencesService } from "~~/services/ListPreferencesService";
+import { LIST_PAGE_SIZE, ListPaginationService } from "~~/services/ListPagination";
 import {
   applyListFilters,
   sortListItems,
@@ -111,10 +112,26 @@ export function useListTriage<T>(
     persist();
   }
 
-  const visibleItems = computed(() => {
+  const sortedItems = computed(() => {
     const items = options.rawItems() || [];
     const filtered = applyListFilters(items, activeFilters.value, filterDefs);
     return sortListItems(filtered, sortState.value, options.accessors);
+  });
+
+  watchEffect(() => {
+    ListPaginationService.setTotal(typeId, sortedItems.value.length);
+  });
+
+  // Changing the filters or the sort changes what "first page" means: go back
+  // to the top so the user sees the beginning of the new result set.
+  watch([activeFilters, sortState], () => {
+    ListPaginationService.reset(typeId);
+  });
+
+  const visibleItems = computed(() => {
+    const page = ListPaginationService.getState(typeId).page;
+    const start = (page - 1) * LIST_PAGE_SIZE;
+    return sortedItems.value.slice(start, start + LIST_PAGE_SIZE);
   });
 
   function sortArrow(key: string): string {
