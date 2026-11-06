@@ -43,6 +43,15 @@ cd kubernetes-web-lightclient/docs/deployments/kubernetes/kubernetes-web-lightcl
 kubectl kustomize . | kubectl apply -f -
 ```
 
+## Releases and image tags
+
+The current release is `0.49.0` (server `0.12.0`); the container image is `devopsplaybookio/kubernetes-web-lightclient`.
+
+- Every pull request publishes an immutable build tagged `beta-pr-<n>`, so a change can be tested before it is merged.
+- Merging the pull request promotes the exact tested image digest to the release tags `0.49.0`, `0.49`, `0`, `latest` and `beta`. Only the full `X.Y.Z` tag is immutable; the other tags are moving aliases.
+- Pin the full `X.Y.Z` tag in production — the example overlay in `docs/deployments/kubernetes/kubernetes-web-lightclient/kustomization.yaml` does. A pinned deployment never changes silently and reports an unambiguous version. Use `beta` or `latest` only for non-production or explicitly auto-updating environments.
+- A deployment tracking a moving alias moves to a new release only after the alias points at it and the pod is recreated (for example with `kubectl rollout restart`). Environments that track `beta` therefore need a restart, or a switch to the pinned tag, to pick up `0.49.0`.
+
 ## Configuration
 
 Configuration can be provided via a JSON configuration file (using the ConfigMap) or environment variables.
@@ -52,7 +61,22 @@ See the [ConfigMap YAML](docs/deployments/kubernetes/kubernetes-web-lightclient/
 | Parameter                                               | Description                                                                                                           | Default       | Availability                        |
 | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------- | ----------------------------------- |
 | APPLICATION_TITLE                                       | Name of the application (for PWA and as suffix of the notification source)                                            | Kubernetes    | Environment variable                |
+| CONFIG_FILE                                             | Path of the JSON configuration file                                                                                   | config.json   | Environment variable                |
+| API_PORT                                                | Port the HTTP API listens on                                                                                          | 8080          | Config file or environment variable |
+| DATA_DIR                                                | Directory of the persistent volume holding the database, caches and stats                                             | /data         | Config file or environment variable |
+| LOG_LEVEL                                               | Log level (`debug`, `info`, `warn`, `error`)                                                                          | info          | Config file or environment variable |
 | ALLOWED_DELETABLE_OBJECTS                               | Object types that can be deleted: `NONE`, `ALL`, or a comma-separated list of object types (e.g. `pod`, `deployment`) | pod           | Config file or environment variable |
+| DATABASE_TYPE                                           | Database backend: `sqlite` or `postgres`                                                                              | sqlite        | Config file or environment variable |
+| DATABASE_POSTGRES_HOST                                  | Postgres host (alias: `POSTGRES_HOST`)                                                                                | (empty)       | Config file or environment variable |
+| DATABASE_POSTGRES_PORT                                  | Postgres port (alias: `POSTGRES_PORT`)                                                                                | 5432          | Config file or environment variable |
+| DATABASE_POSTGRES_USER                                  | Postgres user (alias: `POSTGRES_USER`)                                                                                | (empty)       | Config file or environment variable |
+| DATABASE_POSTGRES_PASSWORD                              | Postgres password (alias: `POSTGRES_PASSWORD`); keep it in a Secret                                                   | (empty)       | Config file or environment variable |
+| DATABASE_POSTGRES_DATABASE                              | Postgres database name (alias: `POSTGRES_DB`)                                                                         | (empty)       | Config file or environment variable |
+| DATABASE_POSTGRES_STATEMENT_TIMEOUT_MS                  | Per-session `statement_timeout`; `0` disables it                                                                      | 0             | Config file or environment variable |
+| DATABASE_POSTGRES_IDLE_IN_TRANSACTION_TIMEOUT_MS        | Per-session `idle_in_transaction_session_timeout`; `0` disables it                                                    | 0             | Config file or environment variable |
+| DATABASE_SQLITE_JOURNAL_MODE                            | SQLite journal mode applied at open; empty keeps the SQLite default (`delete`)                                        | (empty)       | Config file or environment variable |
+| DATABASE_SQLITE_BUSY_TIMEOUT_MS                         | SQLite `busy_timeout` in milliseconds; `0` keeps the driver default (5000)                                            | 0             | Config file or environment variable |
+| DATABASE_SQLITE_FOREIGN_KEYS                            | Enable the SQLite `foreign_keys` pragma                                                                               | true          | Config file or environment variable |
 | STATS_FETCH_FREQUENCY                                   | Frequency (in seconds) to fetch stats from Kubernetes                                                                 | 60            | Config file or environment variable |
 | STATS_RETENTION                                         | Retention period (in seconds) for stats                                                                               | 86400 (1 day) | Config file or environment variable |
 | POD_RESOURCES_FETCH_FREQUENCY                           | Frequency (in seconds) to refresh pod requests/limits                                                                 | 1800          | Config file or environment variable |
@@ -66,6 +90,7 @@ See the [ConfigMap YAML](docs/deployments/kubernetes/kubernetes-web-lightclient/
 | OPENTELEMETRY_COLLECTOR_EXPORT_LOGS_INTERVAL_SECONDS    | Interval (in seconds) to export logs                                                                                  | 60            | Config file or environment variable |
 | OPENTELEMETRY_COLLECTOR_EXPORT_METRICS_INTERVAL_SECONDS | Interval (in seconds) to export metrics                                                                               | 60            | Config file or environment variable |
 | OPENTELEMETRY_COLLECT_AUTHORIZATION_HEADER              | Authorization header for OTEL collection                                                                              | (empty)       | Config file or environment variable |
+| OPENTELEMETRY_COLLECTOR_AWS                             | Send telemetry to an AWS (X-Ray/CloudWatch) collector instead of an OTLP endpoint                                     | false         | Config file or environment variable |
 | LLM_RECOMMENDATIONS_ENABLED                             | Enable LLM recommendations on the Stats page                                                                          | false         | Config file or environment variable |
 | LLM_API_KEY                                             | API key of the OpenAI-compatible LLM provider                                                                         | (empty)       | Config file or environment variable |
 | LLM_API_URL                                             | Chat completions endpoint of the LLM provider                                                                         | https://api.deepseek.com/chat/completions | Config file or environment variable |
@@ -87,6 +112,19 @@ See the [ConfigMap YAML](docs/deployments/kubernetes/kubernetes-web-lightclient/
 Changes to the configuration file are applied without restarting the process: stats capture intervals, the request queue settings and the LLM recommendation clients/cron schedule are re-armed when the file is reloaded.
 
 `GET /api/ready` is a public readiness endpoint: it returns `200 {"ready":true}` once the first stats capture has completed (or its 5-second deadline expired) and `503 {"ready":false}` before that. `GET /api/status` keeps returning `{"started":true}` as soon as the listener is up.
+
+## Data at rest
+
+The example deployment mounts a 1 GiB PersistentVolumeClaim at `DATA_DIR` (`/data`). The volume holds:
+
+- `database.db` for SQLite deployments (with Postgres the data lives in the external database): users, password and API-token hashes, and session metadata;
+- `cache/<type>.json`: gzip+base64 snapshots of the last resource listing per object type. `CACHE_TTL` (default 30 s) only bounds how long a snapshot is served — the files themselves persist;
+- `pod-usage-stats.json`, `available-resources.json` and `llm-recommendation.json`: cached statistics, scanned resource types and LLM recommendations;
+- legacy per-user `user-selections-<userId>.json` files, imported into the database at startup and left in place.
+
+Because the volume contains credentials material and cluster inventory, it must be encrypted at rest (via an encrypted StorageClass or cluster-level disk encryption), its access must be restricted to this workload, and its retention/backup rules must match the sensitivity of the data.
+
+From this release, Secret entries in cached resource listings are redacted before they are written: `data`, `stringData` and the `kubectl.kubernetes.io/last-applied-configuration` annotation are removed, and a legacy unredacted `cache/secret.json` is deleted at startup. Live single-object requests can still return Secret contents to users holding the `k8s:read` scope.
 
 ## Stats API
 
@@ -126,6 +164,8 @@ Every application API route enforces the live role and scopes of the authenticat
 | `admin`      | Admin-only routes: `POST /api/resources/refresh`, `POST /api/stats/recommendation/regenerate`, kubectl `delete` |
 
 Users created through the web UI start with role `user` and no scopes: an admin must grant them with `PUT /api/users/:id` and body `{"scopes":["k8s:read","stats:read"]}` (add `k8s:write` where mutations are needed). Users created before the role/scope migration default to the `admin` role. Only `/api/status`, the static web UI and the user-management endpoints (admin-only, with self-service session/password/token routes) are reachable without an application scope.
+
+User management (create/update/delete, password change, API-token create/revoke) and mutating kubectl commands (`delete`, `scale`, `rollout restart`, `create job`) are recorded as structured single-line audit events containing the action, outcome, route, acting user and target object — never passwords, token values, request bodies, manifests or command output.
 
 ### CORS
 

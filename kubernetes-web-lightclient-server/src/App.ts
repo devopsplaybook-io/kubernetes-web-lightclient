@@ -102,8 +102,10 @@ Promise.resolve().then(async () => {
   await StatsDataRecommendationInit(span, config);
   await CrdScannerInit(config);
 
-  // Initialize resource cache
+  // Initialize resource cache and remove any Secret list cached unredacted
+  // by a previous version.
   const kubeCache = new KubeCache(config.DATA_DIR, config.CACHE_TTL);
+  await kubeCache.purgeLegacySecretCache();
 
   span.end();
 

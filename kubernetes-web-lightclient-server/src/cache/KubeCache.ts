@@ -8,6 +8,13 @@ export interface CacheEntry {
   data: string; // base64 gzip compressed JSON
   cachedAt: string; // ISO timestamp
   type: string;
+  // Secret lists are redacted before caching; entries written by a pod that
+  // predates the redaction do not carry this marker and are never served.
+  secretsRedacted?: boolean;
+}
+
+function IsSecretType(type: string): boolean {
+  return type === "secret" || type === "secrets";
 }
 
 export class KubeCache {
@@ -43,6 +50,10 @@ export class KubeCache {
       if (await fse.pathExists(filePath)) {
         const entry = (await fse.readJson(filePath)) as CacheEntry;
         if (entry && entry.data && entry.cachedAt) {
+          if (IsSecretType(type) && entry.secretsRedacted !== true) {
+            // Unredacted legacy entry: treat it as a miss so it is never served.
+            return null;
+          }
           return entry;
         }
       }
@@ -58,6 +69,10 @@ export class KubeCache {
       cachedAt: new Date().toISOString(),
       type,
     };
+    if (IsSecretType(type)) {
+      // The payload is redacted by the executor before it reaches the cache.
+      entry.secretsRedacted = true;
+    }
     const filePath = this.getCacheFilePath(type);
     const tmpFilePath = `${filePath}.tmp`;
     try {
@@ -107,6 +122,22 @@ export class KubeCache {
       logger.info("All cache cleared");
     } catch (error) {
       logger.error(`Failed to clear all cache: ${error.message}`, error);
+    }
+  }
+
+  /**
+   * Remove a Secret cache file written before redaction existed. Runs once at
+   * startup so no unredacted Secret manifest is left at rest.
+   */
+  public async purgeLegacySecretCache(): Promise<void> {
+    const filePath = this.getCacheFilePath("secret");
+    try {
+      if (await fse.pathExists(filePath)) {
+        await fse.remove(filePath);
+        logger.info("Purged legacy unredacted secret cache (cache/secret.json)");
+      }
+    } catch (error) {
+      logger.warn(`Failed to purge legacy secret cache: ${error.message}`);
     }
   }
 

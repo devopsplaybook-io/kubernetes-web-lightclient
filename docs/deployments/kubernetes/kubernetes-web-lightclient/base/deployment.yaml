@@ -64,6 +64,23 @@ spec:
             # The entrypoint rewrites the web manifest/config at container
             # start, so the root filesystem cannot be read-only.
             readOnlyRootFilesystem: false
+          ports:
+            - name: http
+              containerPort: 8080
+          startupProbe:
+            httpGet:
+              path: /api/status
+              port: 8080
+            periodSeconds: 5
+            failureThreshold: 30
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /api/status
+              port: 8080
+            periodSeconds: 15
+            failureThreshold: 3
+            timeoutSeconds: 3
           readinessProbe:
             httpGet:
               path: /api/ready
@@ -71,6 +88,7 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 10
             failureThreshold: 3
+            timeoutSeconds: 3
       volumes:
         - name: pod-volume
           persistentVolumeClaim:
