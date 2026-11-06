@@ -25,6 +25,14 @@ jest.mock("../OTelContext", () => ({
   }),
 }));
 
+const mockCronSchedule = jest.fn();
+const mockCronValidate = jest.fn();
+
+jest.mock("node-cron", () => ({
+  schedule: (...args: unknown[]) => mockCronSchedule(...args),
+  validate: (...args: unknown[]) => mockCronValidate(...args),
+}));
+
 const mockLlmIsEnabled = jest.fn(() => true);
 const mockLlmRequest = jest.fn();
 const mockNotificationsIsEnabled = jest.fn(() => false);
@@ -53,6 +61,7 @@ jest.mock("./StatsData", () => ({
   kubernetesCommand: (args: string[]) => mockKubernetesCommand(args),
 }));
 
+import { LLMClient } from "@devopsplaybook.io/common-utils";
 import {
   BuildNotificationSource,
   BuildRecommendationSummary,
@@ -62,7 +71,12 @@ import {
   RecommendationGetCached,
   RecommendationIsGenerating,
   StatsDataRecommendationInit,
+  StatsDataRecommendationReconfigure,
 } from "./StatsDataRecommendation";
+
+const llmClientMock = LLMClient as unknown as jest.Mock;
+
+const mockCronTask = () => ({ stop: jest.fn(), destroy: jest.fn() });
 
 const PREVIOUS_RECOMMENDATION = {
   generatedAt: "2026-10-01T00:00:00.000Z",
@@ -261,6 +275,8 @@ describe("StatsDataRecommendation", () => {
 
     beforeEach(async () => {
       jest.clearAllMocks();
+      mockCronValidate.mockReturnValue(false);
+      mockCronSchedule.mockImplementation(() => mockCronTask());
       tmpDir = await fse.mkdtemp(path.join(os.tmpdir(), "recommendation-spec-"));
       // Preload a cached recommendation so Init does not trigger a stray
       // initial generation
@@ -373,6 +389,125 @@ describe("StatsDataRecommendation", () => {
       expect(mockNotificationsInfo).toHaveBeenCalledTimes(1);
       expect((await RecommendationGetCached())?.analysis).toBe(
         "All good everywhere.",
+      );
+    });
+  });
+
+  describe("reconfiguration", () => {
+    let tmpDir: string;
+
+    function testConfig(overrides: Partial<Config> = {}): Config {
+      return {
+        DATA_DIR: tmpDir,
+        LLM_RECOMMENDATIONS_ENABLED: true,
+        LLM_RECOMMENDATIONS_CRON: "0 8 * * 1",
+        LLM_API_KEY: "initial-key",
+        LLM_API_URL: "http://initial",
+        LLM_MODEL: "initial-model",
+        NOTIFICATIONS_API: "",
+        NOTIFICATIONS_TOKEN: "",
+        APPLICATION_TITLE: "Test",
+        ...overrides,
+      } as unknown as Config;
+    }
+
+    beforeEach(async () => {
+      jest.clearAllMocks();
+      mockCronValidate.mockReturnValue(true);
+      mockCronSchedule.mockImplementation(() => mockCronTask());
+      tmpDir = await fse.mkdtemp(
+        path.join(os.tmpdir(), "recommendation-reconfigure-spec-"),
+      );
+      mockLlmIsEnabled.mockReturnValue(true);
+      mockNotificationsIsEnabled.mockReturnValue(false);
+      await fse.writeJson(
+        path.join(tmpDir, "llm-recommendation.json"),
+        PREVIOUS_RECOMMENDATION,
+      );
+    });
+
+    afterEach(async () => {
+      await fse.remove(tmpDir);
+    });
+
+    test("recreates the clients and re-arms the cron with new settings", async () => {
+      await StatsDataRecommendationInit(
+        mockSpan as unknown as Span,
+        testConfig(),
+      );
+      const firstTask = mockCronSchedule.mock.results[0].value as ReturnType<
+        typeof mockCronTask
+      >;
+
+      StatsDataRecommendationReconfigure(
+        testConfig({
+          LLM_API_KEY: "new-key",
+          LLM_API_URL: "http://new",
+          LLM_MODEL: "new-model",
+          LLM_RECOMMENDATIONS_CRON: "0 9 * * 2",
+        }),
+      );
+
+      expect(firstTask.stop).toHaveBeenCalledTimes(1);
+      expect(firstTask.destroy).toHaveBeenCalledTimes(1);
+      expect(mockCronSchedule).toHaveBeenCalledTimes(2);
+      expect(mockCronSchedule).toHaveBeenLastCalledWith(
+        "0 9 * * 2",
+        expect.any(Function),
+      );
+      expect(llmClientMock).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          apiKey: "new-key",
+          apiUrl: "http://new",
+          model: "new-model",
+        }),
+      );
+    });
+
+    test("stops the cron without scheduling when recommendations are disabled", async () => {
+      await StatsDataRecommendationInit(
+        mockSpan as unknown as Span,
+        testConfig(),
+      );
+      const firstTask = mockCronSchedule.mock.results[0].value as ReturnType<
+        typeof mockCronTask
+      >;
+
+      StatsDataRecommendationReconfigure(
+        testConfig({ LLM_RECOMMENDATIONS_ENABLED: false }),
+      );
+
+      expect(firstTask.stop).toHaveBeenCalledTimes(1);
+      expect(firstTask.destroy).toHaveBeenCalledTimes(1);
+      expect(mockCronSchedule).toHaveBeenCalledTimes(1);
+    });
+
+    test("defers the initial generation and runs it only when nothing is cached", async () => {
+      await fse.remove(path.join(tmpDir, "llm-recommendation.json"));
+      mockCronValidate.mockReturnValue(false);
+      jest.resetModules();
+      const fresh =
+        require("./StatsDataRecommendation") as typeof import("./StatsDataRecommendation");
+
+      await fresh.StatsDataRecommendationInit(
+        mockSpan as unknown as Span,
+        testConfig(),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(mockLlmRequest).not.toHaveBeenCalled();
+
+      mockLlmRequest.mockResolvedValue({
+        content:
+          "## Analysis\nFresh start.\n\n## Recommendations\n- All good",
+      });
+      fresh.StatsDataRecommendationStartInitialGeneration();
+      for (let i = 0; i < 50 && fresh.RecommendationIsGenerating(); i++) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+
+      expect(mockLlmRequest).toHaveBeenCalledTimes(1);
+      expect((await fresh.RecommendationGetCached())?.analysis).toBe(
+        "Fresh start.",
       );
     });
   });

@@ -1,4 +1,3 @@
-import { Span } from "@opentelemetry/api";
 import * as fse from "fs-extra";
 import * as path from "path";
 import { Config } from "../Config";
@@ -14,15 +13,15 @@ let intervalHandle: NodeJS.Timeout | null = null;
 const logger = OTelLogger().createModuleLogger("StatsDataPodUsage");
 const POD_USAGE_STATS_FILE = "pod-usage-stats.json";
 
-export async function StatsDataPodUsageInit(
-  context: Span,
-  config: Config,
-): Promise<void> {
+/**
+ * Prepare state and arm the capture interval. The initial capture is run
+ * separately (after the HTTP listener is up) so startup never blocks.
+ */
+export async function StatsDataPodUsageSetup(config: Config): Promise<void> {
   await fse.ensureDir(config.DATA_DIR);
   const filePath = path.join(config.DATA_DIR, POD_USAGE_STATS_FILE);
   podUsageStats = await loadPodUsageStats(filePath);
 
-  await executePodResourcesCapture(config);
   StatsDataPodUsageReconfigure(config);
 }
 
@@ -34,9 +33,19 @@ export function StatsDataPodUsageReconfigure(config: Config): void {
     clearInterval(intervalHandle);
   }
   intervalHandle = setInterval(
-    () => executePodResourcesCapture(config),
+    () => StatsDataPodUsageRunCapture(config),
     config.POD_RESOURCES_FETCH_FREQUENCY * 1000,
   );
+}
+
+/**
+ * Run one pod resources capture. Guarded against overlap: a capture
+ * triggered while the previous one is still running is skipped.
+ */
+export async function StatsDataPodUsageRunCapture(
+  config: Config,
+): Promise<void> {
+  await executePodResourcesCapture(config);
 }
 
 async function executePodResourcesCapture(config: Config): Promise<void> {
@@ -70,7 +79,7 @@ export async function PodUsageStatsGet(): Promise<PodUsageStats[]> {
 
 async function PodResourcesCapture(config: Config): Promise<void> {
   const podsObj = JSON.parse(
-    await kubernetesCommand(["get", "pods", "--all-namespaces", "-o", "json"]),
+    await kubernetesCommand(["get", "pods", "-A", "-o", "json"]),
   );
 
   if (!podsObj.items) return;

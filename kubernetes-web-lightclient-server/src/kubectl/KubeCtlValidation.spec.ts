@@ -335,6 +335,7 @@ describe("KubeCtlValidation", () => {
           "my-container",
           "--since=1h",
           "--previous",
+          "--tail=5000",
           "--timestamps",
         ],
       });
@@ -348,7 +349,7 @@ describe("KubeCtlValidation", () => {
       });
       expect(result).toEqual({
         ok: true,
-        argv: ["logs", "-n", "default", "my-pod"],
+        argv: ["logs", "-n", "default", "my-pod", "--tail=5000"],
       });
     });
 

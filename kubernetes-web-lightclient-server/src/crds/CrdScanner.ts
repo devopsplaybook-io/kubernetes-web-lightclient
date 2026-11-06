@@ -2,8 +2,8 @@ import * as cron from "node-cron";
 import * as fse from "fs-extra";
 import * as path from "path";
 import { Config } from "../Config";
+import { KubeCtlExecutorGetInstance } from "../kubectl/KubeCtlExecutor";
 import { OTelLogger } from "../OTelContext";
-import { SystemCommandExecute } from "../utils-std-ts/SystemCommand";
 
 const logger = OTelLogger().createModuleLogger("CrdScanner");
 
@@ -169,6 +169,24 @@ const RESOURCES_FILE = "available-resources.json";
 
 let availableResources: ResourceType[] = [...BUILT_IN_RESOURCES];
 let resourcesFilePath: string;
+let scanPromise: Promise<void> | null = null;
+
+/**
+ * Raised when an explicit refresh is requested while a scan (startup, cron
+ * or another refresh) is already running.
+ */
+export class CrdScanInProgressError extends Error {
+  public readonly code = "CRD_SCAN_IN_PROGRESS";
+
+  constructor(message = "A CRD scan is already in progress") {
+    super(message);
+    this.name = "CrdScanInProgressError";
+  }
+}
+
+export function CrdScannerIsScanning(): boolean {
+  return scanPromise !== null;
+}
 
 export function CrdScannerGetAvailableResources(): ResourceType[] {
   return [...availableResources];
@@ -215,33 +233,48 @@ export async function CrdScannerInit(config: Config): Promise<void> {
   // Schedule daily CRD scan
   cron.schedule(CRD_SCAN_INTERVAL, async () => {
     logger.info("Running scheduled CRD scan");
-    await scanCrds();
+    await startScan();
   });
 
   // Initial CRD scan - run asynchronously so server startup is not blocked
-  scanCrds().catch((error) => {
+  startScan().catch((error) => {
     logger.error(`Initial CRD scan failed: ${error.message}`, error);
   });
 }
 
+/**
+ * Explicit refresh: reject while another scan is running (the endpoint must
+ * not queue a second full CRD read), otherwise join/start the shared scan.
+ */
 export async function CrdScannerRefresh(): Promise<ResourceType[]> {
-  await scanCrds();
+  if (scanPromise) {
+    throw new CrdScanInProgressError();
+  }
+  await startScan();
   return CrdScannerGetAvailableResources();
+}
+
+/**
+ * Single-flight: concurrent cron/startup refreshes share one scan. The
+ * promise is assigned synchronously before the first await.
+ */
+function startScan(): Promise<void> {
+  if (!scanPromise) {
+    scanPromise = scanCrds().finally(() => {
+      scanPromise = null;
+    });
+  }
+  return scanPromise;
 }
 
 async function scanCrds(): Promise<void> {
   logger.info("Scanning cluster for CRDs...");
   try {
-    const commandOutput = await SystemCommandExecute(
-      "kubectl",
+    // Only id/name/namespaced/group are persisted below: the full OpenAPI
+    // schemas carried by the CRD list are discarded, never stored.
+    const commandOutput = await KubeCtlExecutorGetInstance().executeRawCommand(
       ["get", "customresourcedefinition", "-o", "json"],
-      {
-        timeout: 30000,
-        // CRD definitions carry full OpenAPI schemas: raw JSON can reach
-        // tens of MB on clusters with many CRDs (unlike the old gzip pipe,
-        // output is buffered uncompressed).
-        maxBuffer: 1024 * 1024 * 64,
-      },
+      30000,
     );
 
     const crdList = JSON.parse(commandOutput);

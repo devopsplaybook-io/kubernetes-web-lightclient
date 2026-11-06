@@ -23,8 +23,17 @@ import {
   OTelTracer,
 } from "./OTelContext";
 import { RequestQueueInit } from "./queue/RequestQueue";
-import { StatsDataInit, StatsDataReconfigure } from "./stats/StatsData";
-import { StatsDataRecommendationInit } from "./stats/StatsDataRecommendation";
+import {
+  StatsDataInit,
+  StatsDataIsReady,
+  StatsDataReconfigure,
+  StatsDataStartInitialCapture,
+} from "./stats/StatsData";
+import {
+  StatsDataRecommendationInit,
+  StatsDataRecommendationReconfigure,
+  StatsDataRecommendationStartInitialGeneration,
+} from "./stats/StatsDataRecommendation";
 import { StatsRoutes } from "./stats/StatsRoutes";
 import {
   AuthInit,
@@ -49,7 +58,10 @@ Promise.resolve().then(async () => {
     logger.info(`Config updated: ${config.CONFIG_FILE}`);
     config
       .reload()
-      .then(() => StatsDataReconfigure(config))
+      .then(() => {
+        StatsDataReconfigure(config);
+        StatsDataRecommendationReconfigure(config);
+      })
       .catch((error) => {
         logger.error(`Config reload failed: ${error.message}`, error);
       });
@@ -77,13 +89,18 @@ Promise.resolve().then(async () => {
   AuthSetAuditHandler(
     CreateAuthAuditHandler(OTelLogger().createModuleLogger("auth")),
   );
+  // Initialize the bounded request queue before any kubectl execution
+  // (stats setup arms intervals and the CRD scanner starts a scan).
+  RequestQueueInit(
+    config.REQUEST_QUEUE_CONCURRENCY,
+    config.REQUEST_TIMEOUT,
+    config.REQUEST_QUEUE_MAX_LENGTH,
+  );
+
   await UserSelectionsDataInit(config);
   await StatsDataInit(span, config);
   await StatsDataRecommendationInit(span, config);
   await CrdScannerInit(config);
-
-  // Initialize request queue with configurable concurrency and timeout
-  RequestQueueInit(config.REQUEST_QUEUE_CONCURRENCY, config.REQUEST_TIMEOUT);
 
   // Initialize resource cache
   const kubeCache = new KubeCache(config.DATA_DIR, config.CACHE_TTL);
@@ -104,7 +121,7 @@ Promise.resolve().then(async () => {
   fastify.register(require("@fastify/multipart"));
 
   StandardTracerFastifyRegisterHooks(fastify, OTelTracer(), OTelLogger(), {
-    ignoreList: ["GET-/api/status"],
+    ignoreList: ["GET-/api/status", "GET-/api/ready"],
   });
 
   fastify.register(new UsersRoutes().getRoutes, {
@@ -131,6 +148,10 @@ Promise.resolve().then(async () => {
   fastify.get("/api/status", async () => {
     return { started: true };
   });
+  fastify.get("/api/ready", async (_req, res) => {
+    const ready = StatsDataIsReady();
+    return res.status(ready ? 200 : 503).send({ ready });
+  });
 
   /* eslint-disable-next-line */
   fastify.register(require("@fastify/static"), {
@@ -156,6 +177,18 @@ Promise.resolve().then(async () => {
       process.exit(1);
     }
     logger.info("API Listening");
+    // Initial captures run after the listener is up so startup never hangs
+    // on kubectl. Readiness is released by their completion or deadline.
+    StatsDataStartInitialCapture(config)
+      .then(() => StatsDataRecommendationStartInitialGeneration())
+      .catch((error) => {
+        const normalized = NormalizeError(error);
+        logger.error(
+          `Initial stats capture failed: ${
+            normalized.stack ?? normalized.message
+          }`,
+        );
+      });
   });
 }).catch((error) => {
   const normalized = NormalizeError(error);

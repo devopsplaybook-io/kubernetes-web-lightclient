@@ -58,7 +58,8 @@ See the [ConfigMap YAML](docs/deployments/kubernetes/kubernetes-web-lightclient/
 | POD_RESOURCES_FETCH_FREQUENCY                           | Frequency (in seconds) to refresh pod requests/limits                                                                 | 1800          | Config file or environment variable |
 | CACHE_TTL                                               | Time (in milliseconds) a cached resource listing stays fresh                                                          | 30000         | Config file or environment variable |
 | REQUEST_QUEUE_CONCURRENCY                               | Maximum number of concurrent Kubernetes requests                                                                      | 2             | Config file or environment variable |
-| REQUEST_TIMEOUT                                         | Timeout (in milliseconds) for a Kubernetes request                                                                    | 20000         | Config file or environment variable |
+| REQUEST_QUEUE_MAX_LENGTH                                | Maximum number of Kubernetes requests waiting in the queue; further requests get `429`                                 | 20            | Config file or environment variable |
+| REQUEST_TIMEOUT                                         | Timeout (in milliseconds) for a Kubernetes request, counted from the moment it is queued                              | 20000         | Config file or environment variable |
 | OPENTELEMETRY_COLLECTOR_HTTP_TRACES                     | OTEL collector endpoint for traces                                                                                    | (empty)       | Config file or environment variable |
 | OPENTELEMETRY_COLLECTOR_HTTP_METRICS                    | OTEL collector endpoint for metrics                                                                                   | (empty)       | Config file or environment variable |
 | OPENTELEMETRY_COLLECTOR_HTTP_LOGS                       | OTEL collector endpoint for logs                                                                                      | (empty)       | Config file or environment variable |
@@ -82,6 +83,10 @@ See the [ConfigMap YAML](docs/deployments/kubernetes/kubernetes-web-lightclient/
 | AUTH_RATE_LIMIT_REFRESH_MAX                            | Session refreshes allowed per rate-limit window (`<= 0` disables)                                                     | 60            | Config file or environment variable |
 | AUTH_RATE_LIMIT_WINDOW_SECONDS                         | Rate-limit window, in seconds                                                                                         | 60            | Config file or environment variable |
 | CORS_POLICY_ORIGIN                                     | Comma-separated list of browser origins allowed to call the API. Empty emits no CORS headers (same-origin UI only); `*` allows any origin and is insecure | (empty) | Config file or environment variable |
+
+Changes to the configuration file are applied without restarting the process: stats capture intervals, the request queue settings and the LLM recommendation clients/cron schedule are re-armed when the file is reloaded.
+
+`GET /api/ready` is a public readiness endpoint: it returns `200 {"ready":true}` once the first stats capture has completed (or its 5-second deadline expired) and `503 {"ready":false}` before that. `GET /api/status` keeps returning `{"started":true}` as soon as the listener is up.
 
 ## Authentication
 
@@ -159,7 +164,7 @@ Response envelope (success): `201` with `{"result": "<gzip+base64 output>"}`.
 
 ### `POST /api/kubectl/logs`
 
-Payload schema: `namespace` (required), `pod` (required), `container` (optional), `argument` (optional string of `--previous` and/or `--since=10m|1h|24h`), `timestamps` (optional boolean, default `true`). Requires the `k8s:read` scope.
+Payload schema: `namespace` (required), `pod` (required), `container` (optional), `argument` (optional string of `--previous` and/or `--since=10m|1h|24h`), `timestamps` (optional boolean, default `true`). Requires the `k8s:read` scope. Log output is bounded: the server always requests the last 5,000 lines (`--tail=5000`).
 
 ### Resource selections
 
@@ -172,6 +177,7 @@ Payload schema: `namespace` (required), `pod` (required), `container` (optional)
 - `403` `{"error":"Access Denied","code":"FORBIDDEN"}` — the authenticated user lacks the scope required by the route.
 - `403` `{"error":"Deletion of <type> objects is not allowed"}` — the delete policy (`ALLOWED_DELETABLE_OBJECTS`) refused a `delete`.
 - `404` `{"error":"This object no longer exists — ..."}` — the object vanished between listing and the request.
+- `429` `{"error":"Server is busy, please retry","requestId":"..."}` — the Kubernetes request queue is full (`REQUEST_QUEUE_MAX_LENGTH`); retry later. A CRD refresh already running returns `429` `{"error":"A CRD scan is already in progress"}`.
 - `502` `{"error":"kubectl command failed","requestId":"..."}` / `{"error":"kubectl logs failed","requestId":"..."}` — kubectl failed; the details are logged server-side under the same request id.
 - `503` `{"error":"Failed to fetch resource data","requestId":"..."}` — the resource listing could not be fetched; the details are logged server-side.
 

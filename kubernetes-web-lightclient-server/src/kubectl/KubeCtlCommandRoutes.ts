@@ -7,6 +7,7 @@ import {
 import { NormalizeError } from "../ErrorHandling";
 import { OTelLogger, OTelTracer } from "../OTelContext";
 import { Config } from "../Config";
+import { IsRequestQueueFullError } from "../queue/RequestQueue";
 import { DeletePolicy } from "./DeletePolicy";
 import {
   IsKubeObjectNotFoundError,
@@ -77,6 +78,12 @@ export class KubeCtlCommandRoutes {
         );
         return res.status(201).send({ result: commandOutput });
       } catch (error) {
+        if (IsRequestQueueFullError(error)) {
+          return res.status(429).send({
+            error: "Server is busy, please retry",
+            requestId: req.id,
+          });
+        }
         if (IsKubeObjectNotFoundError(error)) {
           return res.status(404).send({
             error:

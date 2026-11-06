@@ -352,6 +352,31 @@ describe("KubeCtlCommandRoutes", () => {
     expect(serializedAttributes).not.toContain("my-pod");
   });
 
+  test("returns 429 when the request queue is full", async () => {
+    mockExecuteCommand.mockRejectedValue(
+      Object.assign(new Error("Request queue is full"), {
+        code: "REQUEST_QUEUE_FULL",
+      }),
+    );
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/kubectl/command/",
+      payload: {
+        object: "pod",
+        command: "describe",
+        namespace: "default",
+        argument: "my-pod",
+        noJson: true,
+      },
+    });
+    expect(res.statusCode).toBe(429);
+    expect(res.json()).toEqual({
+      error: "Server is busy, please retry",
+      requestId: expect.any(String),
+    });
+    expect(mockSpan.end).toHaveBeenCalledTimes(1);
+  });
+
   test("returns a clean 404 when the object no longer exists", async () => {
     mockExecuteCommand.mockRejectedValue(
       Object.assign(new Error("Command failed"), {

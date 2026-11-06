@@ -2,22 +2,25 @@ import * as fse from "fs-extra";
 import * as os from "os";
 import * as path from "path";
 
-const mockSystemCommandExecute = jest.fn();
+const mockExecuteRawCommand = jest.fn();
 
 jest.mock("node-cron", () => ({
   schedule: jest.fn(),
 }));
 
-jest.mock("../utils-std-ts/SystemCommand", () => ({
-  SystemCommandExecute: (...args: unknown[]) =>
-    mockSystemCommandExecute(...args),
+jest.mock("../kubectl/KubeCtlExecutor", () => ({
+  KubeCtlExecutorGetInstance: () => ({
+    executeRawCommand: (...args: unknown[]) => mockExecuteRawCommand(...args),
+  }),
 }));
 
 import { Config } from "../Config";
 import {
+  CrdScanInProgressError,
   CrdScannerGetAvailableResources,
   CrdScannerGetBuiltinResources,
   CrdScannerInit,
+  CrdScannerIsScanning,
   CrdScannerReconcileAvailableResources,
   CrdScannerRefresh,
 } from "./CrdScanner";
@@ -65,7 +68,7 @@ describe("CrdScanner", () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    mockSystemCommandExecute.mockResolvedValue(JSON.stringify({ items: [] }));
+    mockExecuteRawCommand.mockResolvedValue(JSON.stringify({ items: [] }));
     dataDir = path.join(os.tmpdir(), `crd-scanner-test-${Date.now()}`);
     await fse.ensureDir(dataDir);
     resourcesFile = path.join(dataDir, "available-resources.json");
@@ -75,9 +78,17 @@ describe("CrdScanner", () => {
     await fse.remove(dataDir);
   });
 
+  async function waitForScanIdle(): Promise<void> {
+    for (let i = 0; i < 100 && CrdScannerIsScanning(); i++) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(CrdScannerIsScanning()).toBe(false);
+  }
+
   async function initDataDir(resources: unknown): Promise<void> {
     await fse.writeJson(resourcesFile, resources);
     await CrdScannerInit({ DATA_DIR: dataDir } as unknown as Config);
+    await waitForScanIdle();
   }
 
   describe("CrdScannerGetBuiltinResources", () => {
@@ -112,7 +123,7 @@ describe("CrdScanner", () => {
     });
 
     it("should keep live CRDs persisted on disk and drop stale built-ins", async () => {
-      mockSystemCommandExecute.mockResolvedValue(
+      mockExecuteRawCommand.mockResolvedValue(
         JSON.stringify({
           items: [crdItem("oldcrd", "OldCrd", "example.com")],
         }),
@@ -165,7 +176,7 @@ describe("CrdScanner", () => {
     it("should merge live CRDs and drop CRDs gone from the cluster", async () => {
       await initDataDir(LEGACY_DISK_RESOURCES);
 
-      mockSystemCommandExecute.mockResolvedValue(
+      mockExecuteRawCommand.mockResolvedValue(
         JSON.stringify({
           items: [crdItem("newcrd", "NewCrd", "example.com")],
         }),
@@ -206,12 +217,49 @@ describe("CrdScanner", () => {
       await initDataDir(LEGACY_DISK_RESOURCES);
       const before = CrdScannerGetAvailableResources();
 
-      mockSystemCommandExecute.mockRejectedValue(
+      mockExecuteRawCommand.mockRejectedValue(
         new Error("kubectl unavailable"),
       );
       const resources = await CrdScannerRefresh();
 
       expect(resources).toEqual(before);
+    });
+  });
+
+  describe("CrdScannerRefresh single-flight", () => {
+    it("rejects a concurrent refresh and runs a single kubectl call", async () => {
+      await initDataDir([]);
+      mockExecuteRawCommand.mockClear();
+
+      let releaseScan!: (value: string) => void;
+      mockExecuteRawCommand.mockImplementationOnce(
+        () =>
+          new Promise<string>((resolve) => {
+            releaseScan = resolve;
+          }),
+      );
+
+      const first = CrdScannerRefresh();
+      await expect(CrdScannerRefresh()).rejects.toBeInstanceOf(
+        CrdScanInProgressError,
+      );
+      expect(mockExecuteRawCommand).toHaveBeenCalledTimes(1);
+
+      releaseScan(
+        JSON.stringify({
+          items: [crdItem("newcrd", "NewCrd", "example.com")],
+        }),
+      );
+      const resources = await first;
+      expect(resources.map((r) => r.id)).toContain("newcrd");
+
+      // After completion a later refresh runs again
+      mockExecuteRawCommand.mockResolvedValueOnce(
+        JSON.stringify({ items: [] }),
+      );
+      const refreshed = await CrdScannerRefresh();
+      expect(refreshed.map((r) => r.id)).not.toContain("newcrd");
+      expect(mockExecuteRawCommand).toHaveBeenCalledTimes(2);
     });
   });
 

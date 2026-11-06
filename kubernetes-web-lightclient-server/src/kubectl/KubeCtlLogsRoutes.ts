@@ -3,7 +3,11 @@ import { AuthGetLiveUser } from "@devopsplaybook.io/common-utils";
 import { RequireScope } from "../auth/Authorization";
 import { NormalizeError } from "../ErrorHandling";
 import { OTelLogger, OTelTracer } from "../OTelContext";
-import { IsKubeObjectNotFoundError, KubeCtlExecutorGetInstance } from "./KubeCtlExecutor";
+import { IsRequestQueueFullError } from "../queue/RequestQueue";
+import {
+  IsKubeObjectNotFoundError,
+  KubeCtlExecutorGetInstance,
+} from "./KubeCtlExecutor";
 import { BuildLogsArgs } from "./KubeCtlValidation";
 
 const logger = OTelLogger().createModuleLogger("KubeCtlLogsRoutes");
@@ -54,6 +58,12 @@ export class KubeCtlLogsRoutes {
         );
         return res.status(201).send({ result: commandOutput });
       } catch (error) {
+        if (IsRequestQueueFullError(error)) {
+          return res.status(429).send({
+            error: "Server is busy, please retry",
+            requestId: req.id,
+          });
+        }
         if (IsKubeObjectNotFoundError(error)) {
           return res.status(404).send({
             error:
