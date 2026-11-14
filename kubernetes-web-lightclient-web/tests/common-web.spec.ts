@@ -98,13 +98,17 @@ describe("Common-Web layer integration", () => {
       data: { token: renewedToken },
     } as never);
 
-    await expect(AuthService.getToken()).resolves.toBe(renewedToken);
+    // common-web 0.10.0 renews in the background and hands the still-valid
+    // token to the caller; the renewed token lands in storage a tick later.
+    await expect(AuthService.getToken()).resolves.toBe(token);
+    await vi.waitFor(() => {
+      expect(localStorage.getItem("auth_token")).toBe(renewedToken);
+    });
     expect(axios.post).toHaveBeenCalledWith(
       "/api/users/session/refresh",
       {},
-      { headers: { Authorization: `Bearer ${token}` }, timeout: 10000 },
+      { headers: { Authorization: `Bearer ${token}` }, timeout: 3000 },
     );
-    expect(localStorage.getItem("auth_token")).toBe(renewedToken);
   });
 
   it("preserves Kubernetes-specific events and log preferences", () => {
