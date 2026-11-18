@@ -16,6 +16,12 @@ vi.mock("../services/Utils", () => ({
   UtilsRelativeTime: vi.fn(() => "just now"),
 }));
 
+const fetchWarningEvents = vi.hoisted(() => vi.fn(async () => []));
+
+vi.mock("../services/WorkloadPodsService", () => ({
+  FetchWarningEvents: fetchWarningEvents,
+}));
+
 import DialogLogs from "../components/DialogLogs.vue";
 
 const POD_JSON = JSON.stringify({
@@ -35,6 +41,39 @@ const postMock = () => axios.post as unknown as ReturnType<typeof vi.fn>;
 async function mountDialog() {
   const wrapper = mount(DialogLogs, {
     props: { podname: "my-pod", namespace: "default" },
+  });
+  await flushPromises();
+  return wrapper;
+}
+
+function makePod(name: string, extra: Record<string, any> = {}) {
+  return {
+    metadata: {
+      uid: `uid-${name}`,
+      name,
+      namespace: "default",
+    },
+    spec: { containers: [{ name: "app" }] },
+    status: {
+      phase: "Running",
+      containerStatuses: [{ name: "app", restartCount: 0 }],
+    },
+    ...extra,
+  };
+}
+
+async function mountMerged(
+  pods: Record<string, any>[],
+  props: Record<string, any> = {},
+) {
+  const wrapper = mount(DialogLogs, {
+    props: {
+      pods,
+      namespace: "default",
+      workloadKind: "deployment",
+      workloadName: "web",
+      ...props,
+    },
   });
   await flushPromises();
   return wrapper;
@@ -60,6 +99,14 @@ function advancedToggle(): DOMWrapper<Element> {
     throw new Error("Advanced toggle not found");
   }
   return new DOMWrapper(toggle);
+}
+
+function filterInput(): DOMWrapper<Element> {
+  const input = document.body.querySelector(".filter-input");
+  if (!input) {
+    throw new Error("Filter input not found");
+  }
+  return new DOMWrapper(input);
 }
 
 afterEach(() => {
@@ -263,6 +310,230 @@ describe("DialogLogs", () => {
       ),
     ).toBe(true);
     expect(alerts.every((a) => a.type !== "error")).toBe(true);
+    wrapper.unmount();
+  });
+
+  it("shows the waiting panel when the logs endpoint answers 409", async () => {
+    vi.spyOn(axios, "post")
+      .mockResolvedValueOnce({ data: { result: POD_JSON } })
+      .mockRejectedValueOnce(
+        Object.assign(new Error("waiting"), {
+          isAxiosError: true,
+          response: {
+            status: 409,
+            data: { reason: "ImagePullBackOff", container: "app" },
+          },
+        }),
+      );
+
+    const wrapper = await mountDialog();
+
+    expect(document.body.textContent).toContain(
+      "Container is waiting: ImagePullBackOff",
+    );
+    expect(document.body.textContent).toContain("imagePullSecrets");
+    expect(wrapper.vm.waitingEntries).toHaveLength(1);
+    wrapper.unmount();
+  });
+
+  it("fetches every selected pod and merges the streams chronologically", async () => {
+    const posts = vi
+      .spyOn(axios, "post")
+      .mockImplementation(async (_url, payload: any) => ({
+        data: {
+          result:
+            payload.pod === "web-a"
+              ? "2026-10-16T10:00:01Z a-first\n2026-10-16T10:00:03Z a-second"
+              : "2026-10-16T10:00:02Z b-first",
+        },
+      }));
+
+    const wrapper = await mountMerged([makePod("web-a"), makePod("web-b")]);
+
+    expect(posts).toHaveBeenCalledTimes(2);
+    for (const call of posts.mock.calls) {
+      expect((call[1] as any).timestamps).toBe(true);
+      expect((call[1] as any).namespace).toBe("default");
+    }
+    expect(document.body.textContent).toContain(
+      "Deployment web logs — 2 pod(s) (default)",
+    );
+    const lines = (
+      document.body.querySelector("#dialog-details-logs-text")?.textContent || ""
+    ).split("\n");
+    expect(lines).toEqual([
+      "[web-a] 2026-10-16T10:00:01Z a-first",
+      "[web-b] 2026-10-16T10:00:02Z b-first",
+      "[web-a] 2026-10-16T10:00:03Z a-second",
+    ]);
+    wrapper.unmount();
+  });
+
+  it("caps the merged stream at the first ten pods and only queries those", async () => {
+    const pods = Array.from({ length: 12 }, (_, index) =>
+      makePod(`web-${String(index).padStart(2, "0")}`),
+    );
+    const posts = vi
+      .spyOn(axios, "post")
+      .mockResolvedValue({ data: { result: "2026-10-16T10:00:01Z line" } });
+
+    const wrapper = await mountMerged(pods);
+    await advancedToggle().trigger("click");
+    await flushPromises();
+
+    expect(wrapper.vm.selectedPods).toHaveLength(10);
+    expect(posts).toHaveBeenCalledTimes(10);
+    expect(document.body.textContent).toContain(
+      "Showing logs for the first 10 of 12 pods",
+    );
+    wrapper.unmount();
+  });
+
+  it("skips a waiting pod, keeps the other logs and reports partial failures", async () => {
+    const waitingPod = makePod("web-waiting", {
+      status: {
+        phase: "Pending",
+        containerStatuses: [
+          {
+            name: "app",
+            restartCount: 0,
+            state: { waiting: { reason: "CreateContainerConfigError" } },
+          },
+        ],
+      },
+    });
+    const posts = vi
+      .spyOn(axios, "post")
+      .mockImplementation(async (_url, payload: any) => {
+        if (payload.pod === "web-failing") {
+          throw axiosError(500);
+        }
+        return { data: { result: "2026-10-16T10:00:01Z ok-line" } };
+      });
+
+    const wrapper = await mountMerged([
+      makePod("web-ok"),
+      waitingPod,
+      makePod("web-failing"),
+    ]);
+
+    // Only the healthy pod is queried: the waiting one is blocked locally.
+    expect(posts).toHaveBeenCalledTimes(2);
+    expect(document.body.textContent).toContain("ok-line");
+    expect(document.body.textContent).toContain(
+      "Container is waiting: CreateContainerConfigError",
+    );
+    expect(document.body.textContent).toContain("web-failing: gone");
+    expect(fetchWarningEvents).toHaveBeenCalledWith("default", ["web-waiting"]);
+    wrapper.unmount();
+  });
+
+  it("honours a container selection across the merged pods", async () => {
+    const podA = makePod("web-a", { spec: { containers: [{ name: "app" }, { name: "sidecar" }] } });
+    const podB = makePod("web-b", { spec: { containers: [{ name: "app" }] } });
+    const posts = vi
+      .spyOn(axios, "post")
+      .mockResolvedValue({ data: { result: "2026-10-16T10:00:01Z line" } });
+
+    const wrapper = await mountMerged([podA, podB]);
+    posts.mockClear();
+    wrapper.vm.selectedContainer = "sidecar";
+    await wrapper.vm.fetchLogs();
+    await flushPromises();
+
+    // Only the pod that actually has the selected container is queried.
+    expect(posts).toHaveBeenCalledTimes(1);
+    expect((posts.mock.calls[0][1] as any).pod).toBe("web-a");
+    expect((posts.mock.calls[0][1] as any).container).toBe("sidecar");
+    wrapper.unmount();
+  });
+
+  it("filters the logs and highlights the matches", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(axios, "post")
+      .mockResolvedValueOnce({ data: { result: POD_JSON } })
+      .mockResolvedValue({ data: { result: "INFO one\nERROR boom" } });
+
+    const wrapper = await mountDialog();
+    await advancedToggle().trigger("click");
+    await filterInput().setValue("boom");
+    vi.advanceTimersByTime(300);
+    await flushPromises();
+
+    const pre = document.body.querySelector("#dialog-details-logs-text") as HTMLElement;
+    expect(pre.textContent).toBe("ERROR boom");
+    expect(pre.innerHTML).toContain("<mark>boom</mark>");
+    expect(document.body.textContent).toContain("1 of 2 lines");
+    wrapper.unmount();
+  });
+
+  it("reports an invalid regex filter and keeps the logs visible", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(axios, "post")
+      .mockResolvedValueOnce({ data: { result: POD_JSON } })
+      .mockResolvedValue({ data: { result: "INFO one\nERROR boom" } });
+
+    const wrapper = await mountDialog();
+    await advancedToggle().trigger("click");
+    await checkbox("Regex").setValue(true);
+    await filterInput().setValue("([");
+    vi.advanceTimersByTime(300);
+    await flushPromises();
+
+    expect(document.body.textContent).toContain("Invalid regular expression");
+    const pre = document.body.querySelector("#dialog-details-logs-text") as HTMLElement;
+    expect(pre.textContent).toContain("INFO one");
+    wrapper.unmount();
+  });
+
+  it("requests the previous logs when the pod has restarted", async () => {
+    const posts = vi
+      .spyOn(axios, "post")
+      .mockResolvedValueOnce({ data: { result: POD_JSON } })
+      .mockResolvedValue({ data: { result: "PREVIOUS LINE" } });
+
+    const wrapper = await mountDialog();
+    await advancedToggle().trigger("click");
+    await checkbox("Previous").setValue(true);
+    await flushPromises();
+
+    const payload = posts.mock.calls.at(-1)?.[1] as any;
+    expect(payload.pod).toBe("my-pod");
+    expect(payload.argument).toContain("--previous");
+    wrapper.unmount();
+  });
+
+  it("retries a busy merged request once before giving up on that pod", async () => {
+    vi.useFakeTimers();
+    let calls = 0;
+    vi.spyOn(axios, "post").mockImplementation(async () => {
+      calls += 1;
+      if (calls === 1) {
+        throw Object.assign(new Error("busy"), {
+          isAxiosError: true,
+          response: {
+            status: 429,
+            data: { error: "Server is busy, please retry" },
+          },
+        });
+      }
+      return { data: { result: "2026-10-16T10:00:01Z retried-line" } };
+    });
+
+    const wrapper = mount(DialogLogs, {
+      props: {
+        pods: [makePod("web-a")],
+        namespace: "default",
+        workloadKind: "deployment",
+        workloadName: "web",
+      },
+    });
+    await flushPromises();
+    vi.advanceTimersByTime(1000);
+    await flushPromises();
+
+    expect(calls).toBe(2);
+    expect(document.body.textContent).toContain("retried-line");
     wrapper.unmount();
   });
 });

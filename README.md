@@ -7,6 +7,8 @@ Kubernetes Web LightClient is a web-based user interface for Kubernetes. In its 
 - Per-user persisted list preferences: the active column sort and quick-filters of each list follow the user across devices via `GET/PUT /api/resources/selections` (`listPreferences` field); in a PUT body a field that is omitted (`selectedIds` or `listPreferences`) leaves the stored value unchanged
 - Delete objects (configurable, see `ALLOWED_DELETABLE_OBJECTS`)
 - For Pod: Display Log
+- Workload drill-down: Deployment, StatefulSet, DaemonSet, Job and CronJob rows open their pods (via the workload label selector, with an owner-chain fallback) and a merged, timestamp-ordered multi-pod log stream (up to 10 pods, `[pod]` prefixes) with search and regex filtering
+- Waiting containers (`ImagePullBackOff`, `ErrImagePull`, `CreateContainerConfigError`, `CrashLoopBackOff`, ...) are reported in the log dialog with guidance, the pod conditions and its warning events instead of a generic error
 - For Deployment, DaemonSet, StatefulSet: Rollout restart
 - For Node: CPU and Memory information
 - Read-only YAML manifest view per object: the details dialog renders `describe` and the raw manifest as YAML with a copy button
@@ -45,12 +47,12 @@ kubectl kustomize . | kubectl apply -f -
 
 ## Releases and image tags
 
-The current release is `0.49.0` (server `0.12.0`); the container image is `devopsplaybookio/kubernetes-web-lightclient`.
+The current release is `0.50.0` (server `0.13.0`); the container image is `devopsplaybookio/kubernetes-web-lightclient`.
 
 - Every pull request publishes an immutable build tagged `beta-pr-<n>`, so a change can be tested before it is merged.
-- Merging the pull request promotes the exact tested image digest to the release tags `0.49.0`, `0.49`, `0`, `latest` and `beta`. Only the full `X.Y.Z` tag is immutable; the other tags are moving aliases.
+- Merging the pull request promotes the exact tested image digest to the release tags `0.50.0`, `0.50`, `0`, `latest` and `beta`. Only the full `X.Y.Z` tag is immutable; the other tags are moving aliases.
 - Pin the full `X.Y.Z` tag in production — the example overlay in `docs/deployments/kubernetes/kubernetes-web-lightclient/kustomization.yaml` does. A pinned deployment never changes silently and reports an unambiguous version. Use `beta` or `latest` only for non-production or explicitly auto-updating environments.
-- A deployment tracking a moving alias moves to a new release only after the alias points at it and the pod is recreated (for example with `kubectl rollout restart`). Environments that track `beta` therefore need a restart, or a switch to the pinned tag, to pick up `0.49.0`.
+- A deployment tracking a moving alias moves to a new release only after the alias points at it and the pod is recreated (for example with `kubectl rollout restart`). Environments that track `beta` therefore need a restart, or a switch to the pinned tag, to pick up `0.50.0`.
 
 ## Configuration
 
@@ -193,6 +195,7 @@ Payload schema:
 | `object`    | string  | yes      | A known resource type id (built-ins and scanned CRDs, e.g. `pod`)           |
 | `namespace` | string  | no       | Target namespace; omit for cluster-scoped objects                           |
 | `argument`  | string  | depends  | Command-specific, see the table below                                       |
+| `selector`  | string  | no       | Label selector for `get` on `pod` (requires `namespace`); equality (`key=value`, `key==value`) and set (`key in (a,b)`) terms only |
 | `noJson`    | boolean | no       | When `true`, `get` returns kubectl's default text output instead of `-o json` |
 
 Allowed commands and their argument shape:
@@ -208,9 +211,13 @@ Allowed commands and their argument shape:
 
 Response envelope (success): `201` with `{"result": "<gzip+base64 output>"}`.
 
+A `get` with a `selector` is only accepted for `object: "pod"` with a `namespace` and no `argument`. Supported terms are equality (`key=value`, `key==value`) and set membership (`key in (value1,value2)`); `!=`, `notin`, existence and bare keys are rejected. The server validates and re-serializes the selector (at most 16 terms, 10 values per set term, 512 characters), so the raw client string never reaches kubectl.
+
 ### `POST /api/kubectl/logs`
 
 Payload schema: `namespace` (required), `pod` (required), `container` (optional), `argument` (optional string of `--previous` and/or `--since=10m|1h|24h`), `timestamps` (optional boolean, default `true`). Requires the `k8s:read` scope. Log output is bounded: the server always requests the last 5,000 lines (`--tail=5000`).
+
+When a container of the pod cannot start yet (for example `ImagePullBackOff`, `ErrImagePull`, `CreateContainerConfigError` or `CrashLoopBackOff`), the route answers `409` with `{"error":"Container is waiting: <reason>","reason":"<reason>","container":"<container>","requestId":"..."}` instead of a generic failure. The log dialog explains the reason, shows the pod conditions and warning events, and offers a retry and the previous logs.
 
 ### Resource selections
 
@@ -219,10 +226,11 @@ Payload schema: `namespace` (required), `pod` (required), `container` (optional)
 ### Error responses
 
 - `401` `{"error":"Unauthorized"}` — missing, expired or invalid credentials.
-- `400` `{"error":"...","field":"..."}` — the request was rejected by validation. `field` names the rejected payload field (`command`, `object`, `namespace`, `argument`, `pod`, `container` or `payload`) and `error` says why, e.g. `{"error":"unknown resource type \"secretx\"","field":"object"}` or `{"error":"invalid scale argument \"my-deployment\", expected <name> --replicas=<n>","field":"argument"}`.
+- `400` `{"error":"...","field":"..."}` — the request was rejected by validation. `field` names the rejected payload field (`command`, `object`, `namespace`, `argument`, `selector`, `pod`, `container` or `payload`) and `error` says why, e.g. `{"error":"unknown resource type \"secretx\"","field":"object"}` or `{"error":"invalid scale argument \"my-deployment\", expected <name> --replicas=<n>","field":"argument"}`.
 - `403` `{"error":"Access Denied","code":"FORBIDDEN"}` — the authenticated user lacks the scope required by the route.
 - `403` `{"error":"Deletion of <type> objects is not allowed"}` — the delete policy (`ALLOWED_DELETABLE_OBJECTS`) refused a `delete`.
 - `404` `{"error":"This object no longer exists — ..."}` — the object vanished between listing and the request.
+- `409` `{"error":"Container is waiting: <reason>","reason":"...","requestId":"..."}` — the pod log is not available because a container is waiting (image pull, configuration, crash loop, ...).
 - `429` `{"error":"Server is busy, please retry","requestId":"..."}` — the Kubernetes request queue is full (`REQUEST_QUEUE_MAX_LENGTH`); retry later. A CRD refresh already running returns `429` `{"error":"A CRD scan is already in progress"}`.
 - `502` `{"error":"kubectl command failed","requestId":"..."}` / `{"error":"kubectl logs failed","requestId":"..."}` — kubectl failed; the details are logged server-side under the same request id.
 - `503` `{"error":"Failed to fetch resource data","requestId":"..."}` — the resource listing could not be fetched; the details are logged server-side.

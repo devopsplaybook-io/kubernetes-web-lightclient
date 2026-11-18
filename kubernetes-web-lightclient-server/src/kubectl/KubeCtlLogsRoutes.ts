@@ -8,9 +8,63 @@ import {
   IsKubeObjectNotFoundError,
   KubeCtlExecutorGetInstance,
 } from "./KubeCtlExecutor";
-import { BuildLogsArgs } from "./KubeCtlValidation";
+import { BuildLogsArgs, IsValidObjectName } from "./KubeCtlValidation";
 
 const logger = OTelLogger().createModuleLogger("KubeCtlLogsRoutes");
+
+// kubectl reports a container that has never started as:
+//   container "app" in pod "my-pod" is waiting to start: CreateContainerConfigError
+const CONTAINER_WAITING_PATTERN =
+  /container "([^"]+)" in pod "[^"]*" is waiting to start: ([A-Za-z][A-Za-z0-9]*)/;
+
+// Only reasons the UI knows how to explain are surfaced; anything else keeps
+// the generic 502 path.
+const CONTAINER_WAITING_REASONS = new Set([
+  "ImagePullBackOff",
+  "ErrImagePull",
+  "InvalidImageName",
+  "ErrImageNeverPull",
+  "RegistryUnavailable",
+  "CreateContainerConfigError",
+  "CreateContainerError",
+  "RunContainerError",
+  "ContainerCreating",
+  "PodInitializing",
+  "CrashLoopBackOff",
+]);
+
+/**
+ * Recognize the allow-listed kubectl "container is waiting to start" failure
+ * so the UI can explain it instead of showing a raw 502. The container name is
+ * only echoed when it is a valid object name.
+ */
+export function ExtractContainerWaitingReason(
+  error: unknown,
+): { reason: string; container?: string } | null {
+  if (!error) {
+    return null;
+  }
+  const candidates: string[] = [];
+  const stderr = (error as { stderr?: unknown }).stderr;
+  if (stderr) {
+    candidates.push(
+      Buffer.isBuffer(stderr) ? stderr.toString("utf8") : String(stderr),
+    );
+  }
+  if (error instanceof Error && error.message) {
+    candidates.push(error.message);
+  }
+  for (const text of candidates) {
+    const match = CONTAINER_WAITING_PATTERN.exec(text);
+    if (match && CONTAINER_WAITING_REASONS.has(match[2])) {
+      return {
+        reason: match[2],
+        ...(IsValidObjectName(match[1]) ? { container: match[1] } : {}),
+      };
+    }
+  }
+  return null;
+}
 
 export class KubeCtlLogsRoutes {
   //
@@ -68,6 +122,18 @@ export class KubeCtlLogsRoutes {
           return res.status(404).send({
             error:
               "This object no longer exists — it may have been deleted since the list was loaded",
+          });
+        }
+        const waiting = ExtractContainerWaitingReason(error);
+        if (waiting) {
+          logger.info(
+            `[${req.id}] kubectl logs unavailable: container waiting (${waiting.reason})`,
+          );
+          return res.status(409).send({
+            error: `Container is waiting: ${waiting.reason}`,
+            reason: waiting.reason,
+            ...(waiting.container ? { container: waiting.container } : {}),
+            requestId: req.id,
           });
         }
         const normalized = NormalizeError(error);

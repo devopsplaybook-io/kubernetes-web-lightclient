@@ -6,7 +6,7 @@
       @toggle="toggleFilter"
       @clear="clearAll"
     />
-    <table class="striped" v-if="kubernetesObjectStore.data.pods.length > 0">
+    <table class="striped" v-if="itemSource.length > 0">
       <thead>
         <tr>
           <th
@@ -132,13 +132,31 @@ import {
 import { createPodFilters } from "~~/services/ListTriage";
 import { useListTriage } from "~~/composables/useListTriage";
 import ListTriageToolbar from "~~/components/ListTriageToolbar.vue";
+const props = defineProps({
+  deletable: {
+    type: Boolean,
+    default: false,
+  },
+  // Explicit pod list for the workload drill-down; null keeps the store list.
+  pods: {
+    type: Array,
+    default: null,
+  },
+  // The drill-down already fetched its pods: skip the global pod fetch.
+  autoFetch: {
+    type: Boolean,
+    default: true,
+  },
+});
 const kubernetesObjectStore = KubernetesObjectStore();
 const namespaceStore = NamespaceStore();
+
+const itemSource = computed(() => props.pods ?? kubernetesObjectStore.data.pods);
 
 const { visibleItems, onSortToggle, availableFilters, activeFilters, toggleFilter, clearAll, sortArrow, ariaSort } = useListTriage(
   "pod",
   {
-    rawItems: () => kubernetesObjectStore.data.pods,
+    rawItems: () => itemSource.value,
     accessors: {
       namespace: (pod) => pod.metadata.namespace || "",
       name: (pod) => pod.metadata.name || "",
@@ -169,12 +187,6 @@ import axios from "axios";
 import Config from "~~/services/Config.ts";
 
 export default {
-  props: {
-    deletable: {
-      type: Boolean,
-      default: false,
-    },
-  },
   data() {
     return {
       dialogDetails: {
@@ -197,7 +209,9 @@ export default {
     };
   },
   async created() {
-    KubernetesObjectStore().getPods();
+    if (this.autoFetch) {
+      KubernetesObjectStore().getPods();
+    }
     const dialogRoute = readDialogRoute(this.$route?.query);
     if (dialogRoute) {
       if (dialogRoute.kind === "details") {

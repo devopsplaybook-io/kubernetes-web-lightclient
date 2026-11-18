@@ -295,7 +295,10 @@ const CASES: ListCase[] = [
   },
 ];
 
-function mountListComponent(listCase: ListCase) {
+function mountListComponent(
+  listCase: ListCase,
+  router = { replace: vi.fn(), push: vi.fn() },
+) {
   const store = {
     data: { [listCase.storeKey]: listCase.items } as Record<string, any[]>,
     loading: false,
@@ -305,7 +308,7 @@ function mountListComponent(listCase: ListCase) {
   };
   vi.stubGlobal("KubernetesObjectStore", () => store);
   vi.stubGlobal("NamespaceStore", () => ({}));
-  vi.stubGlobal("useRouter", () => ({ replace: vi.fn() }));
+  vi.stubGlobal("useRouter", () => router);
   vi.stubGlobal("useRoute", () => ({ path: "/kubernetes", query: {} }));
   const wrapper = mount(listCase.component, {
     props: listCase.props || {},
@@ -313,7 +316,7 @@ function mountListComponent(listCase: ListCase) {
       config: {
         globalProperties: {
           $route: { path: "/kubernetes", query: {} },
-          $router: { replace: vi.fn() },
+          $router: router,
         },
       },
     },
@@ -344,6 +347,52 @@ describe("list components render regression", () => {
         rows.length,
         `${listCase.label} should render one row per item`,
       ).toBe(listCase.items.length);
+      wrapper.unmount();
+    },
+  );
+
+  const WORKLOAD_LISTS: Array<[string, string]> = [
+    ["DeploymentList", "deployment"],
+    ["StatefulSetList", "statefulset"],
+    ["DaemonSetList", "daemonset"],
+    ["JobList", "job"],
+    ["CronJobList", "cronjob"],
+  ];
+
+  it.each(WORKLOAD_LISTS)(
+    "%s opens the pods drill-down and the merged logs",
+    async (label, kind) => {
+      const listCase = CASES.find((c) => c.label === label) as ListCase;
+      const router = { replace: vi.fn(), push: vi.fn() };
+      const wrapper = mountListComponent(listCase, router);
+      await flushPromises();
+
+      const podsAction = wrapper.find(".bi-collection");
+      expect(podsAction.exists()).toBe(true);
+      await podsAction.trigger("click");
+      expect(router.push).toHaveBeenLastCalledWith({
+        path: "/kubernetes",
+        query: {
+          objectType: "pod",
+          workload: kind,
+          workloadName: "obj-1",
+          namespace: "default",
+        },
+      });
+
+      const logsAction = wrapper.find(".bi-file-text-fill");
+      expect(logsAction.exists()).toBe(true);
+      await logsAction.trigger("click");
+      expect(router.push).toHaveBeenLastCalledWith({
+        path: "/kubernetes",
+        query: {
+          objectType: "pod",
+          workload: kind,
+          workloadName: "obj-1",
+          namespace: "default",
+          dialog: "merged-logs",
+        },
+      });
       wrapper.unmount();
     },
   );

@@ -1,0 +1,12 @@
+{
+  "advisories": [
+    {
+      "id": "GHSA-fc5q-39xc-vjpf",
+      "package": "picomatch",
+      "scope": "runtime",
+      "reason": "ReDoS through single-branch repeated extglobs; no patched picomatch release exists yet (4.0.7, the latest, is affected). It is only reachable through Nuxt build/tooling glob matching (vite, unplugin, nitropack, rollup plugins), not through request handling.",
+      "owner": "kubernetes-web-lightclient maintainers",
+      "expires": "2026-12-18"
+    }
+  ]
+}

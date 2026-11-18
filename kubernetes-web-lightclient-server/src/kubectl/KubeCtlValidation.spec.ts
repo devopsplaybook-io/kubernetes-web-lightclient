@@ -4,6 +4,7 @@ import {
   IsAllowedResourceType,
   IsValidNamespace,
   IsValidObjectName,
+  NormalizeLabelSelector,
 } from "./KubeCtlValidation";
 
 // Payload families that must never reach kubectl: newline chaining,
@@ -312,6 +313,157 @@ describe("KubeCtlValidation", () => {
         error: "command create is only supported for object job",
         field: "object",
       });
+    });
+  });
+
+  describe("label selectors", () => {
+    test.each([
+      ["app=web", "app=web"],
+      ["app==web", "app=web"],
+      ["app==web, tier=api", "app=web,tier=api"],
+      ["app in (web,api)", "app in (web,api)"],
+      ["example.com/app=web", "example.com/app=web"],
+      ["app=", "app="],
+      ["app=Upper_Case.v1-test", "app=Upper_Case.v1-test"],
+      ["a in (x)", "a in (x)"],
+    ])("canonicalizes %j to %j", (input, expected) => {
+      expect(NormalizeLabelSelector(input)).toEqual({
+        ok: true,
+        selector: expected,
+      });
+    });
+
+    test.each([
+      "app!=web",
+      "app notin (x)",
+      "app",
+      "app in ()",
+      "app in (x,,y)",
+      "app=web,app=api",
+      "app = web",
+      "app=we b",
+      "app=web\nx",
+      "app=web;id",
+      "app=$(id)",
+      "app=`id`",
+      "app=web|id",
+      "app=web$(touch${IFS}/tmp/pwned)",
+      "",
+      "   ",
+    ])("rejects unsupported selector %j", (input) => {
+      expect(NormalizeLabelSelector(input).ok).toBe(false);
+    });
+
+    test("rejects the wrong selector types and length caps", () => {
+      expect(NormalizeLabelSelector(null).ok).toBe(false);
+      expect(NormalizeLabelSelector(42).ok).toBe(false);
+      expect(NormalizeLabelSelector(`${"a".repeat(64)}=web`).ok).toBe(false);
+      expect(
+        NormalizeLabelSelector(`${"a".repeat(254)}/app=web`).ok,
+      ).toBe(false);
+      expect(
+        NormalizeLabelSelector(`app=${"a".repeat(64)}`).ok,
+      ).toBe(false);
+      expect(
+        NormalizeLabelSelector(
+          Array.from({ length: 17 }, (_, i) => `k${i}=v`).join(","),
+        ).ok,
+      ).toBe(false);
+      expect(
+        NormalizeLabelSelector(
+          `app in (${Array.from({ length: 11 }, (_, i) => `v${i}`).join(",")})`,
+        ).ok,
+      ).toBe(false);
+      expect(
+        NormalizeLabelSelector(`app=${"b".repeat(510)}`).ok,
+      ).toBe(false);
+    });
+
+    test("rebuilds a selector get from validated parts only", () => {
+      expect(
+        BuildCommandArgs({
+          object: "pod",
+          command: "get",
+          namespace: "default",
+          selector: "app==web, tier in (api,worker)",
+        }),
+      ).toEqual({
+        ok: true,
+        argv: [
+          "get",
+          "pod",
+          "-n",
+          "default",
+          "-l",
+          "app=web,tier in (api,worker)",
+          "-o",
+          "json",
+        ],
+      });
+      expect(
+        BuildCommandArgs({
+          object: "pod",
+          command: "get",
+          namespace: "default",
+          selector: "app=web",
+          noJson: true,
+        }),
+      ).toEqual({
+        ok: true,
+        argv: ["get", "pod", "-n", "default", "-l", "app=web"],
+      });
+    });
+
+    test("rejects selector combinations with the right field", () => {
+      expect(
+        BuildCommandArgs({
+          object: "deployment",
+          command: "get",
+          namespace: "default",
+          selector: "app=web",
+        }),
+      ).toMatchObject({ ok: false, field: "selector" });
+      expect(
+        BuildCommandArgs({
+          object: "pod",
+          command: "get",
+          namespace: "default",
+          argument: "my-pod",
+          selector: "app=web",
+        }),
+      ).toMatchObject({
+        ok: false,
+        error: "argument cannot be combined with selector",
+        field: "argument",
+      });
+      expect(
+        BuildCommandArgs({
+          object: "pod",
+          command: "get",
+          selector: "app=web",
+        }),
+      ).toMatchObject({
+        ok: false,
+        error: "namespace is required with a label selector",
+        field: "namespace",
+      });
+      expect(
+        BuildCommandArgs({
+          object: "pod",
+          command: "get",
+          namespace: "default",
+          selector: "app!=web",
+        }),
+      ).toMatchObject({ ok: false, field: "selector" });
+      expect(
+        BuildCommandArgs({
+          object: "pod",
+          command: "delete",
+          namespace: "default",
+          argument: "my-pod",
+          selector: "app=web",
+        }).ok,
+      ).toBe(false);
     });
   });
 

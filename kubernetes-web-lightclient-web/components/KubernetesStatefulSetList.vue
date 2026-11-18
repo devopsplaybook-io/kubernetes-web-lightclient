@@ -28,6 +28,8 @@
           >Ready {{ sortArrow("ready") }}</th>
           <th>Details</th>
           <th>Restart</th>
+          <th>Pods</th>
+          <th>Logs</th>
           <th v-if="deletable">Delete</th>
         </tr>
       </thead>
@@ -62,6 +64,30 @@
               class="bi bi-arrow-clockwise"
               v-on:click="
                 statefulsetRestart(
+                  kubeObject.metadata.namespace,
+                  kubeObject.metadata.name,
+                )
+              "
+            ></i>
+          </td>
+          <td>
+            <i
+              class="bi bi-collection"
+              title="Pods"
+              v-on:click="
+                openWorkloadPods(
+                  kubeObject.metadata.namespace,
+                  kubeObject.metadata.name,
+                )
+              "
+            ></i>
+          </td>
+          <td>
+            <i
+              class="bi bi-file-text-fill"
+              title="Merged logs"
+              v-on:click="
+                openWorkloadLogs(
                   kubeObject.metadata.namespace,
                   kubeObject.metadata.name,
                 )
@@ -132,6 +158,7 @@ import {
 } from "~~/services/DialogDeepLink";
 import axios from "axios";
 import Config from "~~/services/Config.ts";
+import { WorkloadDrilldownQuery } from "~~/services/WorkloadPods";
 
 export default {
   props: {
@@ -170,6 +197,20 @@ export default {
     }
   },
   methods: {
+    openWorkloadPods(namespace, name) {
+      return this.$router.push({
+        path: this.$route.path,
+        query: WorkloadDrilldownQuery("statefulset", name, namespace),
+      });
+    },
+    openWorkloadLogs(namespace, name) {
+      return this.$router.push({
+        path: this.$route.path,
+        query: WorkloadDrilldownQuery("statefulset", name, namespace, {
+          mergedLogs: true,
+        }),
+      });
+    },
     confirmDelete(kubeObject) {
       this.dialogConfirmDelete = {
         enable: true,

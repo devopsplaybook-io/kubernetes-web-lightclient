@@ -7,6 +7,25 @@ const OBJECT_NAME_REGEX = /^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/;
 const NAMESPACE_REGEX = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
 const MAX_NAME_LENGTH = 253;
 
+// Kubernetes label syntax: the key prefix is a DNS subdomain, the key name is
+// an RFC 1035 label segment, and values allow upper case, '.', '-' and '_'.
+const LABEL_KEY_NAME_REGEX = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
+const LABEL_VALUE_REGEX = /^([A-Za-z0-9]([A-Za-z0-9._-]{0,61}[A-Za-z0-9])?)?$/;
+const MAX_LABEL_KEY_LENGTH = 253 + 1 + 63;
+const MAX_LABEL_SELECTOR_LENGTH = 512;
+const MAX_LABEL_SELECTOR_TERMS = 16;
+const MAX_LABEL_SELECTOR_VALUES = 10;
+
+function HasControlCharacters(value: string): boolean {
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i);
+    if (code <= 0x1f || code === 0x7f) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export type ValidationErrorField =
   | "command"
   | "object"
@@ -14,6 +33,7 @@ export type ValidationErrorField =
   | "argument"
   | "pod"
   | "container"
+  | "selector"
   | "payload";
 
 export type ArgumentBuildResult =
@@ -64,7 +84,163 @@ export interface CommandPayload {
   object: string;
   namespace?: string;
   argument?: string;
+  selector?: string;
   noJson?: boolean;
+}
+
+export type LabelSelectorResult =
+  | { ok: true; selector: string }
+  | { ok: false; error: string };
+
+function IsValidLabelKey(key: string): boolean {
+  if (key.length === 0 || key.length > MAX_LABEL_KEY_LENGTH) {
+    return false;
+  }
+  const parts = key.split("/");
+  if (parts.length === 1) {
+    return LABEL_KEY_NAME_REGEX.test(parts[0]);
+  }
+  if (parts.length !== 2) {
+    return false;
+  }
+  const [prefix, name] = parts;
+  return (
+    prefix.length > 0 &&
+    prefix.length <= MAX_NAME_LENGTH &&
+    OBJECT_NAME_REGEX.test(prefix) &&
+    LABEL_KEY_NAME_REGEX.test(name)
+  );
+}
+
+function IsValidLabelValue(value: string): boolean {
+  return value.length <= 63 && LABEL_VALUE_REGEX.test(value);
+}
+
+function SplitSelectorTerms(selector: string): string[] | null {
+  const terms: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < selector.length; i++) {
+    const character = selector[i];
+    if (character === "(") {
+      depth++;
+      if (depth > 1) {
+        return null;
+      }
+    } else if (character === ")") {
+      depth--;
+      if (depth < 0) {
+        return null;
+      }
+    } else if (character === "," && depth === 0) {
+      terms.push(selector.slice(start, i));
+      start = i + 1;
+    }
+  }
+  if (depth !== 0) {
+    return null;
+  }
+  terms.push(selector.slice(start));
+  return terms;
+}
+
+/**
+ * Parse and canonicalize a Kubernetes label selector for `kubectl get -l`.
+ * Only comma-separated equality (`key=value`, `key==value`) and set-based
+ * (`key in (v1,v2)`) terms are accepted; every key and value is validated
+ * against the Kubernetes label syntax and length caps. The selector is always
+ * re-serialized from the validated parts, so the raw request string never
+ * reaches the argument vector.
+ */
+export function NormalizeLabelSelector(selector: unknown): LabelSelectorResult {
+  if (typeof selector !== "string" || selector.trim() === "") {
+    return { ok: false, error: "label selector is required" };
+  }
+  if (selector.length > MAX_LABEL_SELECTOR_LENGTH) {
+    return {
+      ok: false,
+      error: `label selector exceeds ${MAX_LABEL_SELECTOR_LENGTH} characters`,
+    };
+  }
+  if (HasControlCharacters(selector)) {
+    return { ok: false, error: "label selector contains control characters" };
+  }
+  const rawTerms = SplitSelectorTerms(selector);
+  if (!rawTerms) {
+    return { ok: false, error: "malformed label selector" };
+  }
+  if (rawTerms.length > MAX_LABEL_SELECTOR_TERMS) {
+    return {
+      ok: false,
+      error: `label selector exceeds ${MAX_LABEL_SELECTOR_TERMS} terms`,
+    };
+  }
+
+  const canonicalTerms: string[] = [];
+  const seenKeys = new Set<string>();
+  for (const rawTerm of rawTerms) {
+    const term = rawTerm.trim();
+    if (term === "") {
+      return { ok: false, error: "empty label selector term" };
+    }
+
+    let key: string;
+    let canonical: string;
+    const setMatch = /^([^\s()=!,]+) in \(([^()]*)\)$/.exec(term);
+    if (setMatch) {
+      key = setMatch[1];
+      if (setMatch[2] === "") {
+        return { ok: false, error: "empty label selector set term" };
+      }
+      const rawValues = setMatch[2].split(",");
+      if (rawValues.length > MAX_LABEL_SELECTOR_VALUES) {
+        return {
+          ok: false,
+          error: `label selector set term exceeds ${MAX_LABEL_SELECTOR_VALUES} values`,
+        };
+      }
+      for (const value of rawValues) {
+        if (value === "" || !IsValidLabelValue(value)) {
+          return {
+            ok: false,
+            error: `invalid label value ${rejected(value)}`,
+          };
+        }
+      }
+      canonical = `${key} in (${rawValues.join(",")})`;
+    } else {
+      const doubleEquals = term.indexOf("==");
+      const equals = term.indexOf("=");
+      if (equals < 0) {
+        return {
+          ok: false,
+          error: `unsupported label selector term ${rejected(term)}, allowed: key=value, key==value, key in (v1,v2)`,
+        };
+      }
+      const separatorIndex = doubleEquals >= 0 ? doubleEquals : equals;
+      key = term.slice(0, separatorIndex);
+      const value = term.slice(
+        separatorIndex + (doubleEquals >= 0 ? 2 : 1),
+      );
+      if (!IsValidLabelValue(value)) {
+        return {
+          ok: false,
+          error: `invalid label value ${rejected(value)}`,
+        };
+      }
+      canonical = `${key}=${value}`;
+    }
+
+    if (!IsValidLabelKey(key)) {
+      return { ok: false, error: `invalid label key ${rejected(key)}` };
+    }
+    if (seenKeys.has(key)) {
+      return { ok: false, error: `duplicate label key ${rejected(key)}` };
+    }
+    seenKeys.add(key);
+    canonicalTerms.push(canonical);
+  }
+  return { ok: true, selector: canonicalTerms.join(",") };
 }
 
 /**
@@ -81,6 +257,13 @@ export function BuildCommandArgs(payload: CommandPayload): ArgumentBuildResult {
       ok: false,
       error: `unknown resource type ${rejected(payload.object)}`,
       field: "object",
+    };
+  }
+  if (payload.selector !== undefined && payload.command !== "get") {
+    return {
+      ok: false,
+      error: "selector is only supported for command get",
+      field: "selector",
     };
   }
 
@@ -102,6 +285,49 @@ export function BuildCommandArgs(payload: CommandPayload): ArgumentBuildResult {
 
   switch (payload.command) {
     case "get": {
+      if (payload.selector !== undefined) {
+        if (payload.object !== "pod") {
+          return {
+            ok: false,
+            error: "selector is only supported for object pod",
+            field: "selector",
+          };
+        }
+        if (argument !== "") {
+          return {
+            ok: false,
+            error: "argument cannot be combined with selector",
+            field: "argument",
+          };
+        }
+        if (!payload.namespace) {
+          return {
+            ok: false,
+            error: "namespace is required with a label selector",
+            field: "namespace",
+          };
+        }
+        const normalized = NormalizeLabelSelector(payload.selector);
+        if (normalized.ok === false) {
+          return {
+            ok: false,
+            error: normalized.error,
+            field: "selector",
+          };
+        }
+        const argv = [
+          "get",
+          "pod",
+          "-n",
+          payload.namespace,
+          "-l",
+          normalized.selector,
+        ];
+        if (payload.noJson !== true) {
+          argv.push("-o", "json");
+        }
+        return { ok: true, argv };
+      }
       const argv = ["get", payload.object];
       if (argument === "-A" || argument === "--all-namespaces") {
         argv.push("-A");
