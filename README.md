@@ -13,6 +13,8 @@ Kubernetes Web LightClient is a web-based user interface for Kubernetes. In its 
 - For Node: CPU and Memory information
 - Read-only YAML manifest view per object: the details dialog renders `describe` and the raw manifest as YAML with a copy button
 - Shareable per-object deep links: an open details or logs dialog is encoded in the URL query (`dialog`, `name`, `dialogNamespace`) so views survive a refresh and can be bookmarked
+- Global search palette: `Ctrl/Cmd+K` (or `/` when focus is not in an input) searches all enabled resource types and namespaces by object name, namespace, labels, container image, node and IP/pod IP; results are grouped by type with status context and open the object details (Enter) or the filtered list (Shift+Enter) through stable URLs
+- Related tab in the details dialog: owner chain, workload pods, Deployment ReplicaSets, Services and Ingresses selecting the object's labels, referenced ConfigMaps/Secrets, the pod's node and the object's Events — every entry navigates to its own details or filtered view
 - Optional LLM Recommendations: an analysis and advice on the current cluster, generated on a schedule (default: every Monday) or on demand, displayed in the Stats section and sent to the [notifications service](https://github.com/devopsplaybook-io/notifications) when enabled; notifications are sent with source `kubernetes-web-lightclient` suffixed with the normalized application name (e.g. `kubernetes-web-lightclient-kubernetes`) when `APPLICATION_TITLE` is set
 - Shared web UI with persisted theme preferences, accessible alerts and loading indicators, and offline status
 
@@ -47,12 +49,12 @@ kubectl kustomize . | kubectl apply -f -
 
 ## Releases and image tags
 
-The current release is `0.50.0` (server `0.13.0`); the container image is `devopsplaybookio/kubernetes-web-lightclient`.
+The current release is `0.51.0` (server `0.13.0`); the container image is `devopsplaybookio/kubernetes-web-lightclient`.
 
 - Every pull request publishes an immutable build tagged `beta-pr-<n>`, so a change can be tested before it is merged.
-- Merging the pull request promotes the exact tested image digest to the release tags `0.50.0`, `0.50`, `0`, `latest` and `beta`. Only the full `X.Y.Z` tag is immutable; the other tags are moving aliases.
+- Merging the pull request promotes the exact tested image digest to the release tags `0.51.0`, `0.51`, `0`, `latest` and `beta`. Only the full `X.Y.Z` tag is immutable; the other tags are moving aliases.
 - Pin the full `X.Y.Z` tag in production — the example overlay in `docs/deployments/kubernetes/kubernetes-web-lightclient/kustomization.yaml` does. A pinned deployment never changes silently and reports an unambiguous version. Use `beta` or `latest` only for non-production or explicitly auto-updating environments.
-- A deployment tracking a moving alias moves to a new release only after the alias points at it and the pod is recreated (for example with `kubectl rollout restart`). Environments that track `beta` therefore need a restart, or a switch to the pinned tag, to pick up `0.50.0`.
+- A deployment tracking a moving alias moves to a new release only after the alias points at it and the pod is recreated (for example with `kubectl rollout restart`). Environments that track `beta` therefore need a restart, or a switch to the pinned tag, to pick up `0.51.0`.
 
 ## Configuration
 

@@ -33,7 +33,7 @@ function WorkloadError(error: unknown, fallback: string): Error {
   return new Error(fallback);
 }
 
-async function PostKubectl(
+export async function PostKubectl(
   payload: Record<string, unknown>,
   fallback: string,
 ): Promise<any> {
@@ -49,7 +49,7 @@ async function PostKubectl(
   }
 }
 
-async function GetList(object: string, namespace: string): Promise<any[]> {
+export async function GetList(object: string, namespace: string): Promise<any[]> {
   const result = await PostKubectl(
     { object, command: "get", namespace },
     `Failed to load ${object} objects.`,

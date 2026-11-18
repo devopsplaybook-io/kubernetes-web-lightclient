@@ -68,6 +68,16 @@ describe("DialogDetails", () => {
     wrapper.unmount();
   });
 
+  it("renders the Related tab without loading it on open", async () => {
+    describeMock.mockResolvedValue("DESCRIBE TEXT");
+
+    const wrapper = await mountDialog();
+
+    expect(tabButton("Related")).toBeTruthy();
+    expect(bodyText()).not.toContain("Loading related objects");
+    wrapper.unmount();
+  });
+
   it("shows a loading placeholder while describe is pending", async () => {
     describeMock.mockReturnValue(new Promise(() => {}));
 

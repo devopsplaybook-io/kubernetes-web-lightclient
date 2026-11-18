@@ -13,12 +13,37 @@ export interface ResourceType {
 }
 
 export class ResourceService {
-  static async getAvailableTypes(): Promise<ResourceType[]> {
-    const response = await axios.get(
-      `${(await Config.get()).SERVER_URL}/resources/types`,
-      await AuthService.getAuthHeader(),
-    );
-    return response.data.types || [];
+  private static availableTypesPromise: Promise<ResourceType[]> | null = null;
+
+  /**
+   * Resource catalog, memoized for the palette and the details dialog. Pass
+   * `force` when the caller needs the live catalog (e.g. after a CRD scan).
+   */
+  static async getAvailableTypes(
+    force: boolean = false,
+  ): Promise<ResourceType[]> {
+    if (force) {
+      ResourceService.availableTypesPromise = null;
+    }
+    if (!ResourceService.availableTypesPromise) {
+      const request = (async () => {
+        const response = await axios.get(
+          `${(await Config.get()).SERVER_URL}/resources/types`,
+          await AuthService.getAuthHeader(),
+        );
+        return response.data.types || [];
+      })();
+      ResourceService.availableTypesPromise = request.catch((error) => {
+        ResourceService.availableTypesPromise = null;
+        throw error;
+      });
+    }
+    return ResourceService.availableTypesPromise;
+  }
+
+  /** Drop the memoized catalog (used by tests and after a forced refresh). */
+  static clearAvailableTypesCache(): void {
+    ResourceService.availableTypesPromise = null;
   }
 
   static async getUserSelections(): Promise<string[]> {
