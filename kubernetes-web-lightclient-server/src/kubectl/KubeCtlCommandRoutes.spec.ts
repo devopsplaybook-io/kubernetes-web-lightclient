@@ -334,6 +334,63 @@ describe("KubeCtlCommandRoutes", () => {
     expect(auditLines()).toEqual([]);
   });
 
+  test("executes a validated selector get with the canonical selector", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/kubectl/command/",
+      payload: {
+        object: "pod",
+        command: "get",
+        namespace: "default",
+        selector: "app==web, tier in (api,worker)",
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(mockExecuteCommand).toHaveBeenCalledWith(
+      [
+        "get",
+        "pod",
+        "-n",
+        "default",
+        "-l",
+        "app=web,tier in (api,worker)",
+        "-o",
+        "json",
+      ],
+      20000,
+    );
+  });
+
+  test("rejects an unlisted selector and selector+argument with 400", async () => {
+    const badSelector = await app.inject({
+      method: "POST",
+      url: "/api/kubectl/command/",
+      payload: {
+        object: "pod",
+        command: "get",
+        namespace: "default",
+        selector: "app!=web",
+      },
+    });
+    expect(badSelector.statusCode).toBe(400);
+    expect(badSelector.json().field).toBe("selector");
+
+    const combined = await app.inject({
+      method: "POST",
+      url: "/api/kubectl/command/",
+      payload: {
+        object: "pod",
+        command: "get",
+        namespace: "default",
+        argument: "my-pod",
+        selector: "app=web",
+      },
+    });
+    expect(combined.statusCode).toBe(400);
+    expect(combined.json().field).toBe("argument");
+    expect(mockExecuteCommand).not.toHaveBeenCalled();
+  });
+
   test("refuses deletion of non-deletable object types with 403", async () => {
     const res = await app.inject({
       method: "POST",

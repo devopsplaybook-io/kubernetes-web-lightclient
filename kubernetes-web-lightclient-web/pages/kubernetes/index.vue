@@ -64,15 +64,26 @@
           kubernetesObjectStore.hasEverLoaded || !kubernetesObjectStore.loading
         "
       >
-        <KubernetesPodList
-          v-if="objectType === 'pod'"
+        <WorkloadPodView
+          v-if="drilldown"
+          ref="workloadView"
+          :kind="drilldown.kind"
+          :name="drilldown.name"
+          :namespace="drilldown.namespace"
+          :search="searchFilter"
           :deletable="isCurrentTypeDeletable"
+          :open-merged-logs="$route.query.dialog === 'merged-logs'"
         />
-        <KubernetesEventList v-else-if="objectType === 'events'" />
-        <KubernetesDeploymentList
-          v-else-if="objectType === 'deployment'"
-          :deletable="isCurrentTypeDeletable"
-        />
+        <template v-else>
+          <KubernetesPodList
+            v-if="objectType === 'pod'"
+            :deletable="isCurrentTypeDeletable"
+          />
+          <KubernetesEventList v-else-if="objectType === 'events'" />
+          <KubernetesDeploymentList
+            v-else-if="objectType === 'deployment'"
+            :deletable="isCurrentTypeDeletable"
+          />
         <KubernetesStatefulSetList
           v-else-if="objectType === 'statefulset'"
           :deletable="isCurrentTypeDeletable"
@@ -145,14 +156,15 @@
           v-else-if="objectType === 'customresourcedefinition'"
           :deletable="isCurrentTypeDeletable"
         />
-        <KubernetesObjectList
-          v-else-if="objectType"
-          :key="objectType"
-          :objectType="objectType"
-          :isNamespaced="isCurrentTypeNamespaced"
-          :isCrd="true"
-          :deletable="isCurrentTypeDeletable"
-        />
+          <KubernetesObjectList
+            v-else-if="objectType"
+            :key="objectType"
+            :objectType="objectType"
+            :isNamespaced="isCurrentTypeNamespaced"
+            :isCrd="true"
+            :deletable="isCurrentTypeDeletable"
+          />
+        </template>
       </div>
     </div>
   </div>
@@ -188,13 +200,18 @@ import KubernetesClusterRoleList from "~~/components/KubernetesClusterRoleList.v
 import KubernetesClusterRoleBindingList from "~~/components/KubernetesClusterRoleBindingList.vue";
 import KubernetesCustomResourceDefinitionList from "~~/components/KubernetesCustomResourceDefinitionList.vue";
 import KubernetesObjectList from "~~/components/KubernetesObjectList.vue";
+import WorkloadPodView from "~~/components/WorkloadPodView.vue";
+import { ParseWorkloadRoute } from "~~/services/WorkloadPods";
 
 export default {
   data() {
     const route = useRoute();
     const namespaceStore = NamespaceStore();
+    // Parse the workload drill-down synchronously so the first render never
+    // flashes the plain pod list before the drill-down takes over.
+    const drilldown = ParseWorkloadRoute(route.query);
     return {
-      objectType: route.query.objectType || "pod",
+      objectType: drilldown ? "pod" : route.query.objectType || "pod",
       searchFilter: route.query.search || "",
       refreshIntervalId: null,
       refreshIntervalValue: RefreshIntervalService.get(),
@@ -203,6 +220,10 @@ export default {
       availableTypes: [],
       typesLoaded: false,
       kubernetesObjectStore: KubernetesObjectStore(),
+      drilldown,
+      drilldownKey: drilldown
+        ? `${drilldown.kind}/${drilldown.namespace}/${drilldown.name}`
+        : "",
     };
   },
   computed: {
@@ -265,8 +286,9 @@ export default {
 
     // Ensure first objectType is a selected one, but never override a type
     // explicitly requested in the URL (e.g. a shared deep link to a type the
-    // viewer has not enabled in their resource selection)
-    if (!route.query.objectType) {
+    // viewer has not enabled in their resource selection) or the pod type
+    // implied by a workload drill-down link.
+    if (!route.query.objectType && !this.drilldown) {
       const selectedIds = KubernetesObjectStore().selectedTypes;
       if (selectedIds.length > 0 && !selectedIds.includes(this.objectType)) {
         this.objectType = selectedIds[0];
@@ -295,7 +317,18 @@ export default {
     }
   },
   watch: {
+    "$route.query": {
+      deep: true,
+      handler(query) {
+        this.applyDrilldownFromRoute(query);
+      },
+    },
     objectType(newType) {
+      // The drill-down owns objectType while it is active; the query watcher
+      // restores the plain list state when the drill-down is left.
+      if (this.drilldown) {
+        return;
+      }
       // Reset namespace if type is not namespaced
       const typeInfo = this.availableTypes.find((t) => t.id === newType);
       if (typeInfo && !typeInfo.namespaced) {
@@ -321,6 +354,9 @@ export default {
       delete query.dialog;
       delete query.name;
       delete query.dialogNamespace;
+      // Workload drill-downs do not survive object type switches either
+      delete query.workload;
+      delete query.workloadName;
       if (typeInfo && typeInfo.namespaced && this.selectedNamespace !== "*") {
         query.namespace = this.selectedNamespace;
       } else {
@@ -336,8 +372,63 @@ export default {
     },
   },
   methods: {
+    applyDrilldownFromRoute(query) {
+      const next = ParseWorkloadRoute(query || {});
+      const nextKey = next
+        ? `${next.kind}/${next.namespace}/${next.name}`
+        : "";
+      if (nextKey === this.drilldownKey) {
+        // Same drill-down: nothing to reinitialize (only search/dialog
+        // parameters may have changed).
+        this.drilldown = next;
+        return;
+      }
+      this.drilldownKey = nextKey;
+      this.drilldown = next;
+      if (next) {
+        this.objectType = "pod";
+        this.selectedNamespace = next.namespace;
+        this.searchFilter = query.search || "";
+        this.kubernetesObjectStore.setFilterNamespace(next.namespace);
+        this.kubernetesObjectStore.setFilterKeyword(this.searchFilter);
+        ListPaginationService.reset("pod");
+        return;
+      }
+      // Left the drill-down: restore the plain list for the target type
+      const type = query.objectType || "pod";
+      const namespace =
+        query.namespace && query.namespace !== "*" ? query.namespace : "*";
+      this.objectType = type;
+      this.selectedNamespace = namespace;
+      this.searchFilter = query.search || "";
+      this.kubernetesObjectStore.setFilterNamespace(
+        namespace === "*" ? "" : namespace,
+      );
+      this.kubernetesObjectStore.setFilterKeyword(this.searchFilter);
+      ListPaginationService.reset(type);
+      KubernetesObjectStore().invalidateAndRefresh(type);
+    },
+    exitDrilldown() {
+      if (!this.drilldown) {
+        return;
+      }
+      this.drilldown = null;
+      this.drilldownKey = "";
+      const router = useRouter();
+      const route = useRoute();
+      const query = { ...route.query };
+      delete query.workload;
+      delete query.workloadName;
+      router.replace({
+        path: route.path,
+        query,
+      });
+    },
     async onObjectTypeChange(event) {
       const newType = event.target.value;
+      if (this.drilldown) {
+        this.exitDrilldown();
+      }
       try {
         // Wait for the dialog deep link to be removed before mounting the
         // list of the new type: otherwise it reads the stale route and
@@ -349,6 +440,10 @@ export default {
       ListPaginationService.reset(newType);
     },
     refreshObject() {
+      if (this.drilldown && this.$refs.workloadView) {
+        this.$refs.workloadView.refresh();
+        return;
+      }
       KubernetesObjectStore().refreshLast();
     },
     onKeywordChanged: debounce(async function (e) {
@@ -379,6 +474,7 @@ export default {
       });
     },
     onNamespaceChange() {
+      this.exitDrilldown();
       KubernetesObjectStore().setFilterNamespace(
         this.selectedNamespace && this.selectedNamespace !== "*"
           ? this.selectedNamespace
@@ -388,6 +484,8 @@ export default {
       const router = useRouter();
       const route = useRoute();
       const query = { ...route.query };
+      delete query.workload;
+      delete query.workloadName;
       if (this.selectedNamespace === "*") {
         delete query.namespace;
       } else {

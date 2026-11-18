@@ -3,6 +3,8 @@ import { PreferencesService as CommonPreferencesService } from "@devopsplaybook.
 export const PreferencesService = {
   LOG_WRAP_KEY: "LOGS_WRAP",
   LOG_TIMESTAMPS_KEY: "LOGS_TIMESTAMPS",
+  LOG_FILTER_REGEX_KEY: "LOGS_FILTER_REGEX",
+  LOG_FILTER_CASE_KEY: "LOGS_FILTER_CASE",
   EVENTS_WARNINGS_ONLY: "EVENTS_WARNINGS_ONLY",
   getStoredBoolean(key: string, defaultValue: boolean): boolean {
     const stored = CommonPreferencesService.get(key);

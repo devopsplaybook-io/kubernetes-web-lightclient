@@ -113,6 +113,7 @@ export class KubeCtlCommandRoutes {
         object: string;
         command: string;
         argument?: string;
+        selector?: string;
         noJson?: boolean;
       };
     }

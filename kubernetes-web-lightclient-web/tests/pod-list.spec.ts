@@ -43,7 +43,10 @@ function makePod(
   };
 }
 
-function mountWithPods(pods: Record<string, any>[]) {
+function mountWithPods(
+  pods: Record<string, any>[],
+  props: Record<string, any> = {},
+) {
   const store = {
     data: { pods } as { [key: string]: any[] },
     loading: false,
@@ -52,6 +55,7 @@ function mountWithPods(pods: Record<string, any>[]) {
   vi.stubGlobal("KubernetesObjectStore", () => store);
   vi.stubGlobal("NamespaceStore", () => ({}));
   const wrapper = mount(KubernetesPodList, {
+    props,
     global: {
       config: {
         globalProperties: {
@@ -61,7 +65,7 @@ function mountWithPods(pods: Record<string, any>[]) {
       },
     },
   });
-  return wrapper;
+  return { wrapper, store };
 }
 
 function rowNames(wrapper: any): string[] {
@@ -89,7 +93,7 @@ afterEach(() => {
 
 describe("KubernetesPodList", () => {
   it("renders one row per pod with the expected columns", async () => {
-    const wrapper = mountWithPods([makePod("pod-a", true, 0)]);
+    const { wrapper } = mountWithPods([makePod("pod-a", true, 0)]);
 
     const rows = wrapper.findAll("tbody tr");
     expect(rows).toHaveLength(1);
@@ -107,7 +111,7 @@ describe("KubernetesPodList", () => {
   });
 
   it("sorts by Restarts descending on first click and toggles direction", async () => {
-    const wrapper = mountWithPods([
+    const { wrapper } = mountWithPods([
       makePod("pod-zero", true, 0),
       makePod("pod-three", true, 3),
       makePod("pod-one", true, 1),
@@ -122,7 +126,7 @@ describe("KubernetesPodList", () => {
   });
 
   it("marks sorted headers with aria-sort", async () => {
-    const wrapper = mountWithPods([makePod("pod-a", true, 0)]);
+    const { wrapper } = mountWithPods([makePod("pod-a", true, 0)]);
 
     const header = await clickHeader(wrapper, "Pod");
     expect(header.attributes("aria-sort")).toBe("ascending");
@@ -130,7 +134,7 @@ describe("KubernetesPodList", () => {
   });
 
   it("hides fully ready pods with the Not ready filter", async () => {
-    const wrapper = mountWithPods([
+    const { wrapper } = mountWithPods([
       makePod("pod-ready", true, 0),
       makePod("pod-crashloop", false, 5),
     ]);
@@ -150,7 +154,7 @@ describe("KubernetesPodList", () => {
   });
 
   it("hides pods without restarts with the Restarts > 0 filter", async () => {
-    const wrapper = mountWithPods([
+    const { wrapper } = mountWithPods([
       makePod("pod-ready", true, 0),
       makePod("pod-restarted", true, 2),
     ]);
@@ -166,7 +170,7 @@ describe("KubernetesPodList", () => {
   });
 
   it("composes filters and clears them with the Clear button", async () => {
-    const wrapper = mountWithPods([
+    const { wrapper } = mountWithPods([
       makePod("pod-ready", true, 0),
       makePod("pod-restarted-ready", true, 2),
       makePod("pod-restarted-crashloop", false, 2),
@@ -198,7 +202,7 @@ describe("KubernetesPodList", () => {
       sortDir: "desc",
       filters: ["not-ready"],
     };
-    const wrapper = mountWithPods([
+    const { wrapper } = mountWithPods([
       makePod("pod-ready", true, 0),
       makePod("pod-crashloop", false, 5),
       makePod("pod-slow", false, 1),
@@ -222,7 +226,7 @@ describe("KubernetesPodList", () => {
   });
 
   it("renders the pod list as a real table at any viewport", async () => {
-    const wrapper = mountWithPods([makePod("pod-a", true, 0)]);
+    const { wrapper } = mountWithPods([makePod("pod-a", true, 0)]);
 
     const table = wrapper.find("table.striped");
     expect(table.exists()).toBe(true);
@@ -237,6 +241,27 @@ describe("KubernetesPodList", () => {
       "Restarts",
     ]);
     expect(table.findAll("tbody tr")).toHaveLength(1);
+    wrapper.unmount();
+  });
+
+  it("fetches the pods from the store by default", async () => {
+    const { wrapper, store } = mountWithPods([makePod("store-pod", true, 0)]);
+    await flushPromises();
+
+    expect(store.getPods).toHaveBeenCalledTimes(1);
+    expect(rowNames(wrapper)).toEqual(["store-pod"]);
+    wrapper.unmount();
+  });
+
+  it("renders an explicit pods prop without fetching the store", async () => {
+    const { wrapper, store } = mountWithPods([makePod("store-pod", true, 0)], {
+      pods: [makePod("given-pod", true, 0), makePod("given-pod-2", true, 0)],
+      autoFetch: false,
+    });
+    await flushPromises();
+
+    expect(store.getPods).not.toHaveBeenCalled();
+    expect(rowNames(wrapper)).toEqual(["given-pod", "given-pod-2"]);
     wrapper.unmount();
   });
 });

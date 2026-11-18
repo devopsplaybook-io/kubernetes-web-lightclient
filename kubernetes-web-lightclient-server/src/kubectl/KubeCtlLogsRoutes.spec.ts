@@ -1,5 +1,8 @@
 import Fastify from "fastify";
-import { KubeCtlLogsRoutes } from "./KubeCtlLogsRoutes";
+import {
+  ExtractContainerWaitingReason,
+  KubeCtlLogsRoutes,
+} from "./KubeCtlLogsRoutes";
 
 const mockSpan = {
   setAttribute: jest.fn(),
@@ -265,6 +268,77 @@ describe("KubeCtlLogsRoutes", () => {
     );
     expect(serializedAttributes).not.toContain("my-pod");
     expect(serializedAttributes).not.toContain("my-container");
+  });
+
+  test("extracts allow-listed container waiting reasons from stderr and message", () => {
+    const waitingLine =
+      'container "app" in pod "my-pod" is waiting to start: ImagePullBackOff';
+    expect(
+      ExtractContainerWaitingReason(
+        Object.assign(new Error("Command failed"), {
+          stderr: Buffer.from(waitingLine),
+        }),
+      ),
+    ).toEqual({ reason: "ImagePullBackOff", container: "app" });
+    expect(
+      ExtractContainerWaitingReason(new Error(waitingLine)),
+    ).toEqual({ reason: "ImagePullBackOff", container: "app" });
+    expect(
+      ExtractContainerWaitingReason(
+        new Error(
+          'container "App_Bad" in pod "my-pod" is waiting to start: ContainerCreating',
+        ),
+      ),
+    ).toEqual({ reason: "ContainerCreating" });
+    expect(
+      ExtractContainerWaitingReason(
+        new Error(
+          'container "app" in pod "my-pod" is waiting to start: SomeUnknownReason',
+        ),
+      ),
+    ).toBeNull();
+    expect(ExtractContainerWaitingReason(new Error("generic failure"))).toBeNull();
+  });
+
+  test("returns 409 with the waiting reason instead of a 502", async () => {
+    mockExecuteCommand.mockRejectedValue(
+      Object.assign(new Error("Command failed"), {
+        stderr:
+          'Error from server (BadRequest): container "app" in pod "my-pod" is waiting to start: ImagePullBackOff',
+      }),
+    );
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/kubectl/logs/",
+      payload: { namespace: "default", pod: "my-pod" },
+    });
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toEqual({
+      error: "Container is waiting: ImagePullBackOff",
+      reason: "ImagePullBackOff",
+      container: "app",
+      requestId: expect.any(String),
+    });
+    expect(mockSpan.end).toHaveBeenCalledTimes(1);
+  });
+
+  test("keeps the generic 502 for a non allow-listed waiting reason", async () => {
+    mockExecuteCommand.mockRejectedValue(
+      Object.assign(new Error("Command failed"), {
+        stderr:
+          'container "app" in pod "my-pod" is waiting to start: SomeUnknownReason',
+      }),
+    );
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/kubectl/logs/",
+      payload: { namespace: "default", pod: "my-pod" },
+    });
+    expect(res.statusCode).toBe(502);
+    expect(res.json()).toEqual({
+      error: "kubectl logs failed",
+      requestId: expect.any(String),
+    });
   });
 
   test("returns a clean 404 when the pod no longer exists", async () => {
