@@ -41,7 +41,16 @@
       ></span>
     </div>
     <ListPager :type-id="objectType" />
+    <AccessDeniedPanel
+      v-if="accessDenial"
+      :scope="accessDenial.scope || ''"
+      :title="accessDenial.title"
+      :message="accessDenial.message"
+      :show-settings-link="currentUserStore.isAdmin"
+      v-on:retry="retryAccess()"
+    />
     <div
+      v-else
       id="object-list"
       :class="{
         'is-refreshing':
@@ -202,8 +211,14 @@ import KubernetesClusterRoleBindingList from "~~/components/KubernetesClusterRol
 import KubernetesCustomResourceDefinitionList from "~~/components/KubernetesCustomResourceDefinitionList.vue";
 import KubernetesObjectList from "~~/components/KubernetesObjectList.vue";
 import WorkloadPodView from "~~/components/WorkloadPodView.vue";
+import AccessDeniedPanel from "~~/components/AccessDeniedPanel.vue";
 import { ParseWorkloadRoute } from "~~/services/WorkloadPods";
 import { DesiredListState } from "~~/services/ObjectLinks";
+import {
+  denialForScope,
+  permissionDenialForError,
+} from "~~/services/PermissionErrors";
+import { CurrentUserStore } from "~~/stores/CurrentUserStore";
 
 export default {
   data() {
@@ -222,6 +237,8 @@ export default {
       availableTypes: [],
       typesLoaded: false,
       kubernetesObjectStore: KubernetesObjectStore(),
+      currentUserStore: CurrentUserStore(),
+      accessError: null,
       listEpoch: 0,
       drilldown,
       drilldownKey: drilldown
@@ -246,6 +263,15 @@ export default {
       const type = this.availableTypes.find((t) => t.id === this.objectType);
       return type ? type.deletable === true : false;
     },
+    accessDenial() {
+      if (this.accessError) {
+        return this.accessError;
+      }
+      if (this.kubernetesObjectStore.permissionError) {
+        return denialForScope(this.kubernetesObjectStore.permissionError);
+      }
+      return null;
+    },
   },
   async created() {
     // Apply URL query params SYNCHRONOUSLY before any async operation
@@ -267,44 +293,18 @@ export default {
     if (!(await AuthenticationStore().ensureAuthenticated())) {
       useRouter().push({
         path: "/settings",
-        query: { return: route.fullPath },
+        query: { tab: "profile", return: route.fullPath },
       });
       return;
     }
 
-    // Load available types and user selections
-    try {
-      this.availableTypes = await ResourceService.getAvailableTypes(true);
-      await KubernetesObjectStore().loadSelectedTypes();
-      this.typesLoaded = true;
-    } catch (e) {
-      console.error("Failed to load resource types", e);
-    }
-
-    await this.namespaceStore.loadNamespaces();
-
-    KubernetesObjectStore().refreshLast();
-
-    this.refreshIntervalValue = RefreshIntervalService.get();
-
-    // Ensure first objectType is a selected one, but never override a type
-    // explicitly requested in the URL (e.g. a shared deep link to a type the
-    // viewer has not enabled in their resource selection) or the pod type
-    // implied by a workload drill-down link.
-    if (!route.query.objectType && !this.drilldown) {
-      const selectedIds = KubernetesObjectStore().selectedTypes;
-      if (selectedIds.length > 0 && !selectedIds.includes(this.objectType)) {
-        this.objectType = selectedIds[0];
-      }
+    await this.loadInitialData();
+    if (!this.accessDenial) {
+      KubernetesObjectStore().refreshLast();
     }
   },
   mounted() {
-    const interval = parseInt(this.refreshIntervalValue, 10);
-    if (interval > 0) {
-      this.refreshIntervalId = setInterval(() => {
-        this.refreshObject();
-      }, interval);
-    }
+    this.startPolling();
     // Listen for mutation events from child components to trigger a forced refresh
     this._onObjectChanged = (eventType) => {
       KubernetesObjectStore().invalidateAndRefresh(eventType);
@@ -318,9 +318,7 @@ export default {
     EventBus.on(EventTypes.OPEN_OBJECT_DETAILS, this._onOpenObjectDetails);
   },
   beforeUnmount() {
-    if (this.refreshIntervalId) {
-      clearInterval(this.refreshIntervalId);
-    }
+    this.stopPolling();
     if (this._onObjectChanged) {
       EventBus.off(EventTypes.OBJECT_CHANGED, this._onObjectChanged);
     }
@@ -329,6 +327,11 @@ export default {
     }
   },
   watch: {
+    accessDenial(denial) {
+      if (denial) {
+        this.stopPolling();
+      }
+    },
     "$route.query": {
       deep: true,
       handler(query) {
@@ -386,6 +389,78 @@ export default {
     },
   },
   methods: {
+    async loadInitialData() {
+      const route = useRoute();
+      this.accessError = null;
+      this.kubernetesObjectStore.clearPermissionError();
+
+      // Load available types and user selections
+      try {
+        this.availableTypes = await ResourceService.getAvailableTypes(true);
+        await KubernetesObjectStore().loadSelectedTypes();
+        this.typesLoaded = true;
+      } catch (e) {
+        if (this.applyAccessError(e)) {
+          return;
+        }
+        console.error("Failed to load resource types", e);
+      }
+
+      try {
+        await this.namespaceStore.loadNamespaces();
+      } catch (e) {
+        if (this.applyAccessError(e)) {
+          return;
+        }
+        console.error("Failed to load namespaces", e);
+      }
+
+      this.refreshIntervalValue = RefreshIntervalService.get();
+
+      // Ensure first objectType is a selected one, but never override a type
+      // explicitly requested in the URL (e.g. a shared deep link to a type the
+      // viewer has not enabled in their resource selection) or the pod type
+      // implied by a workload drill-down link.
+      if (!route.query.objectType && !this.drilldown) {
+        const selectedIds = KubernetesObjectStore().selectedTypes;
+        if (selectedIds.length > 0 && !selectedIds.includes(this.objectType)) {
+          this.objectType = selectedIds[0];
+        }
+      }
+    },
+    applyAccessError(error) {
+      const denial = permissionDenialForError(error);
+      if (!denial) {
+        return false;
+      }
+      this.accessError = denial;
+      this.stopPolling();
+      return true;
+    },
+    async retryAccess() {
+      this.accessError = null;
+      this.kubernetesObjectStore.clearPermissionError();
+      await this.loadInitialData();
+      if (!this.accessDenial) {
+        this.startPolling();
+        KubernetesObjectStore().refreshLast();
+      }
+    },
+    startPolling() {
+      this.stopPolling();
+      const interval = parseInt(this.refreshIntervalValue, 10);
+      if (interval > 0) {
+        this.refreshIntervalId = setInterval(() => {
+          this.refreshObject();
+        }, interval);
+      }
+    },
+    stopPolling() {
+      if (this.refreshIntervalId) {
+        clearInterval(this.refreshIntervalId);
+        this.refreshIntervalId = null;
+      }
+    },
     applyListStateFromRoute(query) {
       const state = DesiredListState(query || {});
       const namespace = state.namespace;

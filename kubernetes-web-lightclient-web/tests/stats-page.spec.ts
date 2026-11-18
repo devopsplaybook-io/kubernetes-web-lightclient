@@ -18,6 +18,16 @@ vi.mock("vue3-apexcharts", () => ({
   default: { name: "apexchart", render: () => null },
 }));
 
+const currentUserMock = vi.hoisted(() => ({
+  ensureLoaded: vi.fn(async () => {}),
+  hasAdminScope: false,
+  isAdmin: false,
+}));
+
+vi.mock("~~/stores/CurrentUserStore", () => ({
+  CurrentUserStore: () => currentUserMock,
+}));
+
 import {
   POD_RESOURCES_REFRESH_INTERVAL_MS,
 } from "~~/services/StatsApi";
@@ -174,5 +184,102 @@ describe("stats page polling cadences", () => {
     expect(ctx.refreshPodUsageStats).not.toHaveBeenCalled();
     expect(ctx.refreshPodResources).not.toHaveBeenCalled();
     expect(ctx.refreshRecommendation).not.toHaveBeenCalled();
+  });
+});
+
+function forbidden(url: string): unknown {
+  return {
+    isAxiosError: true,
+    message: "Request failed with status code 403",
+    config: { url, data: {} },
+    response: { status: 403, data: { error: "Forbidden" } },
+  };
+}
+
+describe("stats page permission awareness", () => {
+  it("records the missing stats scope and stops polling on a 403", async () => {
+    statsApiMocks.getNodes.mockRejectedValue(forbidden("/api/stats/nodes"));
+    const ctx = statsContext({
+      accessError: null,
+      stopPolling: vi.fn(),
+      handleAccessError: methods.handleAccessError,
+    });
+
+    await methods.refreshStats.call(ctx);
+
+    expect(ctx.accessError).toEqual({
+      scope: "stats:read",
+      title: "Missing scope",
+      message: expect.stringContaining("stats:read"),
+    });
+    expect(ctx.stopPolling).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves non-403 failures to the generic handler", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    statsApiMocks.getNodes.mockRejectedValue(new Error("network down"));
+    const ctx = statsContext({
+      accessError: null,
+      stopPolling: vi.fn(),
+      handleAccessError: methods.handleAccessError,
+    });
+
+    await methods.refreshStats.call(ctx);
+
+    expect(ctx.accessError).toBeNull();
+    expect(ctx.stopPolling).not.toHaveBeenCalled();
+  });
+
+  it("classifies only 403s in handleAccessError", () => {
+    const ctx = { accessError: null as any, stopPolling: vi.fn() };
+
+    expect(methods.handleAccessError.call(ctx, forbidden("/api/stats/nodes"))).toBe(
+      true,
+    );
+    expect(ctx.accessError.scope).toBe("stats:read");
+    expect(ctx.stopPolling).toHaveBeenCalledTimes(1);
+
+    expect(
+      methods.handleAccessError.call(ctx, forbidden("/api/stats/recommendation/regenerate")),
+    ).toBe(true);
+    expect(ctx.accessError.scope).toBe("admin");
+
+    expect(methods.handleAccessError.call(ctx, new Error("boom"))).toBe(false);
+    expect(ctx.stopPolling).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries every dataset, refreshes the live user and restarts polling", async () => {
+    currentUserMock.ensureLoaded.mockClear();
+    const ctx = {
+      accessError: { scope: "stats:read" } as any,
+      refreshStats: vi.fn(),
+      refreshPodResources: vi.fn(),
+      refreshPodUsageStats: vi.fn(),
+      refreshRecommendation: vi.fn(),
+      startPolling: vi.fn(),
+    };
+
+    await methods.retryAccess.call(ctx);
+
+    expect(ctx.accessError).toBeNull();
+    expect(currentUserMock.ensureLoaded).toHaveBeenCalledWith(true);
+    expect(ctx.refreshStats).toHaveBeenCalledTimes(1);
+    expect(ctx.refreshPodResources).toHaveBeenCalledTimes(1);
+    expect(ctx.refreshPodUsageStats).toHaveBeenCalledTimes(1);
+    expect(ctx.refreshRecommendation).toHaveBeenCalledTimes(1);
+    expect(ctx.startPolling).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("stats page admin actions", () => {
+  const canRegenerate = (StatsPage as any).computed.canRegenerate;
+
+  it("only offers regeneration to holders of the admin scope", () => {
+    expect(
+      canRegenerate.call({ currentUserStore: { hasAdminScope: false } }),
+    ).toBe(false);
+    expect(
+      canRegenerate.call({ currentUserStore: { hasAdminScope: true } }),
+    ).toBe(true);
   });
 });

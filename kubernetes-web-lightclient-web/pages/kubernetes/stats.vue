@@ -1,6 +1,15 @@
 <template>
   <div id="stats-page">
     <h3>Metrics</h3>
+    <AccessDeniedPanel
+      v-if="accessError"
+      :scope="accessError.scope || ''"
+      :title="accessError.title"
+      :message="accessError.message"
+      :show-settings-link="currentUserStore.isAdmin"
+      v-on:retry="retryAccess()"
+    />
+    <template v-if="!accessError">
     <div id="stats-layout">
       <apexchart
         :key="themeMode"
@@ -38,6 +47,7 @@
           Refresh
         </button>
         <button
+          v-if="canRegenerate"
           class="outline rec-regenerate"
           type="button"
           :disabled="regenerating"
@@ -174,12 +184,16 @@
         </tbody>
       </table>
     </div>
+    </template>
   </div>
 </template>
 
 <script>
 import { RefreshIntervalService } from "~~/services/RefreshIntervalService";
 import { handleError } from "~~/services/EventBus";
+import AccessDeniedPanel from "~~/components/AccessDeniedPanel.vue";
+import { permissionDenialForError } from "~~/services/PermissionErrors";
+import { CurrentUserStore } from "~~/stores/CurrentUserStore";
 import {
   BuildStatsFingerprint,
   POD_RESOURCES_REFRESH_INTERVAL_MS,
@@ -192,6 +206,7 @@ import { buildLineChartOptions } from "~~/services/ChartOptions";
 export default {
   components: {
     apexchart: VueApexCharts,
+    AccessDeniedPanel,
   },
   data() {
     return {
@@ -214,9 +229,14 @@ export default {
       cpuChartSeries: [],
       memoryChartSeries: [],
       podsChartSeries: [],
+      accessError: null,
+      currentUserStore: CurrentUserStore(),
     };
   },
   computed: {
+    canRegenerate() {
+      return this.currentUserStore.hasAdminScope;
+    },
     cpuChartOptions() {
       return buildLineChartOptions({
         id: "cpu-line",
@@ -323,8 +343,13 @@ export default {
         ? "dark"
         : "light";
     if (!(await AuthenticationStore().ensureAuthenticated())) {
-      useRouter().push({ path: "/settings" });
+      useRouter().push({
+        path: "/settings",
+        query: { tab: "profile", return: useRoute().fullPath },
+      });
+      return;
     }
+    CurrentUserStore().ensureLoaded();
     this.refreshStats();
     this.refreshPodResources();
     this.refreshPodUsageStats();
@@ -351,6 +376,24 @@ export default {
     this.stopPolling();
   },
   methods: {
+    handleAccessError(error) {
+      const denial = permissionDenialForError(error);
+      if (!denial) {
+        return false;
+      }
+      this.accessError = denial;
+      this.stopPolling();
+      return true;
+    },
+    async retryAccess() {
+      this.accessError = null;
+      await CurrentUserStore().ensureLoaded(true);
+      this.refreshStats();
+      this.refreshPodResources();
+      this.refreshPodUsageStats();
+      this.refreshRecommendation();
+      this.startPolling();
+    },
     startPolling() {
       const interval = parseInt(this.refreshIntervalValue, 10);
       if (!(interval > 0)) {
@@ -393,7 +436,9 @@ export default {
         this.statsFingerprint = fingerprint;
         this.updateCharts();
       } catch (error) {
-        handleError(error);
+        if (!this.handleAccessError(error)) {
+          handleError(error);
+        }
       }
     },
     async refreshPodResources() {
@@ -408,7 +453,9 @@ export default {
           this.podResourcesTimestamp = this.podResources[0].timestamp;
         }
       } catch (error) {
-        handleError(error);
+        if (!this.handleAccessError(error)) {
+          handleError(error);
+        }
       }
     },
     async refreshPodUsageStats() {
@@ -420,7 +467,9 @@ export default {
         }
         this.podUsageStats = result.data?.podUsageStats || [];
       } catch (error) {
-        handleError(error);
+        if (!this.handleAccessError(error)) {
+          handleError(error);
+        }
       }
     },
     async refreshRecommendation() {
@@ -435,7 +484,9 @@ export default {
         this.recommendationEnabled = result.data?.enabled === true;
         this.recommendation = result.data?.recommendation || null;
       } catch (error) {
-        handleError(error);
+        if (!this.handleAccessError(error)) {
+          handleError(error);
+        }
       }
     },
     async regenerateRecommendation() {
@@ -447,7 +498,9 @@ export default {
         // fetches the new payload instead of answering 304.
         this.recommendationEtag = null;
       } catch (error) {
-        handleError(error);
+        if (!this.handleAccessError(error)) {
+          handleError(error);
+        }
       } finally {
         this.regenerating = false;
       }

@@ -219,4 +219,17 @@ describe("WorkloadPodView", () => {
     });
     wrapper.unmount();
   });
+  it("explains a 403 with the scope the workload lookup needs", async () => {
+    fetchWorkloadPods.mockRejectedValue({
+      isAxiosError: true,
+      message: "Request failed with status code 403",
+      config: { url: "/api/kubectl/command", data: { command: "get" } },
+      response: { status: 403, data: { error: "Forbidden" } },
+    });
+    const { wrapper } = await mountLoaded();
+
+    expect(wrapper.text()).toContain("k8s:read");
+    expect(wrapper.text()).not.toContain("Forbidden");
+    wrapper.unmount();
+  });
 });

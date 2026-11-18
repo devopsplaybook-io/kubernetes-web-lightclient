@@ -49,12 +49,12 @@ kubectl kustomize . | kubectl apply -f -
 
 ## Releases and image tags
 
-The current release is `0.51.0` (server `0.13.0`); the container image is `devopsplaybookio/kubernetes-web-lightclient`.
+The current release is `0.52.0` (server `0.13.0`); the container image is `devopsplaybookio/kubernetes-web-lightclient`.
 
 - Every pull request publishes an immutable build tagged `beta-pr-<n>`, so a change can be tested before it is merged.
-- Merging the pull request promotes the exact tested image digest to the release tags `0.51.0`, `0.51`, `0`, `latest` and `beta`. Only the full `X.Y.Z` tag is immutable; the other tags are moving aliases.
+- Merging the pull request promotes the exact tested image digest to the release tags `0.52.0`, `0.52`, `0`, `latest` and `beta`. Only the full `X.Y.Z` tag is immutable; the other tags are moving aliases.
 - Pin the full `X.Y.Z` tag in production — the example overlay in `docs/deployments/kubernetes/kubernetes-web-lightclient/kustomization.yaml` does. A pinned deployment never changes silently and reports an unambiguous version. Use `beta` or `latest` only for non-production or explicitly auto-updating environments.
-- A deployment tracking a moving alias moves to a new release only after the alias points at it and the pod is recreated (for example with `kubectl rollout restart`). Environments that track `beta` therefore need a restart, or a switch to the pinned tag, to pick up `0.51.0`.
+- A deployment tracking a moving alias moves to a new release only after the alias points at it and the pod is recreated (for example with `kubectl rollout restart`). Environments that track `beta` therefore need a restart, or a switch to the pinned tag, to pick up `0.52.0`.
 
 ## Configuration
 
@@ -167,7 +167,17 @@ Every application API route enforces the live role and scopes of the authenticat
 | `stats:read` | Read the stats endpoints (`/api/stats/nodes`, `pod-resources`, `pod-usage`, `recommendation`)    |
 | `admin`      | Admin-only routes: `POST /api/resources/refresh`, `POST /api/stats/recommendation/regenerate`, kubectl `delete` |
 
-Users created through the web UI start with role `user` and no scopes: an admin must grant them with `PUT /api/users/:id` and body `{"scopes":["k8s:read","stats:read"]}` (add `k8s:write` where mutations are needed). Users created before the role/scope migration default to the `admin` role. Only `/api/status`, the static web UI and the user-management endpoints (admin-only, with self-service session/password/token routes) are reachable without an application scope.
+Users created with `POST /api/users` without a role or scopes start with role `user` and no scopes, and users created before the role/scope migration default to the `admin` role. An administrator can now set the role and scopes at creation time in the web UI, or change them later from Settings → Users (or with `PUT /api/users/:id` and body `{"scopes":["k8s:read","stats:read"]}`, adding `k8s:write` where mutations are needed). Only `/api/status`, the static web UI and the user-management endpoints (admin-only, with self-service session/password/token routes) are reachable without an application scope.
+
+### User administration in the web UI
+
+The following screens make the role and scope model visible without changing the API:
+
+- **Settings → Users** is available to users holding the `admin` role (the role, not the `admin` scope) and managed against the existing `/api/users` routes. It lists the users, creates users with an explicit role and scopes, edits role/scopes, resets passwords and deletes users. Deleting a user revokes their API tokens server-side. The signed-in administrator can never delete their own account, and changes to their own role/scopes ask for confirmation. The same tab lists the administrator's own API-token metadata for revocation; token values are never shown.
+- **Settings → Profile** shows the signed-in user's live role and granted scopes. The values come from `POST /api/users/session/refresh`, which also returns a fresh JWT, so a role/scope change applies without re-logging in. On a fresh deployment with no users, the Profile tab asks for the first administrator account instead of showing a login form.
+- **Kubernetes, Stats and Resources** pages show an in-app access-denied panel naming the scope the server requires (for example `k8s:read` or `stats:read`) and offering Retry and a link to Settings → Users. Polling stops while the request is denied and resumes on a successful Retry. A `401` still clears the session and routes to Settings → Profile with a return path.
+
+The UI treats the two `admin` concepts distinctly: the `admin` role bypasses scope checks and grants user administration, while the `admin` scope only unlocks admin-only cluster actions such as deleting objects or regenerating the recommendation.
 
 User management (create/update/delete, password change, API-token create/revoke) and mutating kubectl commands (`delete`, `scale`, `rollout restart`, `create job`) are recorded as structured single-line audit events containing the action, outcome, route, acting user and target object — never passwords, token values, request bodies, manifests or command output.
 

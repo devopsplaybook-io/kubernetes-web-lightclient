@@ -56,6 +56,7 @@ import DialogLogs from "~~/components/DialogLogs.vue";
 import { clearDialogRoute } from "~~/services/DialogDeepLink";
 import { FilterKubernetesItems, ParseKeywords } from "~~/services/KeywordFilter";
 import { FetchWorkloadPods } from "~~/services/WorkloadPodsService";
+import { permissionDenialForError } from "~~/services/PermissionErrors";
 import { WorkloadKindLabel } from "~~/services/WorkloadPods";
 
 export default {
@@ -146,10 +147,15 @@ export default {
         this.pods = result.pods;
         this.strategy = result.strategy;
       } catch (e) {
-        this.error =
-          e && e.message
-            ? e.message
-            : "Failed to load the pods for this workload.";
+        const denial = permissionDenialForError(e);
+        if (denial) {
+          this.error = denial.message;
+        } else {
+          this.error =
+            e && e.message
+              ? e.message
+              : "Failed to load the pods for this workload.";
+        }
         this.pods = [];
       } finally {
         this.loading = false;

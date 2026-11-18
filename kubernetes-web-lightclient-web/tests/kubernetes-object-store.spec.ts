@@ -114,3 +114,37 @@ describe("KubernetesObjectStore.applyFilter", () => {
     stringifySpy.mockRestore();
   });
 });
+
+describe("KubernetesObjectStore permission errors", () => {
+  function forbidden(url: string): unknown {
+    return {
+      isAxiosError: true,
+      message: "Request failed with status code 403",
+      config: { url, data: {} },
+      response: { status: 403, data: { error: "Forbidden" } },
+    };
+  }
+
+  it("records the scope needed for the failed request only on a 403", () => {
+    const store = KubernetesObjectStore();
+
+    expect(store.recordPermissionError(forbidden("/api/kubectl/logs"))).toBe(
+      true,
+    );
+    expect(store.permissionError).toBe("k8s:read");
+
+    store.clearPermissionError();
+    expect(store.permissionError).toBeNull();
+
+    expect(store.recordPermissionError(new Error("network down"))).toBe(false);
+    expect(store.permissionError).toBeNull();
+  });
+
+  it("maps list refresh 403s to the admin scope", () => {
+    const store = KubernetesObjectStore();
+
+    store.recordPermissionError(forbidden("/api/resources/refresh"));
+
+    expect(store.permissionError).toBe("admin");
+  });
+});

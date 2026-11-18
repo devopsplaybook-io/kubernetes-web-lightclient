@@ -5,6 +5,14 @@
 
     <div v-if="loading" class="loading-indicator"></div>
 
+    <AccessDeniedPanel
+      v-else-if="accessError"
+      :scope="accessError.scope || ''"
+      :title="accessError.title"
+      :message="accessError.message"
+      v-on:retry="loadData()"
+    />
+
     <div v-else>
       <h3>Built-in Resources</h3>
       <div class="resources-grid">
@@ -61,8 +69,13 @@
 <script>
 import { ResourceService } from "~~/services/ResourceService";
 import { handleError, EventBus, EventTypes } from "~~/services/EventBus";
+import { permissionDenialForError } from "~~/services/PermissionErrors";
+import AccessDeniedPanel from "~~/components/AccessDeniedPanel.vue";
 
 export default {
+  components: {
+    AccessDeniedPanel,
+  },
   data() {
     return {
       allResources: [],
@@ -71,6 +84,7 @@ export default {
       saving: false,
       refreshing: false,
       lastRefresh: "",
+      accessError: null,
     };
   },
   computed: {
@@ -87,6 +101,7 @@ export default {
   methods: {
     async loadData() {
       this.loading = true;
+      this.accessError = null;
       try {
         const [types, selections] = await Promise.all([
           ResourceService.getAvailableTypes(),
@@ -95,7 +110,12 @@ export default {
         this.allResources = types;
         this.selectedIds = new Set(selections);
       } catch (error) {
-        handleError(error);
+        const denial = permissionDenialForError(error);
+        if (denial) {
+          this.accessError = denial;
+        } else {
+          handleError(error);
+        }
       }
       this.loading = false;
     },

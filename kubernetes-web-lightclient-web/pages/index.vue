@@ -13,7 +13,7 @@ export default {
     } else {
       useRouter().push({
         path: "/settings",
-        query: { return: useRoute().fullPath },
+        query: { tab: "profile", return: useRoute().fullPath },
       });
     }
   },
