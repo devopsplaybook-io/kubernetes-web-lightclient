@@ -78,4 +78,46 @@ describe("ResourceSettings", () => {
     expect(wrapper.vm.lastRefresh).toBeTruthy();
     wrapper.unmount();
   });
+
+  it("shows the missing k8s:read scope when the type list is forbidden", async () => {
+    vi.spyOn(ResourceService, "getAvailableTypes").mockRejectedValue({
+      isAxiosError: true,
+      message: "Request failed with status code 403",
+      config: { url: "/api/resources/types" },
+      response: { status: 403, data: { error: "Forbidden" } },
+    } as never);
+    vi.spyOn(ResourceService, "getUserSelections").mockResolvedValue([] as never);
+
+    const wrapper = await mountComponent();
+
+    expect(wrapper.text()).toContain("Missing scope");
+    expect(wrapper.text()).toContain("k8s:read");
+    expect(wrapper.text()).not.toContain("Built-in Resources");
+    wrapper.unmount();
+  });
+
+  it("recovers from the access denial when Retry succeeds", async () => {
+    vi.spyOn(ResourceService, "getAvailableTypes")
+      .mockRejectedValueOnce({
+        isAxiosError: true,
+        message: "Request failed with status code 403",
+        config: { url: "/api/resources/types" },
+        response: { status: 403, data: { error: "Forbidden" } },
+      } as never)
+      .mockResolvedValue(SAMPLE_TYPES as never);
+    vi.spyOn(ResourceService, "getUserSelections").mockResolvedValue([] as never);
+
+    const wrapper = await mountComponent();
+    expect(wrapper.text()).toContain("k8s:read");
+
+    const retry = wrapper
+      .findAll("button")
+      .find((button) => button.text() === "Retry");
+    await retry!.trigger("click");
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Built-in Resources");
+    expect(wrapper.text()).not.toContain("k8s:read");
+    wrapper.unmount();
+  });
 });

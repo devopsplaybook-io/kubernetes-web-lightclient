@@ -1,24 +1,29 @@
 <template>
   <div class="profile-settings">
     <div v-if="!authenticationStore.isAuthenticated">
-      <h2 v-if="isInitialized">Login</h2>
-      <h2 v-else>New User</h2>
-      <label>Name</label>
-      <input id="username" v-model="user.name" type="text" />
-      <label>Password</label>
-      <input id="passwrd" v-model="user.password" type="password" />
-      <button
-        v-if="!authenticationStore.isAuthenticated && !isInitialized"
-        v-on:click="saveNew()"
-      >
-        Create
-      </button>
-      <button
-        v-if="!authenticationStore.isAuthenticated && isInitialized"
-        v-on:click="login()"
-      >
-        Login
-      </button>
+      <div v-if="isInitialized === null" class="loading-indicator"></div>
+      <template v-else>
+        <h2>{{ isInitialized ? "Login" : "New User" }}</h2>
+        <p v-if="!isInitialized" class="bootstrap-hint">
+          No users exist yet. Create the first administrator account.
+        </p>
+        <label>Name</label>
+        <input id="username" v-model="user.name" type="text" />
+        <label>Password</label>
+        <input id="passwrd" v-model="user.password" type="password" />
+        <button
+          v-if="!authenticationStore.isAuthenticated && !isInitialized"
+          v-on:click="saveNew()"
+        >
+          Create
+        </button>
+        <button
+          v-if="!authenticationStore.isAuthenticated && isInitialized"
+          v-on:click="login()"
+        >
+          Login
+        </button>
+      </template>
     </div>
     <div v-else>
       <h2>Authenticated</h2>
@@ -38,6 +43,12 @@
         <button v-on:click="changePassword()">Change</button>
         <button v-on:click="changePasswordStart(false)">Cancel</button>
       </article>
+      <UserAccessSummary
+        :user="currentUserStore.user"
+        :loading="currentUserStore.loading"
+        :error="currentUserStore.error"
+        v-on:retry="reloadCurrentUser()"
+      />
       <h2>Settings</h2>
       <div>
         <label for="refresh-interval">Auto-refresh interval:</label>
@@ -90,21 +101,34 @@ import { handleError, EventBus, EventTypes } from "~~/services/EventBus";
 import { UserService } from "~~/services/UserService";
 import { RefreshIntervalService } from "~~/services/RefreshIntervalService";
 import { isSafeReturnPath } from "~~/services/SessionExpiry";
+import { AuthenticationStore } from "~~/stores/AuthenticationStore";
+import { CurrentUserStore } from "~~/stores/CurrentUserStore";
+import UserAccessSummary from "~~/components/UserAccessSummary.vue";
 
 export default {
+  components: {
+    UserAccessSummary,
+  },
   data() {
     return {
       user: {},
-      isInitialized: true,
+      isInitialized: null,
       isChangePasswordStarted: false,
       refreshInterval: RefreshIntervalService.get(),
+      currentUserStore: CurrentUserStore(),
     };
   },
   async created() {
     this.isInitialized = await UserService.isInitialized();
     this.refreshInterval = RefreshIntervalService.get();
+    if (AuthenticationStore().isAuthenticated) {
+      await CurrentUserStore().ensureLoaded();
+    }
   },
   methods: {
+    async reloadCurrentUser() {
+      await CurrentUserStore().ensureLoaded(true);
+    },
     async saveNew() {
       if (this.user.name && this.user.password) {
         await axios
@@ -140,6 +164,10 @@ export default {
           .then((res) => {
             AuthService.saveToken(res.data.token);
             AuthenticationStore().isAuthenticated = true;
+            this.isInitialized = true;
+            if (res.data.user) {
+              CurrentUserStore().setUser(res.data.user);
+            }
             EventBus.emit(EventTypes.ALERT_MESSAGE, {
               type: "info",
               text: "User Logged In",
@@ -184,6 +212,7 @@ export default {
     async logout() {
       AuthService.removeToken();
       AuthenticationStore().isAuthenticated = false;
+      CurrentUserStore().clear();
     },
     changePasswordStart(enable) {
       this.isChangePasswordStarted = enable;
@@ -221,5 +250,11 @@ export default {
 <style scoped>
 button {
   margin-right: 1em;
+}
+.bootstrap-hint {
+  font-size: 0.9em;
+  padding: 0.5em 0.75em;
+  border-left: 4px solid var(--pico-primary, #3cabff);
+  background: var(--pico-card-background-color, rgba(0, 0, 0, 0.03));
 }
 </style>

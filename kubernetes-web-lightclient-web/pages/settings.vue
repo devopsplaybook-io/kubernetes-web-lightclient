@@ -17,6 +17,7 @@
     <ProfileSettings v-if="activeTab === 'profile'" />
     <ResourceSettings v-else-if="activeTab === 'resources'" />
     <ApiTokensSettings v-else-if="activeTab === 'apitoken'" />
+    <UsersSettings v-else-if="activeTab === 'users'" />
   </div>
 </template>
 
@@ -24,6 +25,9 @@
 import ResourceSettings from "~~/components/ResourceSettings.vue";
 import ApiTokensSettings from "~~/components/ApiTokensSettings.vue";
 import ProfileSettings from "~~/components/ProfileSettings.vue";
+import UsersSettings from "~~/components/UsersSettings.vue";
+import { AuthenticationStore } from "~~/stores/AuthenticationStore";
+import { CurrentUserStore } from "~~/stores/CurrentUserStore";
 import {
   getSettingsTabs,
   normalizeSettingsTab,
@@ -34,6 +38,7 @@ export default {
     ProfileSettings,
     ResourceSettings,
     ApiTokensSettings,
+    UsersSettings,
   },
   data() {
     return {
@@ -44,8 +49,11 @@ export default {
     isAuthenticated() {
       return AuthenticationStore().isAuthenticated;
     },
+    isAdmin() {
+      return CurrentUserStore().isAdmin;
+    },
     tabs() {
-      return getSettingsTabs(this.isAuthenticated);
+      return getSettingsTabs(this.isAuthenticated, this.isAdmin);
     },
   },
   watch: {
@@ -53,14 +61,32 @@ export default {
     "$route.query.tab"(tab) {
       this.applyTab(tab);
     },
+    isAuthenticated(isAuthenticated) {
+      this.syncUser(isAuthenticated);
+    },
+    isAdmin() {
+      this.applyTab(useRoute().query.tab);
+    },
   },
   async created() {
     await AuthenticationStore().ensureAuthenticated();
-    this.applyTab(useRoute().query.tab);
+    await this.syncUser(this.isAuthenticated);
   },
   methods: {
+    async syncUser(isAuthenticated) {
+      if (isAuthenticated) {
+        await CurrentUserStore().ensureLoaded();
+      } else {
+        CurrentUserStore().clear();
+      }
+      this.applyTab(useRoute().query.tab);
+    },
     applyTab(tab) {
-      const normalized = normalizeSettingsTab(tab, this.isAuthenticated);
+      const normalized = normalizeSettingsTab(
+        tab,
+        this.isAuthenticated,
+        this.isAdmin,
+      );
       if (normalized !== this.activeTab) {
         this.activeTab = normalized;
       }

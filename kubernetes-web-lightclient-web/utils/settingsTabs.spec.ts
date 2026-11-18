@@ -31,6 +31,28 @@ describe("getSettingsTabs", () => {
       { id: "apitoken", label: "API Token" },
     ]);
   });
+
+  it("should only expose the Users tab to administrators", () => {
+    expect(getSettingsTabs(true, true).map((tab) => tab.id)).toEqual([
+      "profile",
+      "resources",
+      "apitoken",
+      "users",
+    ]);
+    expect(getSettingsTabs(true, true).at(-1)).toEqual({
+      id: "users",
+      label: "Users",
+    });
+    expect(getSettingsTabs(true, false).map((tab) => tab.id)).not.toContain(
+      "users",
+    );
+  });
+
+  it("should hide the Users tab while unauthenticated", () => {
+    expect(getSettingsTabs(false, true).map((tab) => tab.id)).toEqual([
+      "profile",
+    ]);
+  });
 });
 
 describe("normalizeSettingsTab", () => {
@@ -49,5 +71,11 @@ describe("normalizeSettingsTab", () => {
   it("should fall back to profile when unauthenticated requests other tabs", () => {
     expect(normalizeSettingsTab("resources", false)).toBe("profile");
     expect(normalizeSettingsTab("apitoken", false)).toBe("profile");
+  });
+
+  it("should only resolve the Users tab for administrators", () => {
+    expect(normalizeSettingsTab("users", true, true)).toBe("users");
+    expect(normalizeSettingsTab("users", true, false)).toBe("profile");
+    expect(normalizeSettingsTab("users", false, true)).toBe("profile");
   });
 });

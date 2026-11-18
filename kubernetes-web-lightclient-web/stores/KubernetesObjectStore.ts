@@ -3,6 +3,7 @@ import { AuthService } from "~~/services/AuthService";
 import Config from "~~/services/Config";
 import { ResourceService } from "~~/services/ResourceService";
 import { handleStaleObjectError } from "~~/services/KubernetesUtils";
+import { permissionDenialForError } from "~~/services/PermissionErrors";
 import { FilterKubernetesItems, ParseKeywords } from "~~/services/KeywordFilter";
 import axios from "axios";
 import { UtilsDecompressData } from "~/services/Utils";
@@ -62,6 +63,8 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
       lastCall: { payload: {} as any, type: "" },
       loading: false,
       hasEverLoaded: false,
+      // Scope (or "admin-role") required by the last 403, if any
+      permissionError: null as string | null,
       _pendingCacheRequests: {} as { [key: string]: boolean },
       _staleRetryCounts: {} as { [key: string]: number },
     };
@@ -246,6 +249,7 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
       _forceRefreshTypes.add(type);
       // A user-triggered load restarts the background-refresh budget
       this._staleRetryCounts[type] = 0;
+      this.permissionError = null;
       this.loading = true;
       // Build a standard get payload for the type
       const typeInfo =
@@ -256,6 +260,17 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
     },
     setLoading(value: boolean) {
       this.loading = value;
+    },
+    clearPermissionError() {
+      this.permissionError = null;
+    },
+    recordPermissionError(error: unknown): boolean {
+      const denial = permissionDenialForError(error);
+      if (!denial) {
+        return false;
+      }
+      this.permissionError = denial.scope || "k8s:read";
+      return true;
     },
     async getObject(type: string, payload: any) {
       this.lastCall.type = type;
@@ -278,11 +293,15 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
         .then(async () => {
           this.loading = false;
           this.hasEverLoaded = true;
+          this.permissionError = null;
           return this.applyFilter(type);
         })
         .catch(async (error) => {
           this.loading = false;
           if (await handleStaleObjectError(error, type)) {
+            return;
+          }
+          if (this.recordPermissionError(error)) {
             return;
           }
           console.error(error);
@@ -318,6 +337,7 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
         this.dataFull[type] = items;
         this.applyFilter(type);
         this.hasEverLoaded = true;
+        this.permissionError = null;
 
         if (status === "fresh") {
           this._staleRetryCounts[type] = 0;
@@ -341,7 +361,9 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
         // The refresh interval or next user action will retry
       } catch (error) {
         this.loading = false;
-        console.error(error);
+        if (!this.recordPermissionError(error)) {
+          console.error(error);
+        }
       } finally {
         this._pendingCacheRequests[type] = false;
       }

@@ -45,6 +45,10 @@ export async function PostKubectl(
     );
     return JSON.parse(await UtilsDecompressData(response.data.result));
   } catch (error) {
+    // Keep the HTTP error for 403s so the view can name the missing scope.
+    if (axios.isAxiosError(error) && error.response?.status === 403) {
+      throw error;
+    }
     throw WorkloadError(error, fallback);
   }
 }
