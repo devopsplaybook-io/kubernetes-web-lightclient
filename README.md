@@ -3,7 +3,8 @@
 Kubernetes Web LightClient is a web-based user interface for Kubernetes. In its current version, it has the following features:
 
 - List: Deployment, ReplicaSet, StatefulSet, DaemonSet, Pod, Job, CronJob, Service, Ingress, NetworkPolicy, HorizontalPodAutoscaler, PodDisruptionBudget, ConfigMap, Secret, PVC, StorageClass, Node, Namespace
-- Sortable list columns (name, status, age, restarts, ...) and one-click status quick-filters (pods: "Not ready" and "Restarts > 0"; events: "Warnings only"; nodes and PVs: "Has warnings")
+- Sortable list columns (name, status, age, restarts, ...) and one-click status quick-filters (pods: "Not running", "Pending", "Terminating", "Failed", "CrashLoopBackOff", "Image pull error", "Not ready" and "Restarts > 0"; events: "Warnings only"; nodes and PVs: "Has warnings"); list deep links accept `?filter=` to preselect them
+- Cluster health overview as the authenticated landing page: node readiness, pods not running by state, the most recent deduplicated warnings, the workloads with the most restarts and capacity versus requests/limits/usage; every tile and row deep-links into the corresponding filtered list or details. Missing `k8s:read`/`stats:read` scopes and an absent metrics-server degrade to per-tile notes instead of errors
 - Per-user persisted list preferences: the active column sort and quick-filters of each list follow the user across devices via `GET/PUT /api/resources/selections` (`listPreferences` field); in a PUT body a field that is omitted (`selectedIds` or `listPreferences`) leaves the stored value unchanged
 - Delete objects (configurable, see `ALLOWED_DELETABLE_OBJECTS`)
 - For Pod: Display Log
@@ -49,12 +50,12 @@ kubectl kustomize . | kubectl apply -f -
 
 ## Releases and image tags
 
-The current release is `0.52.0` (server `0.13.0`); the container image is `devopsplaybookio/kubernetes-web-lightclient`.
+The current release is `0.53.0` (server `0.13.0`); the container image is `devopsplaybookio/kubernetes-web-lightclient`.
 
 - Every pull request publishes an immutable build tagged `beta-pr-<n>`, so a change can be tested before it is merged.
-- Merging the pull request promotes the exact tested image digest to the release tags `0.52.0`, `0.52`, `0`, `latest` and `beta`. Only the full `X.Y.Z` tag is immutable; the other tags are moving aliases.
+- Merging the pull request promotes the exact tested image digest to the release tags `0.53.0`, `0.53`, `0`, `latest` and `beta`. Only the full `X.Y.Z` tag is immutable; the other tags are moving aliases.
 - Pin the full `X.Y.Z` tag in production — the example overlay in `docs/deployments/kubernetes/kubernetes-web-lightclient/kustomization.yaml` does. A pinned deployment never changes silently and reports an unambiguous version. Use `beta` or `latest` only for non-production or explicitly auto-updating environments.
-- A deployment tracking a moving alias moves to a new release only after the alias points at it and the pod is recreated (for example with `kubectl rollout restart`). Environments that track `beta` therefore need a restart, or a switch to the pinned tag, to pick up `0.52.0`.
+- A deployment tracking a moving alias moves to a new release only after the alias points at it and the pod is recreated (for example with `kubectl rollout restart`). Environments that track `beta` therefore need a restart, or a switch to the pinned tag, to pick up `0.53.0`.
 
 ## Configuration
 

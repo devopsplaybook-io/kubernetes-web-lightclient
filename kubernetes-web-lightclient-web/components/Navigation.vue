@@ -19,6 +19,14 @@
       </li>
       <li v-if="authenticationStore.isAuthenticated">
         <NuxtLink
+          to="/overview"
+          :class="activeRoute == '/overview' ? 'active' : 'inactive'"
+          ><i class="bi bi-grid-1x2-fill"></i>
+          <span class="nav-label">Overview</span></NuxtLink
+        >
+      </li>
+      <li v-if="authenticationStore.isAuthenticated">
+        <NuxtLink
           to="/kubernetes"
           :class="activeRoute == '/kubernetes' ? 'active' : 'inactive'"
           ><i class="bi bi-robot"></i>

@@ -87,6 +87,7 @@ export function FilteredListQuery(
   typeId: string,
   namespace: string,
   search: string,
+  filterIds: string[] = [],
 ): Record<string, string> {
   const query: Record<string, string> = { objectType: typeId };
   if (namespace) {
@@ -95,7 +96,34 @@ export function FilteredListQuery(
   if (search) {
     query.search = search;
   }
+  if (filterIds.length > 0) {
+    query.filter = filterIds.join(",");
+  }
   return query;
+}
+
+/**
+ * Normalize the `filter` query parameter (comma string or repeated values)
+ * against the filters a list actually offers, dropping junk ids.
+ */
+export function ParseListFilters(
+  raw: unknown,
+  allowedIds: string[],
+): string[] {
+  const values = Array.isArray(raw) ? raw : [raw];
+  const parsed: string[] = [];
+  for (const value of values) {
+    if (typeof value !== "string") {
+      continue;
+    }
+    for (const part of value.split(",")) {
+      const id = part.trim();
+      if (id && allowedIds.includes(id) && !parsed.includes(id)) {
+        parsed.push(id);
+      }
+    }
+  }
+  return parsed;
 }
 
 function ToPath(query: Record<string, string>): string {
@@ -114,8 +142,9 @@ export function FilteredListPath(
   typeId: string,
   namespace: string,
   search: string,
+  filterIds: string[] = [],
 ): string {
-  return ToPath(FilteredListQuery(typeId, namespace, search));
+  return ToPath(FilteredListQuery(typeId, namespace, search, filterIds));
 }
 
 /**

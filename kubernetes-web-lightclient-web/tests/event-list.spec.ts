@@ -29,7 +29,10 @@ function makeEvent(overrides: Record<string, unknown>): Record<string, any> {
   };
 }
 
-function mountWithEvents(events: Record<string, any>[]) {
+function mountWithEvents(
+  events: Record<string, any>[],
+  props: Record<string, any> = {},
+) {
   const store = {
     data: { events } as { [key: string]: any[] },
     loading: false,
@@ -38,6 +41,7 @@ function mountWithEvents(events: Record<string, any>[]) {
   vi.stubGlobal("KubernetesObjectStore", () => store);
   const replaceMock = vi.fn();
   const wrapper = mount(KubernetesEventList, {
+    props,
     global: {
       config: {
         globalProperties: {
@@ -90,8 +94,27 @@ describe("KubernetesEventList", () => {
     wrapper.unmount();
   });
 
-  it("shows Normal events when warnings-only is disabled", async () => {
-    const { wrapper } = mountWithEvents([
+  it("forces the warnings filter from a deep link", async () => {
+    const { wrapper } = mountWithEvents(
+      [
+        makeEvent({ metadata: { uid: "uid-w" }, type: "Warning" }),
+        makeEvent({
+          metadata: { uid: "uid-n" },
+          type: "Normal",
+          reason: "Started",
+          message: "Started container",
+        }),
+      ],
+      { urlFilters: "warnings" },
+    );
+    await flushPromises();
+
+    expect(wrapper.findAll("tbody tr")).toHaveLength(1);
+    expect(warningsChip(wrapper).attributes("aria-pressed")).toBe("true");
+    wrapper.unmount();
+  });
+
+  it("shows Normal events when warnings-only is disabled", async () => {    const { wrapper } = mountWithEvents([
       makeEvent({ metadata: { uid: "uid-w" }, type: "Warning" }),
       makeEvent({
         metadata: { uid: "uid-n" },

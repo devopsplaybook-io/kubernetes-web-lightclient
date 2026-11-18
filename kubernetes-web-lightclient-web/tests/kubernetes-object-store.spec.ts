@@ -33,6 +33,8 @@ vi.mock("~/services/Utils", () => ({
 }));
 
 import { KubernetesObjectStore } from "~~/stores/KubernetesObjectStore";
+import { ResourceService } from "~~/services/ResourceService";
+import axios from "axios";
 
 function makePods() {
   return [
@@ -146,5 +148,83 @@ describe("KubernetesObjectStore permission errors", () => {
     store.recordPermissionError(forbidden("/api/resources/refresh"));
 
     expect(store.permissionError).toBe("admin");
+  });
+});
+
+describe("KubernetesObjectStore per-type loading state", () => {
+  function forbidden(url: string): unknown {
+    return {
+      isAxiosError: true,
+      message: "Request failed with status code 403",
+      config: { url, data: {} },
+      response: { status: 403, data: { error: "Forbidden" } },
+    };
+  }
+
+  const axiosGet = axios.get as unknown as ReturnType<typeof vi.fn>;
+  const getDataUrl = ResourceService.getDataUrl as unknown as ReturnType<
+    typeof vi.fn
+  >;
+
+  function cachedResponse(items: any[]) {
+    return { data: { data: JSON.stringify({ items }), status: "fresh" } };
+  }
+
+  beforeEach(() => {
+    getDataUrl.mockResolvedValue("http://api/resources/data/pod");
+  });
+
+  it("sets and clears loadingTypes around a cached fetch", async () => {
+    axiosGet.mockResolvedValue(cachedResponse([{ metadata: { name: "pod-a" } }]));
+    const store = KubernetesObjectStore();
+
+    const request = store.getObjectCached("pod");
+    expect(store.loadingTypes.pod).toBe(true);
+
+    await request;
+    expect(store.loadingTypes.pod).toBe(false);
+    expect(store.loadErrors.pod).toBeUndefined();
+    expect(store.dataFull.pod).toHaveLength(1);
+  });
+
+  it("records a per-type load error and clears it after a successful fetch", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    axiosGet.mockRejectedValueOnce(new Error("network down"));
+    const store = KubernetesObjectStore();
+
+    await store.getObjectCached("pod");
+
+    expect(store.loadingTypes.pod).toBe(false);
+    expect(store.loadErrors.pod).toBe("Could not load pod data.");
+
+    axiosGet.mockResolvedValue(cachedResponse([]));
+    await store.getObjectCached("pod");
+
+    expect(store.loadErrors.pod).toBeUndefined();
+  });
+
+  it("records only the permission error on a 403", async () => {
+    axiosGet.mockRejectedValueOnce(forbidden("/api/resources/data/pod"));
+    const store = KubernetesObjectStore();
+
+    await store.getObjectCached("pod");
+
+    expect(store.permissionError).toBe("k8s:read");
+    expect(store.loadErrors.pod).toBeUndefined();
+    expect(store.loadingTypes.pod).toBe(false);
+  });
+
+  it("tracks loadingTypes for non-cached commands too", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const store = KubernetesObjectStore();
+    store.dataFull.pod = [];
+
+    store.getObjectFull = vi.fn().mockRejectedValueOnce(new Error("boom"));
+    store.getObject("pod", { command: "describe", argument: "pod-a" });
+    expect(store.loadingTypes.pod).toBe(true);
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(store.loadingTypes.pod).toBe(false);
+    expect(store.loadErrors.pod).toBe("Could not load pod data.");
   });
 });

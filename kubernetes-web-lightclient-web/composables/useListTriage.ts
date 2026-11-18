@@ -18,6 +18,9 @@ export interface UseListTriageOptions<T> {
   // Filters active before any preference was ever stored (e.g. the events
   // "Warnings only" default)
   initialFilters?: string[];
+  // Filters from a deep link: non-null overrides stored preferences on mount
+  // and is not persisted until the user interacts with the toolbar
+  urlFilterIds?: string[] | null;
 }
 
 /**
@@ -54,7 +57,12 @@ export function useListTriage<T>(
   }
 
   applyStoredPreference();
-  if (!Array.isArray(ListPreferencesService.get(typeId).filters)) {
+  if (Array.isArray(options.urlFilterIds)) {
+    // A deep link wins over the stored preference for this mount; marking the
+    // list as interacted keeps the async preference load from overriding it.
+    activeFilters.value = validFilterIds(options.urlFilterIds);
+    userInteracted = true;
+  } else if (!Array.isArray(ListPreferencesService.get(typeId).filters)) {
     activeFilters.value = validFilterIds(options.initialFilters);
   }
 

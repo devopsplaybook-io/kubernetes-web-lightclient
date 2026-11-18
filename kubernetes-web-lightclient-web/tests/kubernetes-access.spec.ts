@@ -34,6 +34,21 @@ afterEach(() => {
 });
 
 describe("root page bootstrap redirect", () => {
+  it("sends authenticated visitors to the cluster overview page", async () => {
+    const router = { push: vi.fn(async () => {}) };
+    vi.stubGlobal("AuthenticationStore", () => ({
+      ensureAuthenticated: vi.fn(async () => true),
+    }));
+    vi.stubGlobal("useRouter", () => router);
+    vi.stubGlobal("useRoute", () => ({ fullPath: "/" }));
+
+    const wrapper = mount(RootPage);
+    await flushPromises();
+
+    expect(router.push).toHaveBeenCalledWith({ path: "/overview" });
+    wrapper.unmount();
+  });
+
   it("sends unauthenticated visitors to the Profile tab with a return path", async () => {
     const router = { push: vi.fn(async () => {}) };
     vi.stubGlobal("AuthenticationStore", () => ({

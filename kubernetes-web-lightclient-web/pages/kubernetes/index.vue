@@ -88,8 +88,12 @@
           <KubernetesPodList
             v-if="objectType === 'pod'"
             :deletable="isCurrentTypeDeletable"
+            :url-filters="listFilterParam"
           />
-          <KubernetesEventList v-else-if="objectType === 'events'" />
+          <KubernetesEventList
+            v-else-if="objectType === 'events'"
+            :url-filters="listFilterParam"
+          />
           <KubernetesDeploymentList
             v-else-if="objectType === 'deployment'"
             :deletable="isCurrentTypeDeletable"
@@ -149,6 +153,7 @@
         <KubernetesNodeList
           v-else-if="objectType === 'node'"
           :deletable="isCurrentTypeDeletable"
+          :url-filters="listFilterParam"
         />
         <KubernetesPVList
           v-else-if="objectType === 'pv'"
@@ -272,6 +277,15 @@ export default {
       }
       return null;
     },
+    // Deep-link quick-filters (`?filter=`), entry-point only: the triage
+    // toolbar owns the active filters afterwards.
+    listFilterParam() {
+      const raw = this.$route?.query?.filter;
+      if (Array.isArray(raw)) {
+        return raw.filter((value) => typeof value === "string");
+      }
+      return typeof raw === "string" ? raw : null;
+    },
   },
   async created() {
     // Apply URL query params SYNCHRONOUSLY before any async operation
@@ -374,6 +388,9 @@ export default {
       // Workload drill-downs do not survive object type switches either
       delete query.workload;
       delete query.workloadName;
+      // Quick-filters are list-specific: a pod filter must not leak into
+      // another type's list.
+      delete query.filter;
       if (typeInfo && typeInfo.namespaced && this.selectedNamespace !== "*") {
         query.namespace = this.selectedNamespace;
       } else {

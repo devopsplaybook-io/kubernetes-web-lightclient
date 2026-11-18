@@ -65,6 +65,10 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
       hasEverLoaded: false,
       // Scope (or "admin-role") required by the last 403, if any
       permissionError: null as string | null,
+      // Per-type request state so independent tiles can render their own
+      // loading/error state instead of the global list flags
+      loadingTypes: {} as { [key: string]: boolean },
+      loadErrors: {} as { [key: string]: string },
       _pendingCacheRequests: {} as { [key: string]: boolean },
       _staleRetryCounts: {} as { [key: string]: number },
     };
@@ -289,11 +293,13 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
 
       // For other commands (describe, delete, etc.), use existing POST endpoint
       this.loading = true;
+      this.loadingTypes[type] = true;
       this.getObjectFull(type, payload)
         .then(async () => {
           this.loading = false;
           this.hasEverLoaded = true;
           this.permissionError = null;
+          delete this.loadErrors[type];
           return this.applyFilter(type);
         })
         .catch(async (error) => {
@@ -304,7 +310,11 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
           if (this.recordPermissionError(error)) {
             return;
           }
+          this.loadErrors[type] = `Could not load ${type} data.`;
           console.error(error);
+        })
+        .finally(() => {
+          this.loadingTypes[type] = false;
         });
     },
 
@@ -316,6 +326,7 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
 
       this._pendingCacheRequests[type] = true;
       this.loading = true;
+      this.loadingTypes[type] = true;
 
       const force = _forceRefreshTypes.has(type);
       if (force) {
@@ -338,6 +349,7 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
         this.applyFilter(type);
         this.hasEverLoaded = true;
         this.permissionError = null;
+        delete this.loadErrors[type];
 
         if (status === "fresh") {
           this._staleRetryCounts[type] = 0;
@@ -362,10 +374,12 @@ export const KubernetesObjectStore = defineStore("KubernetesObjectStore", {
       } catch (error) {
         this.loading = false;
         if (!this.recordPermissionError(error)) {
+          this.loadErrors[type] = `Could not load ${type} data.`;
           console.error(error);
         }
       } finally {
         this._pendingCacheRequests[type] = false;
+        this.loadingTypes[type] = false;
       }
     },
     async getObjectFull(type: string, payload: any) {
