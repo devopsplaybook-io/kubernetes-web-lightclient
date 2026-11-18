@@ -7,6 +7,7 @@ import {
   FilteredListPath,
   FilteredListQuery,
   KindToTypeId,
+  ParseListFilters,
 } from "../services/ObjectLinks";
 
 describe("DetailsQuery / DetailsPath", () => {
@@ -55,6 +56,45 @@ describe("FilteredListQuery / FilteredListPath", () => {
     expect(FilteredListPath("pod", "default", "a b")).toContain(
       "search=a+b",
     );
+  });
+
+  it("adds comma-joined quick filters and omits them when empty", () => {
+    expect(FilteredListQuery("pod", "", "", ["pending", "crashloop"])).toEqual({
+      objectType: "pod",
+      filter: "pending,crashloop",
+    });
+    expect(FilteredListQuery("pod", "", "")).toEqual({ objectType: "pod" });
+    expect(FilteredListPath("pod", "", "", ["restarts"])).toBe(
+      "/kubernetes?objectType=pod&filter=restarts",
+    );
+  });
+});
+
+describe("ParseListFilters", () => {
+  const allowed = ["warnings", "pending", "not-running"];
+
+  it("keeps allowed ids from a comma string and repeated values", () => {
+    expect(ParseListFilters("pending,ghost", allowed)).toEqual(["pending"]);
+    expect(ParseListFilters(["pending", "warnings"], allowed)).toEqual([
+      "pending",
+      "warnings",
+    ]);
+    expect(ParseListFilters("pending,warnings", allowed)).toEqual([
+      "pending",
+      "warnings",
+    ]);
+  });
+
+  it("dedupes, trims and ignores junk values", () => {
+    expect(ParseListFilters(" pending , pending ,warnings", allowed)).toEqual([
+      "pending",
+      "warnings",
+    ]);
+    expect(ParseListFilters(["pending", 42, null], allowed)).toEqual([
+      "pending",
+    ]);
+    expect(ParseListFilters(undefined, allowed)).toEqual([]);
+    expect(ParseListFilters("", allowed)).toEqual([]);
   });
 });
 

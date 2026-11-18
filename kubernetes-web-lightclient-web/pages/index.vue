@@ -9,7 +9,7 @@ export default {
   },
   async created() {
     if (await AuthenticationStore().ensureAuthenticated()) {
-      useRouter().push({ path: "/kubernetes" });
+      useRouter().push({ path: "/overview" });
     } else {
       useRouter().push({
         path: "/settings",

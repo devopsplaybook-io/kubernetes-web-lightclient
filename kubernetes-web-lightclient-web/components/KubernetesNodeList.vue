@@ -84,8 +84,22 @@
 
 <script setup>
 import { UtilsRelativeTime } from "~~/services/Utils";
+import { ParseListFilters } from "~~/services/ObjectLinks";
 import { useListTriage } from "~~/composables/useListTriage";
 import ListTriageToolbar from "~~/components/ListTriageToolbar.vue";
+
+const props = defineProps({
+  deletable: {
+    type: Boolean,
+    default: false,
+  },
+  // Quick-filters from a deep link (`?filter=`); null keeps stored preferences
+  urlFilters: {
+    type: [String, Array],
+    default: null,
+  },
+});
+
 const kubernetesObjectStore = KubernetesObjectStore();
 
 // Local predicate next to the existing status helpers: a node "has warnings"
@@ -101,6 +115,21 @@ function nodeHasWarnings(node) {
   return getNodeStatus(node) !== "Ready";
 }
 
+const nodeFilters = [
+  {
+    id: "has-warnings",
+    label: "Has warnings",
+    predicate: nodeHasWarnings,
+  },
+];
+const urlFilterIds =
+  props.urlFilters === null || props.urlFilters === undefined
+    ? null
+    : ParseListFilters(
+        props.urlFilters,
+        nodeFilters.map((filter) => filter.id),
+      );
+
 const { visibleItems, onSortToggle, availableFilters, activeFilters, toggleFilter, clearAll, sortArrow, ariaSort } = useListTriage("node", {
   rawItems: () => kubernetesObjectStore.data.nodes,
   accessors: {
@@ -108,13 +137,8 @@ const { visibleItems, onSortToggle, availableFilters, activeFilters, toggleFilte
     status: (node) => getNodeStatus(node),
     age: (node) => node.metadata.creationTimestamp || "",
   },
-  filterDefs: [
-    {
-      id: "has-warnings",
-      label: "Has warnings",
-      predicate: nodeHasWarnings,
-    },
-  ],
+  filterDefs: nodeFilters,
+  urlFilterIds,
 });
 </script>
 
@@ -131,12 +155,6 @@ import axios from "axios";
 import Config from "~~/services/Config.ts";
 
 export default {
-  props: {
-    deletable: {
-      type: Boolean,
-      default: false,
-    },
-  },
   data() {
     return {
       dialogConfirmDelete: {

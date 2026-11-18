@@ -169,6 +169,124 @@ describe("KubernetesPodList", () => {
     wrapper.unmount();
   });
 
+  it("offers the problem-state filters used by the overview deep links", async () => {
+    const { wrapper } = mountWithPods([
+      makePod("pod-ready", true, 0),
+      makePod("pod-pending", true, 0, { status: { phase: "Pending" } }),
+      makePod("pod-failed", true, 0, { status: { phase: "Failed" } }),
+      makePod("pod-terminating", true, 0, {
+        metadata: {
+          uid: "uid-pod-terminating",
+          name: "pod-terminating",
+          namespace: "default",
+          deletionTimestamp: "2026-10-15T00:00:00Z",
+        },
+      }),
+      makePod("pod-image", true, 0, {
+        status: {
+          phase: "Pending",
+          containerStatuses: [
+            { ready: false, restartCount: 0, state: { waiting: { reason: "ImagePullBackOff" } } },
+          ],
+        },
+      }),
+      makePod("pod-crashloop", true, 0, {
+        status: {
+          phase: "Running",
+          containerStatuses: [
+            { ready: false, restartCount: 3, state: { waiting: { reason: "CrashLoopBackOff" } } },
+          ],
+        },
+      }),
+    ]);
+
+    const labels = wrapper.findAll("button").map((button: any) => button.text());
+    expect(labels).toEqual(
+      expect.arrayContaining([
+        "Not running",
+        "Pending",
+        "Terminating",
+        "Failed",
+        "CrashLoopBackOff",
+        "Image pull error",
+      ]),
+    );
+
+    const click = async (label: string) => {
+      await wrapper
+        .findAll("button")
+        .find((button: any) => button.text() === label)
+        .trigger("click");
+      await flushPromises();
+    };
+
+    await click("Pending");
+    expect(rowNames(wrapper)).toEqual(["pod-pending"]);
+
+    await click("Pending");
+    await click("Image pull error");
+    expect(rowNames(wrapper)).toEqual(["pod-image"]);
+
+    await click("Image pull error");
+    await click("Failed");
+    expect(rowNames(wrapper)).toEqual(["pod-failed"]);
+
+    await click("Failed");
+    await click("Terminating");
+    expect(rowNames(wrapper)).toEqual(["pod-terminating"]);
+
+    await click("Terminating");
+    await click("CrashLoopBackOff");
+    expect(rowNames(wrapper)).toEqual(["pod-crashloop"]);
+
+    await click("CrashLoopBackOff");
+    await click("Not running");
+    expect(rowNames(wrapper)).toEqual([
+      "pod-pending",
+      "pod-failed",
+      "pod-terminating",
+      "pod-image",
+      "pod-crashloop",
+    ]);
+    wrapper.unmount();
+  });
+
+  it("applies deep-link urlFilters over the stored preference on mount", async () => {
+    prefsState.preferences["pod"] = {
+      sortBy: "restarts",
+      sortDir: "desc",
+      filters: ["restarts"],
+    };
+    const { wrapper } = mountWithPods(
+      [
+        makePod("pod-ready", true, 0),
+        makePod("pod-restarted", true, 2),
+        makePod("pod-pending", true, 0, { status: { phase: "Pending" } }),
+      ],
+      { urlFilters: "pending" },
+    );
+    await flushPromises();
+
+    expect(rowNames(wrapper)).toEqual(["pod-pending"]);
+    const pendingChip = wrapper
+      .findAll("button")
+      .find((button: any) => button.text() === "Pending");
+    expect(pendingChip.attributes("aria-pressed")).toBe("true");
+    expect(ListPreferencesService.set).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it("ignores unknown deep-link filter ids", async () => {
+    const { wrapper } = mountWithPods(
+      [makePod("pod-ready", true, 0), makePod("pod-pending", true, 0, { status: { phase: "Pending" } })],
+      { urlFilters: "ghost,pending" },
+    );
+    await flushPromises();
+
+    expect(rowNames(wrapper)).toEqual(["pod-pending"]);
+    wrapper.unmount();
+  });
+
   it("composes filters and clears them with the Clear button", async () => {
     const { wrapper } = mountWithPods([
       makePod("pod-ready", true, 0),

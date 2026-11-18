@@ -75,8 +75,17 @@
 import { UtilsRelativeTime } from "~~/services/Utils";
 import { PreferencesService } from "~~/services/PreferencesService";
 import { createEventFilters } from "~~/services/ListTriage";
+import { ParseListFilters } from "~~/services/ObjectLinks";
 import { useListTriage } from "~~/composables/useListTriage";
 import ListTriageToolbar from "~~/components/ListTriageToolbar.vue";
+
+const props = defineProps({
+  // Quick-filters from a deep link (`?filter=`); null keeps stored preferences
+  urlFilters: {
+    type: [String, Array],
+    default: null,
+  },
+});
 
 const kubernetesObjectStore = KubernetesObjectStore();
 
@@ -119,6 +128,15 @@ const warningsOnlyStored = PreferencesService.getStoredBoolean(
   true,
 );
 
+const eventFilters = createEventFilters();
+const urlFilterIds =
+  props.urlFilters === null || props.urlFilters === undefined
+    ? null
+    : ParseListFilters(
+        props.urlFilters,
+        eventFilters.map((filter) => filter.id),
+      );
+
 const {
   visibleItems: sortedFilteredEvents,
   onSortToggle,
@@ -136,9 +154,10 @@ const {
     count: (event) => event.count || 0,
     age: (event) => eventTime(event),
   },
-  filterDefs: createEventFilters(),
+  filterDefs: eventFilters,
   defaultSortDirections: { count: "desc" },
   initialFilters: warningsOnlyStored ? ["warnings"] : [],
+  urlFilterIds,
 });
 </script>
 

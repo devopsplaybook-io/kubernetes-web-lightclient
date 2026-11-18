@@ -130,6 +130,7 @@ import {
   staleAwareHandler,
 } from "~~/services/KubernetesUtils";
 import { createPodFilters } from "~~/services/ListTriage";
+import { ParseListFilters } from "~~/services/ObjectLinks";
 import { useListTriage } from "~~/composables/useListTriage";
 import ListTriageToolbar from "~~/components/ListTriageToolbar.vue";
 const props = defineProps({
@@ -147,11 +148,27 @@ const props = defineProps({
     type: Boolean,
     default: true,
   },
+  // Quick-filters from a deep link (`?filter=`); null keeps stored preferences
+  urlFilters: {
+    type: [String, Array],
+    default: null,
+  },
 });
 const kubernetesObjectStore = KubernetesObjectStore();
 const namespaceStore = NamespaceStore();
 
 const itemSource = computed(() => props.pods ?? kubernetesObjectStore.data.pods);
+
+const podFilters = createPodFilters();
+const urlFilterIds =
+  !props.autoFetch ||
+  props.urlFilters === null ||
+  props.urlFilters === undefined
+    ? null
+    : ParseListFilters(
+        props.urlFilters,
+        podFilters.map((filter) => filter.id),
+      );
 
 const { visibleItems, onSortToggle, availableFilters, activeFilters, toggleFilter, clearAll, sortArrow, ariaSort } = useListTriage(
   "pod",
@@ -165,8 +182,9 @@ const { visibleItems, onSortToggle, availableFilters, activeFilters, toggleFilte
       ready: (pod) => getPodDisplayRow(pod).readyRatio,
       restarts: (pod) => getPodDisplayRow(pod).restartCount,
     },
-    filterDefs: createPodFilters(),
+    filterDefs: podFilters,
     defaultSortDirections: { restarts: "desc" },
+    urlFilterIds,
   },
 );
 

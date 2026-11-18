@@ -4,6 +4,7 @@
  * calls — everything here is unit-testable in isolation.
  */
 import { getPodDisplayRow } from "~~/services/KubernetesUtils";
+import { GetPodProblemState } from "~~/services/Overview";
 
 export interface ListSortState {
   sortBy: string;
@@ -72,6 +73,36 @@ export function applyListFilters<T>(
 
 export function createPodFilters(): ListFilterDef[] {
   return [
+    {
+      id: "not-running",
+      label: "Not running",
+      predicate: (pod: any) => GetPodProblemState(pod) !== "",
+    },
+    {
+      id: "pending",
+      label: "Pending",
+      predicate: (pod: any) => GetPodProblemState(pod) === "pending",
+    },
+    {
+      id: "terminating",
+      label: "Terminating",
+      predicate: (pod: any) => GetPodProblemState(pod) === "terminating",
+    },
+    {
+      id: "failed",
+      label: "Failed",
+      predicate: (pod: any) => GetPodProblemState(pod) === "failed",
+    },
+    {
+      id: "crashloop",
+      label: "CrashLoopBackOff",
+      predicate: (pod: any) => GetPodProblemState(pod) === "crashloop",
+    },
+    {
+      id: "imagepull",
+      label: "Image pull error",
+      predicate: (pod: any) => GetPodProblemState(pod) === "imagepull",
+    },
     {
       id: "not-ready",
       label: "Not ready",

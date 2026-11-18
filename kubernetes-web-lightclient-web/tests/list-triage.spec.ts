@@ -192,6 +192,62 @@ describe("createPodFilters", () => {
     ).toBe(true);
     expect(restarts.predicate(makePod())).toBe(false);
   });
+
+  it("exposes the problem-state filters in a stable order", () => {
+    expect(createPodFilters().map((f) => f.id)).toEqual([
+      "not-running",
+      "pending",
+      "terminating",
+      "failed",
+      "crashloop",
+      "imagepull",
+      "not-ready",
+      "restarts",
+    ]);
+  });
+
+  it("classifies each problem state into its own bucket", () => {
+    const byId = (id: string) =>
+      createPodFilters().find((f) => f.id === id)!.predicate;
+
+    const pending = makePod({ status: { phase: "Pending" } });
+    const failed = makePod({ status: { phase: "Failed" } });
+    const terminating = makePod({
+      metadata: { ...makePod().metadata, deletionTimestamp: "2026-10-15T00:00:00Z" },
+    });
+    const imagePull = makePod({
+      status: {
+        phase: "Pending",
+        containerStatuses: [
+          { ready: false, restartCount: 0, state: { waiting: { reason: "ImagePullBackOff" } } },
+        ],
+      },
+    });
+    const crashLoop = makePod({
+      status: {
+        phase: "Running",
+        containerStatuses: [
+          { ready: false, restartCount: 3, state: { waiting: { reason: "CrashLoopBackOff" } } },
+        ],
+      },
+    });
+
+    expect(byId("pending")(pending)).toBe(true);
+    expect(byId("failed")(failed)).toBe(true);
+    expect(byId("terminating")(terminating)).toBe(true);
+    expect(byId("imagepull")(imagePull)).toBe(true);
+    expect(byId("crashloop")(crashLoop)).toBe(true);
+
+    expect(byId("pending")(crashLoop)).toBe(false);
+    expect(byId("crashloop")(pending)).toBe(false);
+    expect(byId("imagepull")(crashLoop)).toBe(false);
+    expect(byId("failed")(pending)).toBe(false);
+    expect(byId("terminating")(pending)).toBe(false);
+
+    for (const id of ["pending", "terminating", "failed", "crashloop", "imagepull"]) {
+      expect(byId(id)(makePod())).toBe(false);
+    }
+  });
 });
 
 describe("createEventFilters", () => {
