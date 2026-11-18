@@ -9,6 +9,7 @@
       <NuxtPage />
       <AlertMessages id="page-alert-messages" />
     </main>
+    <GlobalSearchPalette />
   </div>
 </template>
 

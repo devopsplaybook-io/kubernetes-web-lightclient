@@ -38,11 +38,11 @@ export async function describeObject(
   return postCommand(payload);
 }
 
-export async function getObjectManifestYaml(
+export async function getObjectJson(
   objectType: string,
   namespace: string,
   objectName: string,
-): Promise<string> {
+): Promise<any> {
   const payload: CommandPayload = {
     object: objectType,
     command: "get",
@@ -51,6 +51,13 @@ export async function getObjectManifestYaml(
   if (namespace) {
     payload.namespace = namespace;
   }
-  const json = JSON.parse(await postCommand(payload));
-  return dump(json);
+  return JSON.parse(await postCommand(payload));
+}
+
+export async function getObjectManifestYaml(
+  objectType: string,
+  namespace: string,
+  objectName: string,
+): Promise<string> {
+  return dump(await getObjectJson(objectType, namespace, objectName));
 }

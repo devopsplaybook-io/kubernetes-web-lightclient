@@ -8,6 +8,16 @@
     </template>
     <ul class="navigation-links">
       <li v-if="authenticationStore.isAuthenticated">
+        <a
+          href="#"
+          title="Search (Ctrl/Cmd+K)"
+          aria-label="Search (Ctrl/Cmd+K)"
+          v-on:click.prevent="openSearch()"
+          ><i class="bi bi-search"></i>
+          <span class="nav-label">Search</span></a
+        >
+      </li>
+      <li v-if="authenticationStore.isAuthenticated">
         <NuxtLink
           to="/kubernetes"
           :class="activeRoute == '/kubernetes' ? 'active' : 'inactive'"
@@ -41,6 +51,7 @@ const authenticationStore = AuthenticationStore();
 
 <script>
 import axios from "axios";
+import { EventBus, EventTypes } from "~~/services/EventBus";
 
 export default {
   watch: {
@@ -59,6 +70,9 @@ export default {
     this.loadAppTitle();
   },
   methods: {
+    openSearch() {
+      EventBus.emit(EventTypes.OPEN_COMMAND_PALETTE, {});
+    },
     routeUpdated(newRoute) {
       this.activeRoute = newRoute.fullPath.split("?")[0];
     },

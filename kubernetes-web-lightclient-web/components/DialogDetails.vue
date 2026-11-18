@@ -9,6 +9,13 @@
             class="close"
             v-on:click.prevent="clickClose()"
           ></a>
+          <a
+            v-if="backStack.length > 0"
+            href="#"
+            class="details-back"
+            v-on:click.prevent="goBack()"
+            >← Back</a
+          >
           {{ headerTitle }}
         </header>
         <section class="details-tabs" role="tablist">
@@ -30,7 +37,16 @@
           >
             YAML
           </button>
-          <span class="actions"
+          <button
+            class="details-tab"
+            :class="{ active: activeTab === 'related' }"
+            role="tab"
+            :aria-selected="activeTab === 'related'"
+            v-on:click="selectTab('related')"
+          >
+            Related
+          </button>
+          <span v-if="activeTab !== 'related'" class="actions"
             ><i
               class="bi bi-clipboard"
               title="Copy"
@@ -38,7 +54,23 @@
             ></i
           ></span>
         </section>
-        <pre id="dialog-details-text">{{ activeText }}</pre>
+        <pre v-if="activeTab !== 'related'" id="dialog-details-text">{{
+          activeText
+        }}</pre>
+        <RelatedTab
+          v-else
+          :result="relatedResult"
+          :object-type="currentObjectType"
+          :object-name="currentObjectName"
+          :object-namespace="currentNamespace"
+          :kind="relatedResult.kind || currentTypeName"
+          :loading="relatedLoading"
+          :error="relatedError"
+          v-on:navigate="onNavigate"
+          v-on:openEvents="openEvents()"
+          v-on:openWorkload="openWorkload"
+          v-on:retry="fetchRelated(true)"
+        />
       </article>
     </dialog>
   </Teleport>
@@ -51,8 +83,34 @@ import {
 } from "~~/services/ManifestService";
 import { staleAwareHandler } from "~~/services/KubernetesUtils";
 import { EventBus, EventTypes } from "~~/services/EventBus";
+import { writeDialogRoute } from "~~/services/DialogDeepLink";
+import { ResourceService } from "~~/services/ResourceService";
+import { FetchRelatedObjects } from "~~/services/RelatedObjectsService";
+import { DetailsPath, FilteredListPath } from "~~/services/ObjectLinks";
+import { WorkloadDrilldownQuery } from "~~/services/WorkloadPods";
+import RelatedTab from "~~/components/RelatedTab.vue";
+
+const BACK_STACK_LIMIT = 10;
+
+function EmptyRelatedResult() {
+  return {
+    kind: "",
+    owners: [],
+    pods: [],
+    replicaSets: [],
+    services: [],
+    ingresses: [],
+    configMaps: [],
+    secrets: [],
+    node: null,
+    events: [],
+    usedByPods: [],
+    errors: [],
+  };
+}
 
 export default {
+  components: { RelatedTab },
   props: {
     objectType: {
       type: String,
@@ -78,11 +136,24 @@ export default {
       yamlText: "",
       yamlLoaded: false,
       yamlLoading: false,
+      relatedResult: EmptyRelatedResult(),
+      relatedLoaded: false,
+      relatedLoading: false,
+      relatedError: "",
+      currentObjectType: this.objectType,
+      currentObjectName: this.objectName,
+      currentNamespace: this.namespace,
+      currentTypeName: this.objectType,
+      backStack: [],
+      _fetchEpoch: 0,
     };
   },
   computed: {
     headerTitle() {
-      return this.title || `Details: ${this.objectName}`;
+      if (this.currentObjectName !== this.objectName) {
+        return `Details: ${this.currentObjectName}`;
+      }
+      return this.title || `Details: ${this.currentObjectName}`;
     },
     activeText() {
       if (this.activeTab === "yaml") {
@@ -102,17 +173,24 @@ export default {
       this.activeTab = tab;
       if (tab === "yaml") {
         this.fetchYaml();
+      } else if (tab === "related") {
+        this.fetchRelated(false);
       }
     },
     async fetchDescribe() {
+      const epoch = this._fetchEpoch;
+      const objectType = this.currentObjectType;
+      const namespace = this.currentNamespace;
+      const name = this.currentObjectName;
       try {
-        this.describeText = await describeObject(
-          this.objectType,
-          this.namespace,
-          this.objectName,
-        );
+        const text = await describeObject(objectType, namespace, name);
+        if (epoch === this._fetchEpoch) {
+          this.describeText = text;
+        }
       } catch (error) {
-        staleAwareHandler(this.objectType)(error);
+        if (epoch === this._fetchEpoch) {
+          staleAwareHandler(objectType)(error);
+        }
       }
     },
     async fetchYaml() {
@@ -120,18 +198,131 @@ export default {
         return;
       }
       this.yamlLoading = true;
+      const epoch = this._fetchEpoch;
+      const objectType = this.currentObjectType;
       try {
-        this.yamlText = await getObjectManifestYaml(
-          this.objectType,
-          this.namespace,
-          this.objectName,
+        const text = await getObjectManifestYaml(
+          objectType,
+          this.currentNamespace,
+          this.currentObjectName,
         );
-        this.yamlLoaded = true;
+        if (epoch === this._fetchEpoch) {
+          this.yamlText = text;
+          this.yamlLoaded = true;
+        }
       } catch (error) {
-        staleAwareHandler(this.objectType)(error);
+        if (epoch === this._fetchEpoch) {
+          staleAwareHandler(objectType)(error);
+        }
       } finally {
-        this.yamlLoading = false;
+        if (epoch === this._fetchEpoch) {
+          this.yamlLoading = false;
+        }
       }
+    },
+    async fetchRelated(force) {
+      if (!force && (this.relatedLoaded || this.relatedLoading)) {
+        return;
+      }
+      const epoch = this._fetchEpoch;
+      const objectType = this.currentObjectType;
+      this.relatedLoading = true;
+      this.relatedError = "";
+      try {
+        const types = await ResourceService.getAvailableTypes();
+        const typeInfo = types.find((type) => type.id === objectType);
+        if (typeInfo) {
+          this.currentTypeName = typeInfo.name;
+        }
+        const result = await FetchRelatedObjects({
+          objectType,
+          namespace: this.currentNamespace,
+          name: this.currentObjectName,
+          types,
+        });
+        if (epoch === this._fetchEpoch) {
+          this.relatedResult = result;
+          this.relatedLoaded = true;
+        }
+      } catch (error) {
+        if (epoch === this._fetchEpoch) {
+          staleAwareHandler(objectType)(error);
+          this.relatedError =
+            error && error.message
+              ? error.message
+              : "Failed to load the related objects.";
+        }
+      } finally {
+        if (epoch === this._fetchEpoch) {
+          this.relatedLoading = false;
+        }
+      }
+    },
+    resetForObject() {
+      this._fetchEpoch += 1;
+      this.activeTab = "describe";
+      this.describeText = "";
+      this.yamlText = "";
+      this.yamlLoaded = false;
+      this.yamlLoading = false;
+      this.relatedResult = EmptyRelatedResult();
+      this.relatedLoaded = false;
+      this.relatedLoading = false;
+      this.relatedError = "";
+    },
+    onNavigate({ objectType, namespace, name }) {
+      if (objectType === this.currentObjectType) {
+        this.backStack = [
+          ...this.backStack,
+          {
+            objectType: this.currentObjectType,
+            name: this.currentObjectName,
+            namespace: this.currentNamespace,
+          },
+        ].slice(-BACK_STACK_LIMIT);
+        this.currentObjectName = name;
+        this.currentNamespace = namespace;
+        this.resetForObject();
+        this.fetchDescribe();
+        writeDialogRoute(
+          this.$router,
+          this.$route,
+          "details",
+          name,
+          namespace,
+        );
+        return;
+      }
+      this.$router.push(DetailsPath(objectType, namespace, name));
+    },
+    openEvents() {
+      this.$router.push(
+        FilteredListPath("events", this.currentNamespace, this.currentObjectName),
+      );
+    },
+    openWorkload({ kind, name, namespace }) {
+      const query = new URLSearchParams(
+        WorkloadDrilldownQuery(kind, name, namespace),
+      );
+      this.$router.push(`/kubernetes?${query.toString()}`);
+    },
+    goBack() {
+      const previous = this.backStack[this.backStack.length - 1];
+      if (!previous) {
+        return;
+      }
+      this.backStack = this.backStack.slice(0, -1);
+      this.currentObjectName = previous.name;
+      this.currentNamespace = previous.namespace;
+      this.resetForObject();
+      this.fetchDescribe();
+      writeDialogRoute(
+        this.$router,
+        this.$route,
+        "details",
+        previous.name,
+        previous.namespace,
+      );
     },
     async copyText() {
       const text = this.activeText;
@@ -207,5 +398,9 @@ export default {
 }
 #dialog-details .details-tabs .actions i {
   cursor: pointer;
+}
+#dialog-details .details-back {
+  margin-right: 0.75rem;
+  font-size: 0.8em;
 }
 </style>

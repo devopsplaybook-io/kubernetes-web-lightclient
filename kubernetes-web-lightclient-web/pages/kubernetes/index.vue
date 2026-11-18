@@ -60,6 +60,7 @@
         "
       />
       <div
+        :key="listEpoch"
         v-show="
           kubernetesObjectStore.hasEverLoaded || !kubernetesObjectStore.loading
         "
@@ -202,6 +203,7 @@ import KubernetesCustomResourceDefinitionList from "~~/components/KubernetesCust
 import KubernetesObjectList from "~~/components/KubernetesObjectList.vue";
 import WorkloadPodView from "~~/components/WorkloadPodView.vue";
 import { ParseWorkloadRoute } from "~~/services/WorkloadPods";
+import { DesiredListState } from "~~/services/ObjectLinks";
 
 export default {
   data() {
@@ -220,6 +222,7 @@ export default {
       availableTypes: [],
       typesLoaded: false,
       kubernetesObjectStore: KubernetesObjectStore(),
+      listEpoch: 0,
       drilldown,
       drilldownKey: drilldown
         ? `${drilldown.kind}/${drilldown.namespace}/${drilldown.name}`
@@ -271,7 +274,7 @@ export default {
 
     // Load available types and user selections
     try {
-      this.availableTypes = await ResourceService.getAvailableTypes();
+      this.availableTypes = await ResourceService.getAvailableTypes(true);
       await KubernetesObjectStore().loadSelectedTypes();
       this.typesLoaded = true;
     } catch (e) {
@@ -307,6 +310,12 @@ export default {
       KubernetesObjectStore().invalidateAndRefresh(eventType);
     };
     EventBus.on(EventTypes.OBJECT_CHANGED, this._onObjectChanged);
+    // The palette pushes a details deep link; when the list of that type is
+    // already mounted it must remount to pick the link up.
+    this._onOpenObjectDetails = () => {
+      this.listEpoch += 1;
+    };
+    EventBus.on(EventTypes.OPEN_OBJECT_DETAILS, this._onOpenObjectDetails);
   },
   beforeUnmount() {
     if (this.refreshIntervalId) {
@@ -315,12 +324,18 @@ export default {
     if (this._onObjectChanged) {
       EventBus.off(EventTypes.OBJECT_CHANGED, this._onObjectChanged);
     }
+    if (this._onOpenObjectDetails) {
+      EventBus.off(EventTypes.OPEN_OBJECT_DETAILS, this._onOpenObjectDetails);
+    }
   },
   watch: {
     "$route.query": {
       deep: true,
       handler(query) {
         this.applyDrilldownFromRoute(query);
+        if (!this.drilldown) {
+          this.applyListStateFromRoute(query);
+        }
       },
     },
     objectType(newType) {
@@ -350,10 +365,9 @@ export default {
         objectType: newType,
         ...(this.searchFilter ? { search: this.searchFilter } : {}),
       };
-      // Dialogs do not survive object type switches
-      delete query.dialog;
-      delete query.name;
-      delete query.dialogNamespace;
+      // Dialogs are kept: a cross-type deep link from the palette or the
+      // Related tab switches the list type and then opens the dialog. Manual
+      // switches clear them explicitly through clearDialogRoute.
       // Workload drill-downs do not survive object type switches either
       delete query.workload;
       delete query.workloadName;
@@ -372,6 +386,24 @@ export default {
     },
   },
   methods: {
+    applyListStateFromRoute(query) {
+      const state = DesiredListState(query || {});
+      const namespace = state.namespace;
+      if (namespace !== this.selectedNamespace) {
+        this.selectedNamespace = namespace;
+        this.kubernetesObjectStore.setFilterNamespace(
+          namespace === "*" ? "" : namespace,
+        );
+      }
+      if (state.search !== this.searchFilter) {
+        this.searchFilter = state.search;
+        this.kubernetesObjectStore.setFilterKeyword(this.searchFilter);
+      }
+      if (state.objectType && state.objectType !== this.objectType) {
+        this.objectType = state.objectType;
+        ListPaginationService.reset(this.objectType);
+      }
+    },
     applyDrilldownFromRoute(query) {
       const next = ParseWorkloadRoute(query || {});
       const nextKey = next
