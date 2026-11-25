@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   ensureLoaded: vi.fn(async () => {}),
   setUser: vi.fn(),
   clear: vi.fn(),
+  loginCodesAvailable: vi.fn(),
   auth: { isAuthenticated: false },
   current: {
     user: null as Record<string, unknown> | null,
@@ -59,6 +60,11 @@ vi.mock("axios", () => ({
   default: { post: mocks.post, put: mocks.put },
 }));
 
+vi.mock("~~/services/LoginCodes", () => ({
+  loginCodeService: { capabilities: vi.fn() },
+  loginCodesAvailable: mocks.loginCodesAvailable,
+}));
+
 import ProfileSettings from "../components/ProfileSettings.vue";
 import { CommonWebThemeKey } from "../services/Theme";
 
@@ -78,6 +84,10 @@ function mountProfile(
           $route: { path: "/settings", query },
         },
       },
+      stubs: {
+        LoginWithCodeCard: true,
+        AuthorizeDeviceCard: true,
+      },
     },
   });
   return { wrapper, router, setTheme };
@@ -92,7 +102,9 @@ beforeEach(() => {
   mocks.ensureLoaded.mockReset();
   mocks.setUser.mockReset();
   mocks.clear.mockReset();
+  mocks.loginCodesAvailable.mockReset();
   mocks.isInitialized.mockResolvedValue(true);
+  mocks.loginCodesAvailable.mockResolvedValue(false);
   mocks.auth.isAuthenticated = false;
   mocks.current.user = null;
   mocks.current.loading = false;
@@ -232,6 +244,91 @@ describe("ProfileSettings access summary", () => {
     await flushPromises();
 
     expect(mocks.ensureLoaded).toHaveBeenLastCalledWith(true);
+    wrapper.unmount();
+  });
+});
+
+describe("ProfileSettings login with a code", () => {
+  it("offers the code card while keeping the password form when available", async () => {
+    mocks.loginCodesAvailable.mockResolvedValue(true);
+    const { wrapper } = mountProfile();
+    await flushPromises();
+
+    expect(wrapper.find("login-with-code-card-stub").exists()).toBe(true);
+    expect(wrapper.find("authorize-device-card-stub").exists()).toBe(false);
+    expect(wrapper.find("#username").exists()).toBe(true);
+    expect(wrapper.find("#passwrd").exists()).toBe(true);
+    wrapper.unmount();
+  });
+
+  it("hides the code card and keeps the password login when unavailable", async () => {
+    mocks.loginCodesAvailable.mockResolvedValue(false);
+    mocks.post.mockResolvedValue({
+      data: { token: "jwt-token", user: { name: "alice" } },
+    });
+    const { wrapper } = mountProfile();
+    await flushPromises();
+
+    expect(wrapper.find("login-with-code-card-stub").exists()).toBe(false);
+
+    await wrapper.find("#username").setValue("alice");
+    await wrapper.find("#passwrd").setValue("secret");
+    await wrapper.vm.login();
+    await flushPromises();
+
+    expect(mocks.saveToken).toHaveBeenCalledWith("jwt-token");
+    expect(mocks.auth.isAuthenticated).toBe(true);
+    wrapper.unmount();
+  });
+
+  it("shows the device approval card to an authenticated user when available", async () => {
+    mocks.loginCodesAvailable.mockResolvedValue(true);
+    mocks.auth.isAuthenticated = true;
+    const { wrapper } = mountProfile();
+    await flushPromises();
+
+    expect(wrapper.find("authorize-device-card-stub").exists()).toBe(true);
+    expect(wrapper.find("login-with-code-card-stub").exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("hides the device approval card when unavailable", async () => {
+    mocks.loginCodesAvailable.mockResolvedValue(false);
+    mocks.auth.isAuthenticated = true;
+    const { wrapper } = mountProfile();
+    await flushPromises();
+
+    expect(wrapper.find("authorize-device-card-stub").exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("applies the redeemed session and follows a safe return path", async () => {
+    mocks.loginCodesAvailable.mockResolvedValue(true);
+    const liveUser = { id: "user-1", name: "alice" };
+    const { wrapper, router } = mountProfile({
+      return: "/kubernetes?objectType=pod",
+    });
+    await flushPromises();
+
+    wrapper.vm.onCodeLoginApproved({ token: "jwt-token", user: liveUser });
+    await flushPromises();
+
+    expect(mocks.auth.isAuthenticated).toBe(true);
+    expect(wrapper.vm.isInitialized).toBe(true);
+    expect(mocks.setUser).toHaveBeenCalledWith(liveUser);
+    expect(router.push).toHaveBeenCalledWith("/kubernetes?objectType=pod");
+    wrapper.unmount();
+  });
+
+  it("ignores an unsafe return path after a code login", async () => {
+    mocks.loginCodesAvailable.mockResolvedValue(true);
+    const { wrapper, router } = mountProfile({ return: "//evil.com" });
+    await flushPromises();
+
+    wrapper.vm.onCodeLoginApproved({ token: "jwt-token", user: { name: "alice" } });
+    await flushPromises();
+
+    expect(router.push).not.toHaveBeenCalled();
     wrapper.unmount();
   });
 });

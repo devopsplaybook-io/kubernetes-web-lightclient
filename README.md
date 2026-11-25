@@ -50,12 +50,12 @@ kubectl kustomize . | kubectl apply -f -
 
 ## Releases and image tags
 
-The current release is `0.53.0` (server `0.13.0`); the container image is `devopsplaybookio/kubernetes-web-lightclient`.
+The current release is `0.56.0` (server `0.16.0`); the container image is `devopsplaybookio/kubernetes-web-lightclient`.
 
 - Every pull request publishes an immutable build tagged `beta-pr-<n>`, so a change can be tested before it is merged.
-- Merging the pull request promotes the exact tested image digest to the release tags `0.53.0`, `0.53`, `0`, `latest` and `beta`. Only the full `X.Y.Z` tag is immutable; the other tags are moving aliases.
+- Merging the pull request promotes the exact tested image digest to the release tags `0.56.0`, `0.56`, `0`, `latest` and `beta`. Only the full `X.Y.Z` tag is immutable; the other tags are moving aliases.
 - Pin the full `X.Y.Z` tag in production — the example overlay in `docs/deployments/kubernetes/kubernetes-web-lightclient/kustomization.yaml` does. A pinned deployment never changes silently and reports an unambiguous version. Use `beta` or `latest` only for non-production or explicitly auto-updating environments.
-- A deployment tracking a moving alias moves to a new release only after the alias points at it and the pod is recreated (for example with `kubectl rollout restart`). Environments that track `beta` therefore need a restart, or a switch to the pinned tag, to pick up `0.53.0`.
+- A deployment tracking a moving alias moves to a new release only after the alias points at it and the pod is recreated (for example with `kubectl rollout restart`). Environments that track `beta` therefore need a restart, or a switch to the pinned tag, to pick up `0.56.0`.
 
 ## Configuration
 
@@ -109,6 +109,8 @@ See the [ConfigMap YAML](docs/deployments/kubernetes/kubernetes-web-lightclient/
 | JWT_VALIDITY_DURATION                                  | JWT token validity, in seconds                                                                                         | 2592000 (30 days) | Config file or environment variable |
 | JWT_SESSION_MAX_DURATION                               | Absolute session lifetime in seconds from the first login (0 disables the cap)                                         | 7776000 (90 days) | Config file or environment variable |
 | JWT_REVOCATION_ENABLED                                 | Reject JWTs issued before a password/role/scope change (requires the `users.tokenVersion` migration)                   | false         | Config file or environment variable |
+| LOGIN_CODE_ENABLED                                     | Enable cross-device login with a code: mounts `/api/users/login-codes` and offers the login and device-approval cards  | false         | Config file or environment variable |
+| LOGIN_CODE_APPROVE_REQUIRE_PASSWORD                    | Require the approving user's password when approving a login code                                                      | false         | Config file or environment variable |
 | PASSWORD_MIN_LENGTH                                    | Minimum password length (`0` accepts any non-empty password)                                                          | 0             | Config file or environment variable |
 | AUTH_RATE_LIMIT_LOGIN_MAX                              | Login attempts allowed per rate-limit window (`<= 0` disables)                                                        | 10            | Config file or environment variable |
 | AUTH_RATE_LIMIT_REFRESH_MAX                            | Session refreshes allowed per rate-limit window (`<= 0` disables)                                                     | 60            | Config file or environment variable |
@@ -116,6 +118,8 @@ See the [ConfigMap YAML](docs/deployments/kubernetes/kubernetes-web-lightclient/
 | CORS_POLICY_ORIGIN                                     | Comma-separated list of browser origins allowed to call the API. Empty emits no CORS headers (same-origin UI only); `*` allows any origin and is insecure | (empty) | Config file or environment variable |
 
 Changes to the configuration file are applied without restarting the process: stats capture intervals, the request queue settings and the LLM recommendation clients/cron schedule are re-armed when the file is reloaded.
+
+Cross-device login with a code follows the standard in [`common-utils/docs/login-with-code.md`](https://github.com/devopsplaybook-io/common-utils/blob/main/docs/login-with-code.md). Only `LOGIN_CODE_ENABLED` is needed to turn it on; the other `LOGIN_CODE_*` tuning keys (TTL, rotation, grace, poll interval, attempts, rate limits) keep their documented defaults. Without the flag, both cards stay hidden and the password login is unchanged.
 
 `GET /api/ready` is a public readiness endpoint: it returns `200 {"ready":true}` once the first stats capture has completed (or its 5-second deadline expired) and `503 {"ready":false}` before that. `GET /api/status` keeps returning `{"started":true}` as soon as the listener is up.
 
