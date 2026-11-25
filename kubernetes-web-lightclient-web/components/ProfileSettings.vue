@@ -23,6 +23,14 @@
         >
           Login
         </button>
+        <LoginWithCodeCard
+          v-if="isInitialized && isLoginCodeAvailable"
+          :service="loginCodeService"
+          variant="plain"
+          :heading-level="3"
+          @approved="onCodeLoginApproved"
+          @use-password="hideLoginCode"
+        />
       </template>
     </div>
     <div v-else>
@@ -48,6 +56,13 @@
         :loading="currentUserStore.loading"
         :error="currentUserStore.error"
         v-on:retry="reloadCurrentUser()"
+      />
+      <AuthorizeDeviceCard
+        v-if="isLoginCodeAvailable"
+        :service="loginCodeService"
+        variant="plain"
+        :heading-level="3"
+        :labels="{ title: 'Log in on another device' }"
       />
       <h2>Settings</h2>
       <div>
@@ -95,19 +110,25 @@ function toggleTheme() {
 
 <script>
 import axios from "axios";
+import { markRaw } from "vue";
 import Config from "~~/services/Config.ts";
 import { AuthService } from "~~/services/AuthService";
 import { handleError, EventBus, EventTypes } from "~~/services/EventBus";
+import { loginCodeService, loginCodesAvailable } from "~~/services/LoginCodes";
 import { UserService } from "~~/services/UserService";
 import { RefreshIntervalService } from "~~/services/RefreshIntervalService";
 import { isSafeReturnPath } from "~~/services/SessionExpiry";
 import { AuthenticationStore } from "~~/stores/AuthenticationStore";
 import { CurrentUserStore } from "~~/stores/CurrentUserStore";
 import UserAccessSummary from "~~/components/UserAccessSummary.vue";
+import LoginWithCodeCard from "@devopsplaybook.io/common-web/components/LoginWithCodeCard.vue";
+import AuthorizeDeviceCard from "@devopsplaybook.io/common-web/components/AuthorizeDeviceCard.vue";
 
 export default {
   components: {
     UserAccessSummary,
+    LoginWithCodeCard,
+    AuthorizeDeviceCard,
   },
   data() {
     return {
@@ -116,10 +137,13 @@ export default {
       isChangePasswordStarted: false,
       refreshInterval: RefreshIntervalService.get(),
       currentUserStore: CurrentUserStore(),
+      loginCodeService: markRaw(loginCodeService),
+      isLoginCodeAvailable: false,
     };
   },
   async created() {
     this.isInitialized = await UserService.isInitialized();
+    this.isLoginCodeAvailable = await loginCodesAvailable();
     this.refreshInterval = RefreshIntervalService.get();
     if (AuthenticationStore().isAuthenticated) {
       await CurrentUserStore().ensureLoaded();
@@ -128,6 +152,24 @@ export default {
   methods: {
     async reloadCurrentUser() {
       await CurrentUserStore().ensureLoaded(true);
+    },
+    async onCodeLoginApproved(payload) {
+      AuthenticationStore().isAuthenticated = true;
+      this.isInitialized = true;
+      if (payload?.user) {
+        CurrentUserStore().setUser(payload.user);
+      }
+      EventBus.emit(EventTypes.ALERT_MESSAGE, {
+        type: "info",
+        text: "User Logged In",
+      });
+      const returnPath = this.$route?.query?.return;
+      if (isSafeReturnPath(returnPath)) {
+        this.$router.push(returnPath);
+      }
+    },
+    hideLoginCode() {
+      this.isLoginCodeAvailable = false;
     },
     async saveNew() {
       if (this.user.name && this.user.password) {
