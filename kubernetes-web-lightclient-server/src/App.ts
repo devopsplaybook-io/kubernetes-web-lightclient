@@ -37,6 +37,7 @@ import {
 import { StatsRoutes } from "./stats/StatsRoutes";
 import {
   AuthInit,
+  AuthSessionPolicyLog,
   AuthSetAuditHandler,
   AuthSetOTel,
   DbUtilsInit,
@@ -54,6 +55,10 @@ Promise.resolve().then(async () => {
   //
   const config = new Config();
   await config.reload();
+  AuthSessionPolicyLog(config, {
+    app: "kubernetes-web-lightclient",
+    logger: (message: string) => logger.info(message),
+  });
   watchFile(config.CONFIG_FILE, () => {
     logger.info(`Config updated: ${config.CONFIG_FILE}`);
     config
