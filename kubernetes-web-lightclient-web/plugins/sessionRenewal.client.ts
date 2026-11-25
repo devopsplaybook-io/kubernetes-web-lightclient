@@ -1,9 +1,8 @@
 import { AuthService } from "~~/services/AuthService";
-import { SessionRenewalStart } from "~~/services/SessionRenewal";
 
-// Keeps the session sliding: AuthService renews once 20% of the token
-// lifetime remains, so ask it for the token on start, on focus/visibility and
-// periodically. A 401 anywhere is still handled by the axios interceptor.
+// Keep the session sliding: AuthService renews once 20% of the token lifetime
+// remains, and startSessionRenewal() checks it on start, on focus/visibility
+// and every five minutes. A 401 anywhere is still handled by the interceptor.
 export default defineNuxtPlugin(() => {
-  SessionRenewalStart(() => AuthService.getToken());
+  AuthService.startSessionRenewal();
 });
