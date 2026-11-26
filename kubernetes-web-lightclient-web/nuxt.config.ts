@@ -27,6 +27,11 @@ export default defineNuxtConfig({
     autoImports: ["defineStore", "acceptHMRUpdate"],
   },
   pwa: {
+    // Prompt mode surfaces the shared Reload/Later banner instead of parking a
+    // waiting worker silently; updateViaCache keeps the sw.js fetch off the
+    // HTTP cache so a new build is noticed promptly.
+    registerType: "prompt",
+    updateViaCache: "none",
     // PWA options
     manifest: {
       name: "APPLICATION_TITLE",
