@@ -50,12 +50,12 @@ kubectl kustomize . | kubectl apply -f -
 
 ## Releases and image tags
 
-The current release is `0.56.0` (server `0.16.0`); the container image is `devopsplaybookio/kubernetes-web-lightclient`.
+The current release is `0.57.0` (server `0.16.0`); the container image is `devopsplaybookio/kubernetes-web-lightclient`.
 
 - Every pull request publishes an immutable build tagged `beta-pr-<n>`, so a change can be tested before it is merged.
-- Merging the pull request promotes the exact tested image digest to the release tags `0.56.0`, `0.56`, `0`, `latest` and `beta`. Only the full `X.Y.Z` tag is immutable; the other tags are moving aliases.
+- Merging the pull request promotes the exact tested image digest to the release tags `0.57.0`, `0.57`, `0`, `latest` and `beta`. Only the full `X.Y.Z` tag is immutable; the other tags are moving aliases.
 - Pin the full `X.Y.Z` tag in production — the example overlay in `docs/deployments/kubernetes/kubernetes-web-lightclient/kustomization.yaml` does. A pinned deployment never changes silently and reports an unambiguous version. Use `beta` or `latest` only for non-production or explicitly auto-updating environments.
-- A deployment tracking a moving alias moves to a new release only after the alias points at it and the pod is recreated (for example with `kubectl rollout restart`). Environments that track `beta` therefore need a restart, or a switch to the pinned tag, to pick up `0.56.0`.
+- A deployment tracking a moving alias moves to a new release only after the alias points at it and the pod is recreated (for example with `kubectl rollout restart`). Environments that track `beta` therefore need a restart, or a switch to the pinned tag, to pick up `0.57.0`.
 
 ## Configuration
 

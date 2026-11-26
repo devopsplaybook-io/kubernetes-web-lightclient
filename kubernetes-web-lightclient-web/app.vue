@@ -10,6 +10,8 @@
       <AlertMessages id="page-alert-messages" />
     </main>
     <GlobalSearchPalette />
+    <!-- Shared PWA update prompt: a new build is applied only on user action -->
+    <AppUpdatePrompt />
   </div>
 </template>
 
